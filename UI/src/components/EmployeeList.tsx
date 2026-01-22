@@ -338,7 +338,7 @@ export default function EmployeeList({
     setEmailDialog({ isOpen: false, isBulk: false });
 
     try {
-      await employeeService.sendEmail(employeeId, message);
+      await employeeService.sendBulkEmail([employeeId], message);
 
       updateNotification(notificationId, {
         type: "success",
@@ -348,6 +348,7 @@ export default function EmployeeList({
       });
 
       await loadEmployees();
+      setSelectedIds(new Set());
     } catch (err) {
       updateNotification(notificationId, {
         type: "error",
