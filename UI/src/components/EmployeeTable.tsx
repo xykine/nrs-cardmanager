@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Copy, CreditCard, Eye, Mail, Printer } from "lucide-react";
+import { Check, Copy, CreditCard, Eye, Mail, Printer, Trash } from "lucide-react";
 import { Employee } from "../types";
 
 type UserRole = "manager" | "staff";
@@ -15,6 +15,8 @@ export type EmployeeTableProps = {
   onPrintCard?: (employee: Employee) => void | Promise<void>;
   /** (manager only) update role */
   onRoleChange?: (id: string, role: EmployeeRole) => void | Promise<void>;
+  /** (manager only) delete employee */
+  onDelete?: (id: string) => void | Promise<void>;
   selectedIds?: Set<string>;
   onToggleSelection?: (id: string) => void;
   onToggleSelectAll?: (ids: string[]) => void;
@@ -32,6 +34,7 @@ export default function EmployeeTable({
   onSendInvitation,
   onPrintCard,
   onRoleChange,
+  onDelete,
   onToggleSelection,
   onToggleSelectAll,
   selectedIds: propsSelectedIds,
@@ -115,6 +118,11 @@ export default function EmployeeTable({
   const handlePrintCard = async (employee: Employee) => {
     if (!onPrintCard) return;
     await onPrintCard(employee);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!onDelete) return;
+    await onDelete(id);
   };
 
   return (
@@ -280,6 +288,16 @@ export default function EmployeeTable({
                           type="button"
                         >
                           <Printer className="w-5 h-5" />
+                        </button>
+
+                        <button
+                          onClick={() => handleDelete(employee.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Employee"
+                          type="button"
+                          disabled={!onDelete}
+                        >
+                          <Trash className="w-5 h-5" />
                         </button>
                       </>
                     )}

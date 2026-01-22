@@ -1,3 +1,4 @@
+import { EmployeeFilters } from "../components/FilterEmployee";
 import {
   Employee,
   Card,
@@ -17,13 +18,13 @@ interface PaginatedResponse<T> {
 }
 
 export const employeeService = {
-  
-    async getDepartments(): Promise<string[]> {
+
+  async getDepartments(): Promise<string[]> {
     const response = await fetch(`${API_BASE_URL}/employees/departments`);
     if (!response.ok) throw new Error("Failed to fetch departments");
     return response.json();
   },
-  
+
   async getAll(
     page: number = 1,
     pageSize: number = 20,
@@ -147,6 +148,24 @@ export const employeeService = {
     if (!response.ok) throw new Error("Failed to print bulk cards");
     return response.json();
   },
+
+  async delete(id: string): Promise<{ ok: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete employee");
+    return response.json();
+  },
+
+  async deleteBulk(ids: string[]): Promise<{ ok: boolean; deleted: number }> {
+    const response = await fetch(`${API_BASE_URL}/employees/bulk-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeIds: ids }),
+    });
+    if (!response.ok) throw new Error("Failed to delete employees");
+    return response.json();
+  },
 };
 
 export const cardService = {
@@ -200,11 +219,13 @@ export const printingService = {
   async createBatch(
     stationId: string,
     employeeIds: string[],
+    filters: EmployeeFilters,
+    isAll: boolean,
   ): Promise<PrintBatch> {
     const response = await fetch(`${API_BASE_URL}/print-jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stationId, employeeIds }),
+      body: JSON.stringify({ stationId, employeeIds, filters, isAll }),
     });
     if (!response.ok) throw new Error("Failed to create print batch");
     return response.json();
@@ -236,5 +257,23 @@ export const printingService = {
       },
     );
     if (!response.ok) throw new Error("Failed to update job status");
+  },
+
+  async deleteBatch(id: string): Promise<{ ok: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/printing/batches/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete batch");
+    return response.json();
+  },
+
+  async deleteBatchesBulk(ids: string[]): Promise<{ ok: boolean; deleted: number }> {
+    const response = await fetch(`${API_BASE_URL}/printing/batches/bulk-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ batchIds: ids }),
+    });
+    if (!response.ok) throw new Error("Failed to delete batches");
+    return response.json();
   },
 };

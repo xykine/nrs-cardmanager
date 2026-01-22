@@ -14,14 +14,14 @@ const ErrorAlert: React.FC<AlertProps> = ({ errors, onClose }) => {
       className="relative rounded-lg border border-red-300 bg-red-50 p-4 text-red-800 shadow-sm"
     >
       {/* Close Button */}
-      <button
+      {/* <button
         type="button"
         onClick={onClose}
         aria-label="Close alert"
         className="absolute right-3 top-3 text-red-500 hover:text-red-700 focus:outline-none"
       >
         ✕
-      </button>
+      </button> */}
 
       {/* Header */}
       <div className="mb-2 flex items-center gap-2 font-semibold">

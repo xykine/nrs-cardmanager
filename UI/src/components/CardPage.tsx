@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   Phone,
   LogOut,
+  RefreshCw,
 } from "lucide-react";
 import { useNotification } from "../contexts/NotificationContext";
 import EmailDialog from "./EmailDialog";
@@ -25,6 +26,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [validating, setValidating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoErrors, setPhotoErrors] = useState<string[]>([]);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -38,18 +40,25 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
   }, [employeeId]);
 
   const validatePhoto = async (photoData: string) => {
-    const response = await fetch(photoData);
-    const blob = await response.blob();
-    const extension = blob.type.split("/")[1] || "png";
-    const formData = new FormData();
-    formData.append("file", blob, `photo.${extension}`);
+    setValidating(true);
+    try {
+      const response = await fetch(photoData);
+      const blob = await response.blob();
+      const extension = blob.type.split("/")[1] || "png";
+      const formData = new FormData();
+      formData.append("file", blob, `photo.${extension}`);
 
-    const photoValidity = await cardService.validatePhoto(formData);
-    if (!photoValidity.valid) {
-      setPhotoErrors(photoValidity?.issues || []);
-      setPhotoData(null);
-    } else {
-      setPhotoErrors([]);
+      const photoValidity = await cardService.validatePhoto(formData);
+      if (!photoValidity.valid) {
+        setPhotoErrors(photoValidity?.issues || []);
+        setPhotoData(null);
+      } else {
+        setPhotoErrors([]);
+      }
+    } catch {
+      setPhotoErrors(["Failed to validate photo"]);
+    } finally {
+      setValidating(false);
     }
   };
 
@@ -319,8 +328,8 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                 </div>
               </div>
               <div className="mt-6">
-             <ErrorAlert errors={photoErrors} onClose={() => setPhotoErrors([])} />
-            </div>
+                <ErrorAlert errors={photoErrors} onClose={() => setPhotoErrors([])} />
+              </div>
             </div>
 
             <div>
@@ -342,18 +351,25 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
 
                   {/* Photo */}
                   <div className="w-52 h-52 border-[8px] border-red-600 rounded-md overflow-hidden bg-gray-100 mb-6">
-                    {photoData ? (
+                    {photoData && !validating ? (
                       <img
                         src={photoData}
                         alt={employee.name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Upload
-                          onClick={() => fileInputRef.current?.click()}
-                          className="w-14 h-14 text-gray-400"
-                        />
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                        {validating ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
+                            <span className="text-xs text-blue-600 font-medium">Validating...</span>
+                          </div>
+                        ) : (
+                          <Upload
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-14 h-14 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
+                          />
+                        )}
                       </div>
                     )}
                   </div>

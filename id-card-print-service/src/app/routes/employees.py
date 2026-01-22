@@ -1435,4 +1435,33 @@ def validate(file: UploadFile = File(...)):
             try:
                 os.remove(temp_path)
             except OSError:
-                logger.warning("Failed to remove temp file %s", temp_path)
+                pass
+
+@router.delete("/{id}", response_model=Dict[str, Any])
+def delete_employee(id: str, db: Session = Depends(get_db)):
+    employee = db.get(Employee, id)
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    db.delete(employee)
+    db.commit()
+    return {"ok": True, "message": "Employee deleted"}
+
+
+@router.post("/bulk-delete", response_model=Dict[str, Any])
+def delete_bulk_employees(
+    payload: Dict[str, List[str]], 
+    db: Session = Depends(get_db)
+):
+    ids = payload.get("employeeIds", [])
+    if not ids:
+        return {"ok": True, "deleted": 0}
+
+    # Verify employees exist (optional, but good for reporting)
+    # We can just issue a delete statement for efficiency
+    
+    stmt = delete(Employee).where(Employee.id.in_(ids))
+    result = db.execute(stmt)
+    db.commit()
+    
+    return {"ok": True, "deleted": result.rowcount}

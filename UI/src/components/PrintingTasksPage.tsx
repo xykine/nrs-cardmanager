@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Printer, Clock, CheckCircle2, XCircle, AlertCircle, Eye } from 'lucide-react';
+import { ArrowLeft, Printer, Clock, CheckCircle2, XCircle, AlertCircle, Eye, Trash } from 'lucide-react';
 import { PrintBatch } from '../types';
 import { printingService } from '../services/api';
 
@@ -23,6 +23,19 @@ export default function PrintingTasksPage() {
       console.error('Error loading batches:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  const handleDeleteBatch = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this batch?')) return;
+
+    try {
+      await printingService.deleteBatch(id);
+      await loadBatches();
+    } catch (error) {
+      console.error('Error deleting batch:', error);
+      alert('Failed to delete batch');
     }
   };
 
@@ -163,13 +176,12 @@ export default function PrintingTasksPage() {
 
                         <div className="mt-3 bg-slate-100 rounded-full h-2 overflow-hidden">
                           <div
-                            className={`h-full transition-all ${
-                              batch.status === 'failed'
-                                ? 'bg-red-500'
-                                : batch.status === 'completed'
+                            className={`h-full transition-all ${batch.status === 'failed'
+                              ? 'bg-red-500'
+                              : batch.status === 'completed'
                                 ? 'bg-green-500'
                                 : 'bg-blue-500'
-                            }`}
+                              }`}
                             style={{
                               width: `${(batch.completed_jobs / batch.total_jobs) * 100}%`,
                             }}
@@ -182,6 +194,12 @@ export default function PrintingTasksPage() {
                         className="ml-4 p-2 hover:bg-blue-50 rounded-lg transition-colors group"
                       >
                         <Eye className="w-5 h-5 text-slate-500 group-hover:text-blue-600" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteBatch(batch.id, e)}
+                        className="ml-2 p-2 hover:bg-red-50 rounded-lg transition-colors group"
+                      >
+                        <Trash className="w-5 h-5 text-slate-500 group-hover:text-red-600" />
                       </button>
                     </div>
                   </div>

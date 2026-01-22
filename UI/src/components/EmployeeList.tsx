@@ -9,6 +9,7 @@ import {
   RefreshCw,
   List,
   Plus,
+  Trash,
 } from "lucide-react";
 import { useNotification } from "../contexts/NotificationContext";
 import EmailDialog from "./EmailDialog";
@@ -265,27 +266,8 @@ export default function EmployeeList({
     let employeeCount: number;
 
     if (selectAllPages) {
-      const response = await employeeService.getAll(1, totalRecords, debouncedFilters);
-      const employeesWithPhoto = response.items.filter((e) => e.photoPresent);
-      ids = employeesWithPhoto.map((e) => e.id);
-      employeeCount = response.items.length;
-
-      if (ids.length === 0) {
-        addNotification({
-          type: "error",
-          title: "Print Failed",
-          message: "None of the matching employees have photos uploaded",
-          autoClose: true,
-        });
-        return;
-      }
-
-      if (ids.length < employeeCount) {
-        const withoutPhoto = employeeCount - ids.length;
-        if (!confirm(`${withoutPhoto} matching employee(s) don't have photos. Continue printing for the ${ids.length} with photos?`)) {
-          return;
-        }
-      }
+      console.log("-----------ALL + FILTER ---------")
+      ids = []
     } else {
       const selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
       const employeesWithPhoto = selectedEmployees.filter((e) => e.photoPresent);
@@ -311,6 +293,63 @@ export default function EmployeeList({
     }
 
     setPrintingModal({ isOpen: true, employeeIds: ids });
+  };
+
+  const handleBulkDelete = async () => {
+    let ids: string[];
+    let count: number;
+
+    if (selectAllPages) {
+      // Fetch all IDs if selecting all pages (potentially huge, but for MVP reasonable)
+      // Alternatively, api supports just sending filters? No, api currently takes IDs.
+      // We'll fetch all IDs for now as in bulk print/email.
+      const response = await employeeService.getAll(1, totalRecords, debouncedFilters);
+      ids = response.items.map(e => e.id);
+      count = response.total;
+    } else {
+      ids = Array.from(selectedIds);
+      count = ids.length;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${count} employee(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    const notificationId = addNotification({
+      type: "progress",
+      title: "Deleting Employees",
+      message: `Deleting ${count} employee(s)...`,
+      progress: 0,
+      autoClose: false,
+    });
+
+    try {
+      await employeeService.deleteBulk(ids);
+
+      updateNotification(notificationId, {
+        type: "success",
+        title: "Employees Deleted",
+        message: `Successfully deleted ${count} employee(s)`,
+        autoClose: true,
+      });
+
+      setSelectedIds(new Set());
+      setSelectAllPages(false);
+      // Determine if we need to go back a page
+      if (employees.length === ids.length && currentPage > 1) {
+        setCurrentPage(prev => prev - 1);
+      } else {
+        await loadEmployees();
+      }
+    } catch (err) {
+      updateNotification(notificationId, {
+        type: "error",
+        title: "Delete Failed",
+        message: "Failed to delete employees",
+        autoClose: true,
+      });
+      console.error(err);
+    }
   };
 
   const handleSendInvitation = (id: string) => {
@@ -375,7 +414,7 @@ export default function EmployeeList({
   };
 
   const handlePrintingSubmit = async (stationId: string) => {
-    const employeeCount = printingModal.employeeIds.length;
+    const employeeCount = selectAllPages ? "All pages" : printingModal.employeeIds.length;
     setPrintingModal({ isOpen: false, employeeIds: [] });
 
     const notificationId = addNotification({
@@ -390,6 +429,8 @@ export default function EmployeeList({
       await printingService.createBatch(
         stationId,
         printingModal.employeeIds,
+        filters,
+        selectAllPages
       );
 
       updateNotification(notificationId, {
@@ -405,6 +446,45 @@ export default function EmployeeList({
         type: "error",
         title: "Print Failed",
         message: "Failed to create print batch. Please try again.",
+        autoClose: true,
+      });
+      console.error(err);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this employee? This will also remove their card data.")) {
+      return;
+    }
+
+    const notificationId = addNotification({
+      type: "progress",
+      title: "Deleting Employee",
+      message: "Deleting employee...",
+      progress: 0,
+      autoClose: false,
+    });
+
+    try {
+      await employeeService.delete(id);
+
+      updateNotification(notificationId, {
+        type: "success",
+        title: "Employee Deleted",
+        message: "Employee deleted successfully",
+        autoClose: true,
+      });
+
+      if (employees.length === 1 && currentPage > 1) {
+        setCurrentPage(prev => prev - 1);
+      } else {
+        await loadEmployees();
+      }
+    } catch (err) {
+      updateNotification(notificationId, {
+        type: "error",
+        title: "Delete Failed",
+        message: "Failed to delete employee",
         autoClose: true,
       });
       console.error(err);
@@ -517,6 +597,13 @@ export default function EmployeeList({
                 <Printer className="w-4 h-4" />
                 Print Cards
               </button>
+              <button
+                onClick={handleBulkDelete}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                <Trash className="w-4 h-4" />
+                Delete
+              </button>
             </div>
           </div>
         )}
@@ -545,6 +632,7 @@ export default function EmployeeList({
             onSendInvitation={handleSendInvitation}
             onPrintCard={handlePrintCard}
             onRoleChange={handleRoleChange}
+            onDelete={handleDelete}
             routes={{
               card: (id: string) => `/card/${id}`,
               detail: (id: string) => `/detail/${id}`,

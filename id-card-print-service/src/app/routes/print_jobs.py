@@ -1,5 +1,7 @@
 import base64
 import io
+import shutil
+from typing import Dict
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -261,3 +263,49 @@ def get_back_png(jobId: str, db: Session = Depends(get_db)):
     if not job or not job.back_png_path:
         raise HTTPException(404, "Back image not found")
     return FileResponse(job.back_png_path, media_type="image/png")
+
+
+@router.delete("/printing/batches/{id}")
+def delete_batch(id: str, db: Session = Depends(get_db)):
+    # Treat 'batch' as a single PrintJob for now, 
+    # since we don't have a separate Batch model.
+    job = db.get(PrintJob, id)
+    if not job:
+        raise HTTPException(404, "Batch not found")
+    
+    # Optional: Delete files on disk
+    try:
+        shutil.rmtree(job_dir(job.job_id))
+    except Exception:
+        pass  # ignore file errors
+
+    db.delete(job)
+    db.commit()
+    return {"ok": True, "message": "Batch deleted"}
+
+
+@router.post("/printing/batches/bulk-delete")
+def delete_bulk_batches(
+    payload: Dict[str, List[str]], 
+    db: Session = Depends(get_db)
+):
+    ids = payload.get("batchIds", [])
+    if not ids:
+        return {"ok": True, "deleted": 0}
+
+    # For safety/files, we might want to iterate, but for speed:
+    # We will just delete from DB. File cleanup might need a background job or iteration.
+    stmt = select(PrintJob).where(PrintJob.job_id.in_(ids))
+    jobs = db.execute(stmt).scalars().all()
+    
+    for job in jobs:
+        # cleanup files
+        try:
+             shutil.rmtree(job_dir(job.job_id))
+        except Exception:
+            pass
+        db.delete(job)
+        
+    db.commit()
+    return {"ok": True, "deleted": len(jobs)}
+
