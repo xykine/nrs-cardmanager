@@ -4,9 +4,10 @@ import { CreditCard, AlertCircle } from "lucide-react";
 
 interface LoginProps {
   setIsAuthenticated: (auth: boolean) => void;
+  setUserRole: (role: "manager" | "staff") => void;
 }
 
-export default function Login({ setIsAuthenticated }: LoginProps) {
+export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
   const [employeeCode, setEmployeeCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +31,7 @@ export default function Login({ setIsAuthenticated }: LoginProps) {
       ) {
         sessionStorage.setItem("nrs_employee_id", employee.id);
         sessionStorage.setItem("nrs_user_role", employee.role);
+        setUserRole(employee.role as "manager" | "staff");
         setIsAuthenticated(true);
       } else {
         setError("Unauthorized Access. Please contact your administrator.");

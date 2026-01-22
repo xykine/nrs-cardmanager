@@ -40,7 +40,10 @@ function App() {
               isAuthenticated ? (
                 <Navigate to="/" replace />
               ) : (
-                <Login setIsAuthenticated={setIsAuthenticated} />
+                <Login
+                  setIsAuthenticated={setIsAuthenticated}
+                  setUserRole={setUserRole}
+                />
               )
             }
           />
