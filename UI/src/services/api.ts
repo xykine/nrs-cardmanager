@@ -1,0 +1,240 @@
+import {
+  Employee,
+  Card,
+  PrintingStation,
+  PrintBatch,
+  JobStatus,
+} from "../types";
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export const employeeService = {
+  
+    async getDepartments(): Promise<string[]> {
+    const response = await fetch(`${API_BASE_URL}/employees/departments`);
+    if (!response.ok) throw new Error("Failed to fetch departments");
+    return response.json();
+  },
+  
+  async getAll(
+    page: number = 1,
+    pageSize: number = 20,
+    filters?: Record<string, any>,
+  ): Promise<PaginatedResponse<Employee>> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      page_size: pageSize.toString(),
+    });
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "all") {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/employees?${params.toString()}`,
+    );
+    if (!response.ok) throw new Error("Failed to fetch employees");
+    return response.json();
+  },
+
+  async getByCode(id: string): Promise<Employee> {
+    console.log("Fetching employee by code:", id);
+    const response = await fetch(`${API_BASE_URL}/employees/code/${id}`);
+    if (!response.ok) throw new Error("Failed to fetch employee");
+    return response.json();
+  },
+
+  async getById(id: string): Promise<Employee> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}`);
+    if (!response.ok) throw new Error("Failed to fetch employee");
+    return response.json();
+  },
+
+  async create(data: {
+    name: string;
+    employeeId: string;
+    email: string;
+  }): Promise<Employee> {
+    const response = await fetch(`${API_BASE_URL}/employees`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to create employee");
+    return response.json();
+  },
+
+  async sendInvitation(
+    id: string,
+  ): Promise<{ message: string; invitationLink: string }> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}/invitation`, {
+      method: "POST",
+    });
+    if (!response.ok) throw new Error("Failed to send invitation");
+    return response.json();
+  },
+
+  async updateRole(id: string, role: "manager" | "staff"): Promise<Employee> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}/role`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    });
+    if (!response.ok) throw new Error("Failed to update role");
+    return response.json();
+  },
+
+  async syncData(): Promise<Employee[]> {
+    const response = await fetch(`${API_BASE_URL}/employees/sync-employee`);
+    if (!response.ok) throw new Error("Failed to sync data");
+    return response.json();
+  },
+
+  async sendEmail(
+    id: string,
+    message: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}/send-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    if (!response.ok) throw new Error("Failed to send email");
+    return response.json();
+  },
+
+  async sendBulkEmail(
+    ids: string[],
+    message: string,
+  ): Promise<{ success: number; failed: number }> {
+    const response = await fetch(`${API_BASE_URL}/employees/bulk-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeIds: ids, message }),
+    });
+    if (!response.ok) throw new Error("Failed to send bulk emails");
+    return response.json();
+  },
+
+  async printCard(id: string): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}/print-card`, {
+      method: "POST",
+    });
+    if (!response.ok) throw new Error("Failed to print card");
+    return response.json();
+  },
+
+  async printBulkCards(
+    ids: string[],
+  ): Promise<{ success: number; failed: number }> {
+    const response = await fetch(`${API_BASE_URL}/employees/bulk-print`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeIds: ids }),
+    });
+    if (!response.ok) throw new Error("Failed to print bulk cards");
+    return response.json();
+  },
+};
+
+export const cardService = {
+  async saveCard(employeeId: string, photoData: string): Promise<Card> {
+    const response = await fetch(
+      `${API_BASE_URL}/cards/employee/${employeeId}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoData }),
+      },
+    );
+    if (!response.ok) throw new Error("Failed to save card");
+    return response.json();
+  },
+
+  async validatePhoto(
+    formData: FormData,
+  ): Promise<{ valid: boolean; issues?: string[]; message?: string }> {
+    const response = await fetch(`${API_BASE_URL}/employees/validate-photo`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) throw new Error("Failed to validate photo");
+    const data = await response.json();
+    if (typeof data?.valid === "boolean") {
+      return data;
+    }
+    const issues = Array.isArray(data?.errors) ? data.errors : undefined;
+    return {
+      valid: data?.status === "success",
+      issues,
+      message: issues?.[0],
+    };
+  },
+
+  async getForPrint(cardId: string): Promise<Card> {
+    const response = await fetch(`${API_BASE_URL}/cards/${cardId}/print`);
+    if (!response.ok) throw new Error("Failed to fetch card for print");
+    return response.json();
+  },
+};
+
+export const printingService = {
+  async getStations(): Promise<PrintingStation[]> {
+    const response = await fetch(`${API_BASE_URL}/printing/stations`);
+    if (!response.ok) throw new Error("Failed to fetch printing stations");
+    return response.json();
+  },
+
+  async createBatch(
+    stationId: string,
+    employeeIds: string[],
+  ): Promise<PrintBatch> {
+    const response = await fetch(`${API_BASE_URL}/print-jobs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stationId, employeeIds }),
+    });
+    if (!response.ok) throw new Error("Failed to create print batch");
+    return response.json();
+  },
+
+  async getBatches(): Promise<PrintBatch[]> {
+    const response = await fetch(`${API_BASE_URL}/printing/batches`);
+    if (!response.ok) throw new Error("Failed to fetch print batches");
+    return response.json();
+  },
+
+  async getBatchDetails(id: string): Promise<PrintBatch> {
+    const response = await fetch(`${API_BASE_URL}/printing/batches/${id}`);
+    if (!response.ok) throw new Error("Failed to fetch batch details");
+    return response.json();
+  },
+
+  async updateJobStatus(
+    jobId: string,
+    status: JobStatus,
+    errorMessage?: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `${API_BASE_URL}/printing/jobs/${jobId}/status`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, errorMessage }),
+      },
+    );
+    if (!response.ok) throw new Error("Failed to update job status");
+  },
+};

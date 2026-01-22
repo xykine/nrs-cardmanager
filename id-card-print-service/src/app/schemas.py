@@ -6,20 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from .models import JobStatus
 
 
-class EmployeeIn(BaseModel):
-    employeeId: str
-    fullName: str
-    photoUrl: str  # allow local path OR URL
-
-
 class CreateJobsIn(BaseModel):
-    tenantId: str
-    printerId: str
-    requestedBy: str
+    tenantId: str = "nrs"
+    printerId: str = "ZXP7_OFFICE_1"
+    requestedBy: str = "system"
     templateId: str = "NRS_MINIMAL_V1"
     dpi: int = 300
     copies: int = 1
-    employees: List[EmployeeIn]
+    employeeIds: List[str]
 
 
 class JobOut(BaseModel):
@@ -78,11 +72,17 @@ class EmployeePhotoStatusUpdate(APIModel):
     photo_present: bool = Field(alias="photoPresent")
 
 
+class BulkEmailRequest(APIModel):
+    employee_ids: Optional[list[str]] = Field(default=None, alias="employeeIds")
+    message: Optional[str] = None
+
+
 class EmployeePublic(APIModel):
     id: str
     name: str
     employee_id: str = Field(alias="employeeId")
     email: str
+    department: Optional[str] = None
     role: str
     photo_present: bool = Field(alias="photoPresent")
     invitation_token: Optional[str] = Field(default=None, alias="invitationToken")

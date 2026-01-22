@@ -1,12 +1,13 @@
 import enum, uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Integer, DateTime, Enum, Text, JSON
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, DeclarativeBase
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 class JobStatus(str, enum.Enum):
     PENDING = "PENDING"
@@ -20,8 +21,8 @@ class PrintJob(Base):
 
     job_id = Column(String, primary_key=True)
 
-    tenant_id = Column(String, nullable=False)
-    printer_id = Column(String, nullable=False)
+    tenant_id = Column(String, nullable=False, default="nrs")
+    printer_id = Column(String, nullable=False, default="ZXP7_OFFICE_1")
 
     employee_id = Column(String, nullable=False)
     full_name = Column(String, nullable=False)
@@ -56,6 +57,7 @@ class Employee(Base):
     name = Column(String, nullable=False)
     employee_id = Column("employeeId", String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
+    department = Column(String, nullable=True)  # 
     role = Column(String, default="staff", nullable=False)
     photo_present = Column("photoPresent", Boolean, default=False, nullable=False)
     invitation_token = Column("invitationToken", String, nullable=True)

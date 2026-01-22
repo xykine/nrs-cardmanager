@@ -1,13 +1,16 @@
+import base64
+import io
 from datetime import datetime, timedelta
 from typing import List, Optional
 
+from PIL import Image
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from ..db import get_db
-from ..models import PrintJob, JobStatus
+from ..models import Employee, PrintJob, JobStatus
 from ..renderer import render_front, render_back
 from ..schemas import (
     ClaimIn,
@@ -31,6 +34,27 @@ def _new_job_id(i: int) -> str:
     return f"JOB_{_now().strftime('%Y%m%d_%H%M%S')}_{i:06d}"
 
 
+def _decode_photo_data(photo_data: str) -> Image.Image:
+    if not photo_data:
+        raise HTTPException(400, "Missing photo data")
+    if photo_data.startswith("data:"):
+        _, encoded = photo_data.split(",", 1)
+    else:
+        encoded = photo_data
+    try:
+        raw = base64.b64decode(encoded.strip())
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid photo data") from exc
+    try:
+        img = Image.open(io.BytesIO(raw))
+        img.load()
+    except Exception as exc:
+        raise HTTPException(400, "Photo data is not a valid image") from exc
+    if img.mode not in ("RGB", "RGBA"):
+        img = img.convert("RGB")
+    return img
+
+
 # @router.get("/health")
 # def health():
 #     return {"ok": True}
@@ -46,19 +70,45 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
     if not icon.exists():
         raise HTTPException(400, f"Missing asset: {icon}")
 
+    if not payload.employeeIds:
+        raise HTTPException(400, "employeeIds is required")
+
+    employee_ids = [str(employee_id).strip() for employee_id in payload.employeeIds]
+    employees = (
+        db.query(Employee)
+        .options(joinedload(Employee.card))
+        .filter(Employee.id.in_(employee_ids))
+        .all()
+    )
+    employees_by_id = {employee.id: employee for employee in employees}
+    missing = [employee_id for employee_id in employee_ids if employee_id not in employees_by_id]
+    if missing:
+        raise HTTPException(404, f"Employees not found: {', '.join(missing)}")
+
     out: List[JobOut] = []
 
-    for idx, emp in enumerate(payload.employees, start=1):
+    for idx, employee_id in enumerate(employee_ids, start=1):
+        employee = employees_by_id[employee_id]
+        if not employee.card or not employee.card.photo_data:
+            raise HTTPException(400, f"Missing card photo data for employeeId: {employee_id}")
+
         job_id = _new_job_id(idx)
 
         # Create DB record
+        full_name = employee.name or employee.employee_id
+        empp_ID = employee.employee_id or "N/A"
+        photo_img = _decode_photo_data(employee.card.photo_data)
+        d = job_dir(job_id)
+        photo_path = d / "photo.png"
+        photo_img.save(photo_path, "PNG")
+
         job = PrintJob(
             job_id=job_id,
             tenant_id=payload.tenantId,
             printer_id=payload.printerId,
-            employee_id=emp.employeeId,
-            full_name=emp.fullName,
-            photo_url=str(emp.photoUrl),
+            employee_id=empp_ID,
+            full_name=full_name,
+            photo_url=str(photo_path),
             template_id=payload.templateId,
             dpi=payload.dpi,
             status=JobStatus.PENDING,
@@ -69,9 +119,8 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
         )
 
         # Render image immediately (MVP)
-        d = job_dir(job_id)
         front_path = d / "front.png"
-        img = render_front(emp.fullName, emp.employeeId, emp.photoUrl, logo, icon)
+        img = render_front(full_name, empp_ID, str(photo_path), logo, icon)
         img.save(front_path, "PNG")
         job.front_png_path = str(front_path)
 

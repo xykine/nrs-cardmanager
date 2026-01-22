@@ -1,0 +1,13 @@
+services:
+  id-card-print-service:
+    image: kacytunde/id-card-print-service:0.1.0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./id-card-print-service/data:/app/data
+  nrs-cardmanager-ui:
+    image: kacytunde/nrs-cardmanager-ui:0.1.0
+    ports:
+      - "3000:80"
+    depends_on:
+      - id-card-print-service

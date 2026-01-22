@@ -1,330 +1,25 @@
-# from __future__ import annotations
-
-# import logging
-# import os
-# import uuid
-# from datetime import datetime, timezone
-
-# import httpx
-# from fastapi import APIRouter, Depends, HTTPException, Query
-# from sqlalchemy.orm import Session, joinedload
-
-
-# from typing import Dict, Any, Iterable, List, Optional
-# from urllib.parse import urljoin
-# import time
-# import random
-# import requests
-
-# from typing import Dict, List, Any, Iterable
-# from urllib.parse import urljoin
-
-# from ..db import get_db
-# from ..models import Employee
-# from ..schemas import (
-#     EmployeeCreate,
-#     EmployeeListOut,
-#     EmployeeOut,
-#     EmployeePhotoStatusUpdate,
-#     EmployeeRoleUpdate,
-# )
-
-# router = APIRouter(prefix="/employees", tags=["employees"])
-# logger = logging.getLogger(__name__)
-
-
-# BASE = "https://api55.sapsf.eu/odata/v2/"
-# AUTH = ("IDCARD_ADMIN@federalinl", "JCp^p3j3BfFm\"SX")  # or use OAuth token header
-
-# SESSION = requests.Session()
-# SESSION.auth = AUTH
-# SESSION.headers.update({
-#     "Accept": "application/json"
-# })
-# DEFAULT_TIMEOUT_SEC = 20
-# PAGE_SIZE = 1000
-
-
-
-
-# # ----------------------------
-# # Core OData helpers (with retry)
-# # ----------------------------
-# def sf_get(entity: str, params: Dict[str, Any]) -> Dict[str, Any]:
-#     """
-#     GET helper with small retry policy for transient SF errors.
-#     Retries on 429/502/503/504 with exponential backoff + jitter.
-#     """
-#     url = urljoin(BASE, entity)
-#     max_attempts = 5
-#     backoff = 1.0
-
-#     for attempt in range(1, max_attempts + 1):
-#         r = SESSION.get(url, params=params, timeout=DEFAULT_TIMEOUT_SEC)
-
-#         if r.ok:
-#             return r.json()
-
-#         # Retry only transient errors
-#         if r.status_code in (429, 502, 503, 504):
-#             if attempt == max_attempts:
-#                 break
-#             sleep_s = backoff + random.uniform(0, 0.3)
-#             time.sleep(sleep_s)
-#             backoff *= 2
-#             continue
-
-#         # Non-retryable
-#         raise RuntimeError(f"SF OData error {r.status_code}: {r.text}")
-
-#     raise RuntimeError(f"SF OData error {r.status_code}: {r.text}")
-
-
-# def iter_sf_results(entity: str, params: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
-#     """
-#     Iterate through SF OData v2 results using d.__next paging.
-#     """
-#     data = sf_get(entity, params)
-#     d = data.get("d", {})
-
-#     results = d.get("results", [])
-#     print("PAGE 1 rows:", len(results))
-#     print("PAGE 1 next:", d.get("__next"))
-
-#     for row in results:
-#         yield row
-
-#     next_url = d.get("__next")
-#     print("next_url:", next_url)
-
-#     while next_url:
-#         # next_url already contains full query and $skiptoken
-#         max_attempts = 5
-#         backoff = 1.0
-
-#         for attempt in range(1, max_attempts + 1):
-#             r = SESSION.get(next_url, headers={"Accept": "application/json"}, timeout=DEFAULT_TIMEOUT_SEC)
-
-#             if r.ok:
-#                 break
-
-#             if r.status_code in (429, 502, 503, 504):
-#                 if attempt == max_attempts:
-#                     raise RuntimeError(f"SF OData paging error {r.status_code}: {r.text}")
-#                 sleep_s = backoff + random.uniform(0, 0.3)
-#                 time.sleep(sleep_s)
-#                 backoff *= 2
-#                 continue
-
-#             raise RuntimeError(f"SF OData paging error {r.status_code}: {r.text}")
-
-#         data = r.json()
-#         d = data.get("d", {})
-#         for row in d.get("results", []):
-#             yield row
-#         next_url = d.get("__next")
-
-
-
-# # ----------------------------
-# # Efficient full pulls (recommended)
-# # ----------------------------
-# def pull_all_personals() -> Dict[str, Dict[str, Optional[str]]]:
-#     """
-#     Pull ALL PerPersonal records (paged) and map:
-#       personIdExternal -> {firstName, lastName}
-
-#     If PerPersonal is time-sliced in your tenant, you may receive multiple rows per person.
-#     This implementation keeps the last seen row; if you need "latest only", we can add a filter.
-#     """
-#     personal: Dict[str, Dict[str, Optional[str]]] = {}
-
-#     params = {
-#         "$select": "personIdExternal,firstName,lastName",
-#         "$top": PAGE_SIZE,
-#     }
-
-#     for row in iter_sf_results("PerPersonal", params):
-#         pid = row.get("personIdExternal")
-#         if not pid:
-#             continue
-#         personal[pid] = {
-#             "firstName": row.get("firstName"),
-#             "lastName": row.get("lastName"),
-#             "employeeId": row.get("personIdExternal"),
-#         }
-
-#     return personal
-
-
-# def pull_all_primary_emails() -> Dict[str, str]:
-#     """
-#     Pull ALL primary emails (paged) and map:
-#       personIdExternal -> emailAddress
-#     """
-#     emails: Dict[str, str] = {}
-
-#     params = {
-#         "$select": "personIdExternal,emailAddress,isPrimary",
-#         "$filter": "isPrimary eq true",
-#         "$top": PAGE_SIZE,
-#     }
-
-#     for row in iter_sf_results("PerEmail", params):
-#         pid = row.get("personIdExternal")
-#         email = row.get("emailAddress")
-#         if pid and email:
-#             emails[pid] = email
-
-#     return emails
-
-
-# # ----------------------------
-# # Optional: Active-only filtering via EmpJob
-# # ----------------------------
-# def pull_active_user_ids_from_empjob(
-#     *,
-#     effective_latest_only: bool = True,
-#     active_empl_status_values: Optional[List[str]] = None,
-# ) -> List[str]:
-#     """
-#     Pull userIds from EmpJob (paged). If you want only ACTIVE employees,
-#     supply active_empl_status_values (strings), e.g. ["1286"] depending on your tenant.
-
-#     NOTE: You must confirm which emplStatus values represent ACTIVE in your tenant.
-#     """
-#     select_fields = ["userId"]
-#     filters = []
-
-#     if effective_latest_only:
-#         filters.append("effectiveLatestChange eq true")
-
-#     if active_empl_status_values:
-#         # Build: (emplStatus eq 'A' or emplStatus eq 'B')
-#         parts = [f"emplStatus eq '{v}'" for v in active_empl_status_values]
-#         filters.append("(" + " or ".join(parts) + ")")
-
-#     params: Dict[str, Any] = {
-#         "$select": ",".join(select_fields),
-#         "$top": PAGE_SIZE,
-#     }
-#     if filters:
-#         params["$filter"] = " and ".join(filters)
-
-#     user_ids = set()
-#     for row in iter_sf_results("EmpJob", params):
-#         uid = row.get("userId")
-#         if uid:
-#             user_ids.add(uid)
-
-#     return sorted(user_ids)
-
-
-# # ----------------------------
-# # Build directory (recommended)
-# # ----------------------------
-# def build_employee_directory() -> List[Dict[str, Any]]:
-#     """
-#     Best for 13K: pull PerPersonal + PerEmail fully (paged) and merge.
-#     Assumption in your tenant: personIdExternal == userId.
-#     """
-#     personal = pull_all_personals()
-#     emails = pull_all_primary_emails()
-
-#     merged: List[Dict[str, Any]] = []
-#     for pid, name in personal.items():
-#         merged.append({
-#             "userId": pid,          # because personIdExternal == userId in your tenant
-#             "employeeId": name.get("employeeId"),      # until you locate a distinct employee number field
-#             "firstName": name.get("firstName"),
-#             "lastName": name.get("lastName"),
-#             "email": emails.get(pid),
-#         })
-
-#     return merged
-
-
-# def build_employee_directory_active_only(active_status_codes: List[str]) -> List[Dict[str, Any]]:
-#     """
-#     If you need ACTIVE employees only:
-#       1) Pull active userIds from EmpJob (paged)
-#       2) Pull all PerPersonal + primary emails (paged)
-#       3) Keep only those active IDs
-#     """
-#     active_user_ids = set(pull_active_user_ids_from_empjob(
-#         effective_latest_only=True,
-#         active_empl_status_values=active_status_codes
-#     ))
-
-#     personal = pull_all_personals()
-#     emails = pull_all_primary_emails()
-
-#     merged: List[Dict[str, Any]] = []
-#     for pid, name in personal.items():
-#         if pid not in active_user_ids:
-#             continue
-#         merged.append({
-#             "userId": pid,
-#             "employeeId": name.get("employeeId"),
-#             "firstName": name.get("firstName"),
-#             "lastName": name.get("lastName"),
-#             "email": emails.get(pid),
-#         })
-
-#     return merged
-
-
-# def get_employee_or_404(db: Session, employee_id: str) -> Employee:
-#     employee = (
-#         db.query(Employee)
-#         .options(joinedload(Employee.card))
-#         .filter(Employee.id == employee_id)
-#         .first()
-#     )
-#     if not employee:
-#         raise HTTPException(status_code=404, detail="Employee not found")
-#     return employee
-
-
-# @router.get("/sync-employee", response_model=list[EmployeeOut])
-# def sync_employees(db: Session = Depends(get_db)):
-#     try:
-#         # _sync_employees_from_sap(db)
-#         employees = build_employee_directory()
-#         print(f"Employees: {len(employees)}")
-#         print(employees[:3])
-#     except HTTPException:
-#         raise
-#     except Exception as exc:
-#         logger.exception("Unhandled error during SAP employee sync")
-#         raise HTTPException(status_code=500, detail="Employee sync failed") from exc
-#     return (
-#         db.query(Employee)
-#         .options(joinedload(Employee.card))
-#         .order_by(Employee.created_at.desc())
-#         .all()
-#     )
-
-
-
-
-
-
 
 from __future__ import annotations
 
 import logging
 import os
+import shutil
+import smtplib
+import tempfile
 import uuid
 from datetime import datetime, timezone
+from email.message import EmailMessage
 from typing import Dict, Any, Iterable, List, Optional
 from urllib.parse import urljoin
 import time
 import random
 import copy
+import cv2
+import numpy as np
+from typing import Dict, List
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session, joinedload
 
 from sqlalchemy.orm import Session
@@ -339,6 +34,7 @@ from dotenv import load_dotenv
 from ..db import get_db
 from ..models import Employee
 from ..schemas import (
+    BulkEmailRequest,
     EmployeeCreate,
     EmployeeListOut,
     EmployeeOut,
@@ -541,6 +237,52 @@ def pull_all_primary_emails() -> Dict[str, str]:
     return emails
 
 
+
+def pull_all_departments() -> Dict[str, Optional[str]]:
+    """
+    Pull ALL EmpJob records (paged) and map:
+      userId -> divisionNav.name   (your "department name")
+
+    We keep only the row where effectiveLatestChange == true (preferred),
+    otherwise we keep the first seen for that userId.
+
+    NOTE: This assumes your tenant has one "latest" job row per user.
+    """
+    dept_by_user: Dict[str, Optional[str]] = {}
+
+    params = {
+        "$select": "userId,effectiveLatestChange,department,departmentNav/name",
+        "$expand": "departmentNav",
+        "$top": PAGE_SIZE,
+        "$orderby": "userId asc",  # stable for $skip paging
+    }
+
+    for row in iter_sf_results("EmpJob", params):
+        user_id = row.get("userId")
+        if not user_id:
+            continue
+
+        department_nav = row.get("departmentNav") or {}
+        dept_name = department_nav.get("name")
+
+        # Prefer the "latest" row if SF provides it
+        is_latest = bool(row.get("effectiveLatestChange"))
+
+        if user_id not in dept_by_user:
+            dept_by_user[user_id] = dept_name
+        else:
+            # overwrite only if this row is marked latest and existing was from non-latest
+            if is_latest and not dept_by_user.get(user_id):
+                dept_by_user[user_id] = dept_name
+            elif is_latest:
+                dept_by_user[user_id] = dept_name
+
+    return dept_by_user
+
+
+
+
+
 def build_employee_directory() -> List[Dict[str, Any]]:
     """
     Pull PerPersonal + PerEmail fully (paged) and merge by personIdExternal.
@@ -549,6 +291,10 @@ def build_employee_directory() -> List[Dict[str, Any]]:
     """
     personal = pull_all_personals()
     emails = pull_all_primary_emails()
+    departments = pull_all_departments()
+    print("Dept sample for 21855:", departments.get("21855"))
+  
+
 
     merged: List[Dict[str, Any]] = []
     for pid, name in personal.items():
@@ -558,6 +304,7 @@ def build_employee_directory() -> List[Dict[str, Any]]:
             "firstName": name.get("firstName"),
             "lastName": name.get("lastName"),
             "email": emails.get(pid),
+            "department": departments.get(pid),
         })
 
     return merged
@@ -584,6 +331,128 @@ def _normalize_email(email: Optional[str]) -> Optional[str]:
 def _fallback_email(employee_id: str) -> str:
     # unique + non-null placeholder; safe for your schema
     return f"{employee_id}@noemail.local"
+
+
+def _get_base_ui_url() -> str:
+    base_ui_url = (os.getenv("BASE_UI_URL") or os.getenv("APP_URL") or "").strip()
+    base_ui_url = base_ui_url.rstrip("/")
+    if not base_ui_url:
+        raise HTTPException(status_code=500, detail="BASE_UI_URL is not configured")
+    return base_ui_url
+
+
+def _get_smtp_settings() -> Dict[str, Any]:
+    host = os.getenv("SMTP_HOST", "").strip()
+    if not host:
+        raise HTTPException(status_code=500, detail="SMTP_HOST is not configured")
+
+    port_raw = os.getenv("SMTP_PORT", "587").strip() or "587"
+    try:
+        port = int(port_raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail="SMTP_PORT must be an integer") from exc
+
+    user = (os.getenv("SMTP_USER") or os.getenv("MAIL_USERNAME") or "").strip()
+    password = os.getenv("SMTP_PASSWORD")
+    if password is None:
+        password = os.getenv("MAIL_PASSWORD", "")
+    sender = (os.getenv("SMTP_FROM", "") or user).strip()
+    if not sender:
+        raise HTTPException(status_code=500, detail="SMTP_FROM is not configured")
+
+    use_tls = os.getenv("SMTP_USE_TLS", "true").strip().lower() in ("1", "true", "yes", "y")
+    use_ssl = os.getenv("SMTP_USE_SSL", "false").strip().lower() in ("1", "true", "yes", "y")
+
+    return {
+        "host": host,
+        "port": port,
+        "user": user,
+        "password": password,
+        "sender": sender,
+        "use_tls": use_tls,
+        "use_ssl": use_ssl,
+    }
+
+
+def _get_mailgun_settings() -> Dict[str, Any]:
+    api_key = os.getenv("MAILGUN_API_KEY", "").strip()
+    domain = os.getenv("MAILGUN_DOMAIN", "").strip()
+    sender = os.getenv("MAILGUN_FROM", "").strip()
+    base_url = (os.getenv("MAILGUN_BASE_URL", "") or "https://api.mailgun.net/v3").strip()
+    base_url = base_url.rstrip("/")
+
+    if not api_key:
+        raise HTTPException(status_code=500, detail="MAILGUN_API_KEY is not configured")
+    if not domain:
+        raise HTTPException(status_code=500, detail="MAILGUN_DOMAIN is not configured")
+    if not sender:
+        raise HTTPException(status_code=500, detail="MAILGUN_FROM is not configured")
+
+    return {
+        "api_key": api_key,
+        "domain": domain,
+        "sender": sender,
+        "base_url": base_url,
+    }
+
+
+def _open_smtp_connection(settings: Dict[str, Any]) -> smtplib.SMTP:
+    if settings["use_ssl"]:
+        server = smtplib.SMTP_SSL(settings["host"], settings["port"], timeout=20)
+    else:
+        server = smtplib.SMTP(settings["host"], settings["port"], timeout=20)
+
+    server.ehlo()
+    if settings["use_tls"] and not settings["use_ssl"]:
+        server.starttls()
+        server.ehlo()
+    if settings["user"] and settings["password"]:
+        server.login(settings["user"], settings["password"])
+
+    return server
+
+
+def _send_mailgun_message(
+    settings: Dict[str, Any],
+    *,
+    to_email: str,
+    subject: str,
+    body: str,
+) -> None:
+    url = f"{settings['base_url']}/{settings['domain']}/messages"
+    response = requests.post(
+        url,
+        auth=("api", settings["api_key"]),
+        data={
+            "from": settings["sender"],
+            "to": to_email,
+            "subject": subject,
+            "text": body,
+        },
+        timeout=20,
+    )
+    if not response.ok:
+        raise RuntimeError(f"Mailgun error {response.status_code}: {response.text}")
+
+
+def _build_photo_upload_message(
+    name: Optional[str],
+    link: str,
+    extra_message: Optional[str],
+) -> str:
+    safe_name = (name or "").strip()
+    greeting_name = safe_name if safe_name else "there"
+    lines = [
+        f"Hello {greeting_name},",
+        "",
+        "Please upload your photo using the link below:",
+        link,
+    ]
+    extra = (extra_message or "").strip()
+    if extra:
+        lines.extend(["", extra])
+    lines.extend(["", "Thank you."])
+    return "\n".join(lines)
 
 
 def replace_all_employees_in_db(
@@ -660,6 +529,9 @@ def replace_all_employees_in_db(
 
                 "email": email_norm,
 
+                "department": (e.get("department") or None),  
+
+
                 "role": default_role,
 
                 # ✅ ORM attribute name
@@ -690,6 +562,144 @@ def replace_all_employees_in_db(
         raise
 
 
+def upsert_employees_in_db(
+    db: Session,
+    sf_employees: List[Dict[str, Any]],
+    *,
+    batch_size: int = 1000,
+    default_role: str = "staff",
+) -> Dict[str, Any]:
+    """
+    Inserts new employees and updates existing ones without deleting rows.
+
+    - Matches on employee_id
+    - Updates name/email when provided
+    - Preserves role/photo_present/invitation fields
+    """
+    inserted = 0
+    updated = 0
+    skipped = 0
+    duplicate_employee_id_skipped = 0
+    missing_email_filled = 0
+    duplicate_email_fixed = 0
+    missing_employee_id_fixed = 0
+    email_conflicts_skipped = 0
+
+    existing_employees = db.query(Employee).all()
+    existing_by_employee_id = {
+        e.employee_id: e for e in existing_employees if e.employee_id
+    }
+    seen_employee_ids: set[str] = set(existing_by_employee_id.keys())
+    seen_emails: set[str] = set()
+
+    for e in existing_employees:
+        email_norm = _normalize_email(e.email)
+        if email_norm:
+            seen_emails.add(email_norm)
+
+    processed_employee_ids: set[str] = set()
+    buf: List[Dict[str, Any]] = []
+
+    try:
+        for e in sf_employees:
+            emp_id = (e.get("employeeId") or e.get("userId") or "").strip()
+            if not emp_id:
+                emp_id = str(uuid.uuid4())
+                missing_employee_id_fixed += 1
+
+            if emp_id in processed_employee_ids:
+                duplicate_employee_id_skipped += 1
+                continue
+            processed_employee_ids.add(emp_id)
+
+            existing = existing_by_employee_id.get(emp_id)
+            if existing:
+                updated_this = False
+
+                first = (e.get("firstName") or "").strip()
+                last = (e.get("lastName") or "").strip()
+                if first or last:
+                    name = _full_name(first, last)
+                    if name != existing.name:
+                        existing.name = name
+                        updated_this = True
+
+                email_norm = _normalize_email(e.get("email"))
+                if email_norm:
+                    existing_email_norm = _normalize_email(existing.email)
+                    if email_norm != existing_email_norm:
+                        if email_norm in seen_emails:
+                            email_conflicts_skipped += 1
+                        else:
+                            if existing_email_norm:
+                                seen_emails.discard(existing_email_norm)
+                            existing.email = email_norm
+                            seen_emails.add(email_norm)
+                            updated_this = True
+
+                if updated_this:
+                    updated += 1
+                else:
+                    skipped += 1
+                continue
+
+            if emp_id in seen_employee_ids:
+                emp_id = f"{emp_id}-{uuid.uuid4().hex[:8]}"
+                missing_employee_id_fixed += 1
+
+            email_norm = _normalize_email(e.get("email"))
+            if not email_norm:
+                email_norm = _fallback_email(emp_id)
+                missing_email_filled += 1
+
+            if email_norm in seen_emails:
+                email_norm = _fallback_email(emp_id)
+                duplicate_email_fixed += 1
+
+            if email_norm in seen_emails:
+                email_norm = f"{emp_id}.{uuid.uuid4().hex[:8]}@noemail.local"
+                duplicate_email_fixed += 1
+
+            seen_employee_ids.add(emp_id)
+            seen_emails.add(email_norm)
+
+            buf.append({
+                "id": str(uuid.uuid4()),
+                "name": _full_name(e.get("firstName"), e.get("lastName")),
+                "employee_id": emp_id,
+                "email": email_norm,
+                "department": (e.get("department") or None),
+                "role": default_role,
+                "photo_present": False,
+            })
+
+            if len(buf) >= batch_size:
+                db.bulk_insert_mappings(Employee, buf)
+                inserted += len(buf)
+                buf.clear()
+
+        if buf:
+            db.bulk_insert_mappings(Employee, buf)
+            inserted += len(buf)
+
+        db.commit()
+        return {
+            "deleted_all": False,
+            "inserted": inserted,
+            "updated": updated,
+            "skipped_existing": skipped,
+            "duplicate_employee_id_skipped": duplicate_employee_id_skipped,
+            "batch_size": batch_size,
+            "missing_email_filled": missing_email_filled,
+            "duplicate_email_fixed": duplicate_email_fixed,
+            "missing_employee_id_fixed": missing_employee_id_fixed,
+            "email_conflicts_skipped": email_conflicts_skipped,
+        }
+
+    except Exception:
+        db.rollback()
+        raise
+
 
 # ----------------------------
 # OPTIONAL: If you have FK constraints (Employee -> Card) and deletes fail,
@@ -713,8 +723,8 @@ def replace_all_employees_in_db(
 def sync_employees(db: Session = Depends(get_db)):
     try:
         employees = build_employee_directory()
-        summary = replace_all_employees_in_db(db, employees, batch_size=1000)
-        logger.info("SAP sync summary: %s", summary)
+        summary = upsert_employees_in_db(db, employees, batch_size=1000)
+        logger.info("Employee DB upsert summary: %s", summary)
     except Exception as exc:
         logger.exception("Unhandled error during SAP employee sync")
         raise HTTPException(status_code=500, detail="Employee sync failed") from exc
@@ -722,7 +732,7 @@ def sync_employees(db: Session = Depends(get_db)):
     return (
         db.query(Employee)
         .options(joinedload(Employee.card))
-        .order_by(Employee.created_at.desc())
+        .order_by(Employee.name.asc(), Employee.employee_id.asc())
         .all()
     )
 """
@@ -734,11 +744,11 @@ def sync_employees(db: Session = Depends(get_db)):
 # ----------------------------
 # Your existing DB helpers / routes (unchanged)
 # ----------------------------
-def get_employee_or_404(db: Session, employee_code: str) -> Employee:
+def get_employee_or_404(db: Session, employee_id: str) -> Employee:
     employee = (
         db.query(Employee)
         .options(joinedload(Employee.card))
-        .filter(Employee.employee_code == employee_code)
+        .filter(Employee.employee_id == employee_id)
         .first()
     )
     if not employee:
@@ -765,13 +775,13 @@ def sync_employees(db: Session = Depends(get_db)):
         employees = build_employee_directory()
         logger.info("Employees pulled from SF: %s", len(employees))
 
-        summary = replace_all_employees_in_db(
+        summary = upsert_employees_in_db(
             db=db,
             sf_employees=employees,
             batch_size=1000,
             default_role="staff",
         )
-        logger.info("Employee DB replace summary: %s", summary)
+        logger.info("Employee DB upsert summary: %s", summary)
 
     except HTTPException:
         raise
@@ -802,14 +812,46 @@ def sync_employees(db: Session = Depends(get_db)):
 def list_employees(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    name: Optional[str] = Query(None),
+    employee_id: Optional[str] = Query(None, alias="employeeId"),
+    photo_status: Optional[str] = Query(None, alias="photoStatus"),
+    department: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    total = db.query(Employee).count()
+    query = db.query(Employee).options(joinedload(Employee.card))
+
+    if name:
+        name = name.strip()
+        if name:
+            query = query.filter(Employee.name.ilike(f"%{name}%"))
+
+    if employee_id:
+        employee_id = employee_id.strip()
+        if employee_id:
+            query = query.filter(Employee.employee_id.ilike(f"%{employee_id}%"))
+
+    if department:
+        department = department.strip()
+        if department:
+            query = query.filter(Employee.department.ilike(department))
+
+    if photo_status:
+        normalized = photo_status.strip().lower()
+        if normalized in ("yes", "true", "1"):
+            query = query.filter(Employee.photo_present.is_(True))
+        elif normalized in ("no", "false", "0"):
+            query = query.filter(Employee.photo_present.is_(False))
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail='photoStatus must be "yes" or "no"',
+            )
+
+    total = query.count()
     offset = (page - 1) * page_size
     employees = (
-        db.query(Employee)
-        .options(joinedload(Employee.card))
-        .order_by(Employee.created_at.desc())
+        query
+        .order_by(Employee.name.asc(), Employee.employee_id.asc())
         .offset(offset)
         .limit(page_size)
         .all()
@@ -822,8 +864,22 @@ def list_employees(
     )
 
 
-@router.get("/code/{employee_code}", response_model=EmployeeOut)
+@router.get("/departments", response_model=list[str])
+def list_departments(db: Session = Depends(get_db)):
+    rows = (
+        db.query(Employee.department)
+        .filter(Employee.department.isnot(None))
+        .distinct()
+        .order_by(Employee.department.asc())
+        .all()
+    )
+    departments = {(row[0] or "").strip() for row in rows}
+    return sorted(d for d in departments if d)
+
+
+@router.get("/code/{employee_id}", response_model=EmployeeOut)
 def get_employee(employee_id: str, db: Session = Depends(get_db)):
+    print("employee_code:", employee_id)
     return get_employee_or_404(db, employee_id)
 
 @router.get("/{employee_id}", response_model=EmployeeOut)
@@ -874,6 +930,87 @@ def send_invitation(employee_id: str, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/bulk-email")
+def send_bulk_email(
+    payload: BulkEmailRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    base_ui_url = _get_base_ui_url()
+    subject = (os.getenv("PHOTO_UPLOAD_EMAIL_SUBJECT", "Upload your photo") or "").strip()
+    if not subject:
+        subject = "Upload your photo"
+
+    query = db.query(Employee)
+    if payload and payload.employee_ids is not None:
+        if not payload.employee_ids:
+            return {"success": 0, "failed": 0, "skipped": 0}
+        employees = query.filter(Employee.id.in_(payload.employee_ids)).all()
+    else:
+        employees = query.all()
+
+    if not employees:
+        return {"success": 0, "failed": 0, "skipped": 0}
+
+    mailgun_configured = any(
+        (os.getenv("MAILGUN_API_KEY"), os.getenv("MAILGUN_DOMAIN"), os.getenv("MAILGUN_FROM"))
+    )
+    smtp = None
+    settings = None
+    if mailgun_configured:
+        settings = _get_mailgun_settings()
+    else:
+        settings = _get_smtp_settings()
+        smtp = _open_smtp_connection(settings)
+
+    success = 0
+    failed = 0
+    skipped = 0
+
+    try:
+        # for employee in employees:
+        for _ in range(2):
+            to_email = _normalize_email("balaraje2@gmail.com")
+            if not to_email:
+                skipped += 1
+                continue
+
+            # upload_link = f"{base_ui_url}/card/{employee.id}"
+            upload_link = f"{base_ui_url}/card/1"
+            body = _build_photo_upload_message(
+                "Babatunde Alaraje",
+                upload_link,
+                payload.message if payload else None,
+            )
+
+            try:
+                if mailgun_configured:
+                    _send_mailgun_message(
+                        settings,
+                        to_email=to_email,
+                        subject=subject,
+                        body=body,
+                    )
+                else:
+                    msg = EmailMessage()
+                    msg["From"] = settings["sender"]
+                    msg["To"] = to_email
+                    msg["Subject"] = subject
+                    msg.set_content(body)
+                    smtp.send_message(msg)
+                success += 1
+            except Exception:
+                failed += 1
+                logger.exception("Failed to send upload email to %s", to_email)
+    finally:
+        if smtp:
+            try:
+                smtp.quit()
+            except Exception:
+                smtp.close()
+
+    return {"success": success, "failed": failed, "skipped": skipped}
+
+
 @router.patch("/{employee_id}/photo-status", response_model=EmployeeOut)
 def update_photo_status(
     employee_id: str,
@@ -895,7 +1032,7 @@ def update_photo_status(
 
 @router.patch("/{employee_id}/role", response_model=EmployeeOut)
 def update_role(employee_id: str, payload: EmployeeRoleUpdate, db: Session = Depends(get_db)):
-    employee = get_employee_or_404(db, employee_id)
+    employee = get_employee_byid_or_404(db, employee_id)
 
     if payload.role not in ("manager", "staff"):
         raise HTTPException(
@@ -912,3 +1049,138 @@ def update_role(employee_id: str, payload: EmployeeRoleUpdate, db: Session = Dep
 
     db.refresh(employee)
     return employee
+
+def border_pixels_hsv(hsv: np.ndarray, border_px: int = 20) -> np.ndarray:
+    h, w = hsv.shape[:2]
+    t = max(1, min(border_px, h // 2, w // 2))  # safe for small images
+
+    strips = [
+        hsv[:t, :, :].reshape(-1, 3),     # top
+        hsv[-t:, :, :].reshape(-1, 3),    # bottom
+        hsv[:, :t, :].reshape(-1, 3),     # left
+        hsv[:, -t:, :].reshape(-1, 3),    # right
+    ]
+    return np.vstack(strips)  # shape (N, 3)
+
+def validate_id_photo(image_path: str) -> Dict:
+    errors: List[str] = []
+
+    img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    if img is None:
+        return {"status": "error", "errors": ["Invalid or unreadable image file."]}
+
+    # -----------------------------------
+    # Normalize image
+    # -----------------------------------
+    if img.ndim == 2:
+        bgr = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        alpha = None
+    elif img.shape[2] == 4:
+        bgr = img[:, :, :3]
+        alpha = img[:, :, 3]
+    else:
+        bgr = img
+        alpha = None
+
+    h, w = bgr.shape[:2]
+
+    # -----------------------------------
+    # 1. BACKGROUND CHECK
+    # -----------------------------------
+    background_ok = False
+
+    # A. Transparent background
+    if alpha is not None:
+        transparent_ratio = np.mean(alpha < 10)
+        if transparent_ratio >= 0.01:
+            background_ok = True
+        else:
+            errors.append("Image has alpha channel but background is not transparent.")
+
+    # B. White background check
+    if not background_ok:
+        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+
+        border_px = max(5, int(min(h, w) * 0.06))
+        border = border_pixels_hsv(hsv, border_px=border_px)
+
+
+        mean_s = np.mean(border[:, 1])
+        mean_v = np.mean(border[:, 2])
+
+        if mean_v >= 235 and mean_s <= 35:
+            background_ok = True
+        else:
+            errors.append("Background is not white or transparent.")
+
+    # -----------------------------------
+    # 2. FOREGROUND / POSITIONING
+    # -----------------------------------
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    s, v = hsv[:, :, 1], hsv[:, :, 2]
+
+    fg_mask = np.logical_not((s < 40) & (v > 200)).astype(np.uint8) * 255
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(fg_mask)
+
+    if num_labels <= 1:
+        errors.append("No clear subject detected in the image.")
+    else:
+        subject = stats[1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])]
+        x, y, bw, bh, area = subject
+
+        area_ratio = area / (h * w)
+        cx = x + bw / 2
+        cy = y + bh / 2
+
+        center_x_offset = abs(cx - w / 2) / w
+        center_y_offset = abs(cy - h / 2) / h
+
+        if area_ratio < 0.12 or area_ratio > 0.65:
+            errors.append("Subject size is not suitable for an ID photo.")
+
+        if center_x_offset > 0.12 or center_y_offset > 0.18:
+            errors.append("Subject is not properly centered.")
+
+        if x < 0.03 * w or y < 0.02 * h or (x + bw) > 0.97 * w or (y + bh) > 0.98 * h:
+            errors.append("Subject is too close to the image edge or cropped.")
+
+    # -----------------------------------
+    # FINAL RESULT
+    # -----------------------------------
+    if errors:
+        return {
+            "status": "error",
+            "errors": errors
+        }
+
+    return {
+        "status": "success"
+    }
+
+
+@router.post("/validate-photo")
+def validate(file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is required.")
+
+    temp_path: Optional[str] = None
+    try:
+        _, suffix = os.path.splitext(file.filename)
+        with tempfile.NamedTemporaryFile(prefix="id-photo-", suffix=suffix, delete=False) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            temp_path = tmp.name
+        return validate_id_photo(temp_path)
+    finally:
+        try:
+            file.file.close()
+        except Exception:
+            pass
+        if temp_path:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                logger.warning("Failed to remove temp file %s", temp_path)
