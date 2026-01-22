@@ -484,7 +484,7 @@ export default function EmployeeList({
           </div>
         </div>
 
-        {selectedIds.size > 0 && userRole === "manager" && (
+        {(selectAllPages || selectedIds.size > 0) && userRole === "manager" && (
           <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <span className="text-blue-800 font-medium">
@@ -598,7 +598,7 @@ export default function EmployeeList({
         }
         employeeName={emailDialog.employeeName}
         isBulk={emailDialog.isBulk}
-        recipientCount={selectedIds.size}
+        recipientCount={selectAllPages ? totalRecords : selectedIds.size}
       />
 
       <PrintingStationModal
