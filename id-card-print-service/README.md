@@ -15,6 +15,7 @@ source .venv/bin/activate  # macOS/Linux
 
 uv pip install -r <(python -c "import tomllib;print('\n'.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
 
+##### start server
 uv run uvicorn src.app.main:app --reload --host 0.0.0.0 --port 8000
 
 

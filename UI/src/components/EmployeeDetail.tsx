@@ -120,13 +120,13 @@ export default function EmployeeDetail() {
             <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg">
               <Calendar className="w-6 h-6 text-slate-600 mt-1" />
               <div>
-                <p className="text-sm text-slate-600 mb-1">Member Since</p>
+                <p className="text-sm text-slate-600 mb-1">Request date</p>
                 <p className="text-lg font-semibold text-slate-800">
-                  {new Date(employee.createdAt).toLocaleDateString('en-US', {
+                  {employee?.invitationSentAt ? new Date(employee?.invitationSentAt).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
-                  })}
+                  }) : 'N/A'}
                 </p>
               </div>
             </div>

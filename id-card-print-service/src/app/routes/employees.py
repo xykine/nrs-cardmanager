@@ -283,8 +283,6 @@ def pull_all_departments() -> Dict[str, Optional[str]]:
 
 
 
-
-
 def build_employee_directory() -> List[Dict[str, Any]]:
     """
     Pull PerPersonal + PerEmail fully (paged) and merge by personIdExternal.
@@ -1032,12 +1030,6 @@ def sync_employees(db: Session = Depends(get_db)):
 
 
 
-
-
-
-
-
-
 @router.get("/", response_model=EmployeeListOut)
 def list_employees(
     page: int = Query(1, ge=1),
@@ -1181,6 +1173,10 @@ def send_bulk_email(
     if not employees:
         return {"success": 0, "failed": 0, "skipped": 0}
 
+    invitation_sent_at = datetime.now(timezone.utc)
+    for employee in employees:
+        employee.invitation_sent_at = invitation_sent_at
+
     mailgun_configured = any(
         (os.getenv("MAILGUN_API_KEY"), os.getenv("MAILGUN_DOMAIN"), os.getenv("MAILGUN_FROM"))
     )
@@ -1198,28 +1194,22 @@ def send_bulk_email(
 
     try:
         for employee in employees:
-        # for _ in range(2):
-            # to_email = _normalize_email("balaraje2@gmail.com")
             to_email = _normalize_email(employee.email)
             if not to_email:
                 skipped += 1
                 continue
 
-            upload_link = f"{base_ui_url}/card/123"
-            # upload_link = f"{base_ui_url}/card/{employee.id}"
-            # login_code = employee.employee_id
-            login_code = 1234
+            upload_link = f"{base_ui_url}/card/{employee.id}"
+            login_code = employee.employee_id
             extra_message = payload.message if payload else None
             text_body = _build_photo_upload_message(
                 employee.name,
-                # "Babatunde Alaraje",
                 upload_link,
                 login_code,
                 extra_message,
             )
             html_body = _build_photo_upload_html(
                 employee.name,
-                # "Babatunde Alaraje",
                 upload_link,
                 login_code,
                 extra_message,
@@ -1248,7 +1238,7 @@ def send_bulk_email(
                     msg["Subject"] = subject
                     msg.set_content(text_body)
                     msg.add_alternative(html_body, subtype="html")
-                    smtp.send_message(msg)
+                    # smtp.send_message(msg)
                 success += 1
             except Exception:
                 failed += 1
@@ -1259,6 +1249,15 @@ def send_bulk_email(
                 smtp.quit()
             except Exception:
                 smtp.close()
+
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to update invitation timestamps",
+        ) from exc
 
     return {"success": success, "failed": failed, "skipped": skipped}
 
