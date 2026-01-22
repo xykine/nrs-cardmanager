@@ -1,19 +1,10 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Copy, CreditCard, Eye, Mail, Printer } from "lucide-react";
+import { Employee } from "../types";
 
 type UserRole = "manager" | "staff";
 type EmployeeRole = "manager" | "staff";
-
-export type Employee = {
-  id: string;
-  name: string;
-  email: string;
-  employeeId: string;
-  department?: string | null;
-  role: EmployeeRole;
-  photoPresent: boolean;
-};
 
 export type EmployeeTableProps = {
   employees: Employee[];
@@ -24,6 +15,10 @@ export type EmployeeTableProps = {
   onPrintCard?: (employee: Employee) => void | Promise<void>;
   /** (manager only) update role */
   onRoleChange?: (id: string, role: EmployeeRole) => void | Promise<void>;
+  selectedIds?: Set<string>;
+  onToggleSelection?: (id: string) => void;
+  onToggleSelectAll?: (ids: string[]) => void;
+  isAllSelected?: boolean;
   /** Optional: route base paths */
   routes?: {
     card?: (id: string) => string;
@@ -37,6 +32,10 @@ export default function EmployeeTable({
   onSendInvitation,
   onPrintCard,
   onRoleChange,
+  onToggleSelection,
+  onToggleSelectAll,
+  selectedIds: propsSelectedIds,
+  isAllSelected,
   routes,
 }: EmployeeTableProps) {
   const navigate = useNavigate();
@@ -44,28 +43,39 @@ export default function EmployeeTable({
   const cardRoute = routes?.card ?? ((id: string) => `/card/${id}`);
   const detailRoute = routes?.detail ?? ((id: string) => `/detail/${id}`);
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [internalSelectedIds, setInternalSelectedIds] = useState<Set<string>>(new Set());
+  const selectedIds = propsSelectedIds ?? internalSelectedIds;
+
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const allSelected = useMemo(() => {
-    return employees.length > 0 && selectedIds.size === employees.length;
-  }, [employees.length, selectedIds]);
+    if (isAllSelected) return true;
+    return employees.length > 0 && employees.every(e => selectedIds.has(e.id));
+  }, [employees, selectedIds, isAllSelected]);
 
   const handleSelectAll = () => {
-    setSelectedIds((prev) => {
-      if (employees.length === 0) return new Set();
-      if (prev.size === employees.length) return new Set();
-      return new Set(employees.map((e) => e.id));
-    });
+    const allIds = employees.map((e) => e.id);
+    if (onToggleSelectAll) {
+      onToggleSelectAll(allIds);
+    } else {
+      setInternalSelectedIds((prev) => {
+        if (prev.size === allIds.length) return new Set();
+        return new Set(allIds);
+      });
+    }
   };
 
   const handleSelectRow = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    if (onToggleSelection) {
+      onToggleSelection(id);
+    } else {
+      setInternalSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    }
   };
 
   const copyToClipboard = async (text: string, rowId: string) => {
@@ -158,15 +168,14 @@ export default function EmployeeTable({
             employees.map((employee) => (
               <tr
                 key={employee.id}
-                className={`hover:bg-slate-50 transition-colors ${
-                  selectedIds.has(employee.id) ? "bg-blue-50" : ""
-                }`}
+                className={`hover:bg-slate-50 transition-colors ${isAllSelected || selectedIds.has(employee.id) ? "bg-blue-50" : ""
+                  }`}
               >
                 {userRole === "manager" && (
                   <td className="px-6 py-4">
                     <input
                       type="checkbox"
-                      checked={selectedIds.has(employee.id)}
+                      checked={isAllSelected || selectedIds.has(employee.id)}
                       onChange={() => handleSelectRow(employee.id)}
                       className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
                       aria-label={`Select ${employee.name}`}
@@ -233,11 +242,10 @@ export default function EmployeeTable({
 
                 <td className="px-6 py-4 text-center">
                   <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                      employee.photoPresent
-                        ? "bg-green-100 text-green-800"
-                        : "bg-amber-100 text-amber-800"
-                    }`}
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${employee.photoPresent
+                      ? "bg-green-100 text-green-800"
+                      : "bg-amber-100 text-amber-800"
+                      }`}
                   >
                     {employee.photoPresent ? "Yes" : "No"}
                   </span>
@@ -260,11 +268,10 @@ export default function EmployeeTable({
                         <button
                           onClick={() => handlePrintCard(employee)}
                           disabled={!employee.photoPresent || !onPrintCard}
-                          className={`p-2 rounded-lg transition-colors ${
-                            employee.photoPresent && onPrintCard
-                              ? "text-green-600 hover:bg-green-50"
-                              : "text-slate-300 cursor-not-allowed"
-                          }`}
+                          className={`p-2 rounded-lg transition-colors ${employee.photoPresent && onPrintCard
+                            ? "text-green-600 hover:bg-green-50"
+                            : "text-slate-300 cursor-not-allowed"
+                            }`}
                           title={
                             employee.photoPresent
                               ? "Print Card"

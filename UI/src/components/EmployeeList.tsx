@@ -5,12 +5,6 @@ import { employeeService, printingService } from "../services/api";
 import {
   Mail,
   Printer,
-  CreditCard,
-  Eye,
-  Copy,
-  Check,
-  Search,
-  X,
   LogOut,
   RefreshCw,
   List,
@@ -38,7 +32,6 @@ export default function EmployeeList({
   const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [emailDialog, setEmailDialog] = useState<{
     isOpen: boolean;
     employeeId?: string;
@@ -60,10 +53,24 @@ export default function EmployeeList({
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [pageSize] = useState(20);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [selectAllPages, setSelectAllPages] = useState(false);
+
+  const [debouncedFilters, setDebouncedFilters] =
+    useState<EmployeeFilters>(filters);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters(filters);
+      setSelectAllPages(false); // Reset when filters change
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [filters]);
 
   useEffect(() => {
     if (userRole === "manager") loadEmployees();
-  }, [currentPage, userRole, filters]);
+  }, [currentPage, userRole, debouncedFilters]);
 
   const loadDepartments = async () => {
     const response = await employeeService.getDepartments();
@@ -80,7 +87,7 @@ export default function EmployeeList({
       const response = await employeeService.getAll(
         currentPage,
         pageSize,
-        filters,
+        debouncedFilters,
       );
       setEmployees(response.items);
       setTotalRecords(response.total);
@@ -90,6 +97,7 @@ export default function EmployeeList({
       console.error(err);
     } finally {
       setLoading(false);
+      setIsInitialLoad(false);
     }
   };
 
@@ -125,9 +133,17 @@ export default function EmployeeList({
     }
   };
 
-  const handleSelectAll = () => {};
+  const handleSelectAll = () => {
+    if (selectAllPages || selectedIds.size > 0) {
+      setSelectedIds(new Set());
+      setSelectAllPages(false);
+    } else {
+      setSelectAllPages(true);
+    }
+  };
 
   const handleSelectRow = (id: string) => {
+    setSelectAllPages(false); // If they unselect one, we revert to individual selection
     const newSelected = new Set(selectedIds);
     if (newSelected.has(id)) {
       newSelected.delete(id);
@@ -194,8 +210,6 @@ export default function EmployeeList({
   };
 
   const handleBulkSendInvitation = () => {
-    const selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
-
     setEmailDialog({
       isOpen: true,
       isBulk: true,
@@ -203,13 +217,19 @@ export default function EmployeeList({
   };
 
   const handleSendBulkEmail = async (message: string) => {
-    const selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
-    const ids = Array.from(selectedIds);
+    let ids: string[];
+
+    if (selectAllPages) {
+      const response = await employeeService.getAll(1, totalRecords, debouncedFilters);
+      ids = response.items.map(e => e.id);
+    } else {
+      ids = Array.from(selectedIds);
+    }
 
     const notificationId = addNotification({
       type: "progress",
       title: "Sending Emails",
-      message: `Sending emails to ${selectedEmployees.length} employee(s)...`,
+      message: `Sending emails to ${ids.length} employee(s)...`,
       progress: 0,
       autoClose: false,
     });
@@ -222,9 +242,8 @@ export default function EmployeeList({
       updateNotification(notificationId, {
         type: "success",
         title: "Emails Sent",
-        message: `Successfully sent ${result.success} email(s). ${
-          result.failed > 0 ? `${result.failed} failed.` : ""
-        }`,
+        message: `Successfully sent ${result.success} email(s). ${result.failed > 0 ? `${result.failed} failed.` : ""
+          }`,
         autoClose: true,
       });
 
@@ -242,31 +261,55 @@ export default function EmployeeList({
   };
 
   const handleBulkPrintCard = async () => {
-    const selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
-    const employeesWithPhoto = selectedEmployees.filter((e) => e.photoPresent);
+    let ids: string[];
+    let employeeCount: number;
 
-    if (employeesWithPhoto.length === 0) {
-      addNotification({
-        type: "error",
-        title: "Print Failed",
-        message: "None of the selected employees have photos uploaded",
-        autoClose: true,
-      });
-      return;
-    }
+    if (selectAllPages) {
+      const response = await employeeService.getAll(1, totalRecords, debouncedFilters);
+      const employeesWithPhoto = response.items.filter((e) => e.photoPresent);
+      ids = employeesWithPhoto.map((e) => e.id);
+      employeeCount = response.items.length;
 
-    if (employeesWithPhoto.length < selectedEmployees.length) {
-      const withoutPhoto = selectedEmployees.length - employeesWithPhoto.length;
-      if (
-        !confirm(
-          `${withoutPhoto} employee(s) don't have photos. Continue printing for the rest?`,
-        )
-      ) {
+      if (ids.length === 0) {
+        addNotification({
+          type: "error",
+          title: "Print Failed",
+          message: "None of the matching employees have photos uploaded",
+          autoClose: true,
+        });
         return;
+      }
+
+      if (ids.length < employeeCount) {
+        const withoutPhoto = employeeCount - ids.length;
+        if (!confirm(`${withoutPhoto} matching employee(s) don't have photos. Continue printing for the ${ids.length} with photos?`)) {
+          return;
+        }
+      }
+    } else {
+      const selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
+      const employeesWithPhoto = selectedEmployees.filter((e) => e.photoPresent);
+      ids = employeesWithPhoto.map((e) => e.id);
+      employeeCount = selectedEmployees.length;
+
+      if (ids.length === 0) {
+        addNotification({
+          type: "error",
+          title: "Print Failed",
+          message: "None of the selected employees have photos uploaded",
+          autoClose: true,
+        });
+        return;
+      }
+
+      if (ids.length < employeeCount) {
+        const withoutPhoto = employeeCount - ids.length;
+        if (!confirm(`${withoutPhoto} employee(s) don't have photos. Continue printing for the rest?`)) {
+          return;
+        }
       }
     }
 
-    const ids = employeesWithPhoto.map((e) => e.id);
     setPrintingModal({ isOpen: true, employeeIds: ids });
   };
 
@@ -343,7 +386,7 @@ export default function EmployeeList({
     });
 
     try {
-      const batch = await printingService.createBatch(
+      await printingService.createBatch(
         stationId,
         printingModal.employeeIds,
       );
@@ -367,12 +410,6 @@ export default function EmployeeList({
     }
   };
 
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
   const clearFilters = () => {
     setFilters({
       name: "",
@@ -382,7 +419,7 @@ export default function EmployeeList({
     });
   };
 
-  if (loading) {
+  if (isInitialLoad && loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-xl text-gray-600">Loading employees...</div>
@@ -397,12 +434,6 @@ export default function EmployeeList({
       </div>
     );
   }
-
-  const hasActiveFilters =
-    filters.name ||
-    filters.employeeId ||
-    filters.photoStatus !== "all" ||
-    filters.department !== "all";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -456,11 +487,15 @@ export default function EmployeeList({
           <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <span className="text-blue-800 font-medium">
-                {selectedIds.size} employee{selectedIds.size > 1 ? "s" : ""}{" "}
+                {selectAllPages ? totalRecords : selectedIds.size} employee{(selectAllPages ? totalRecords : selectedIds.size) > 1 ? "s" : ""}{" "}
                 selected
+                {selectAllPages && " (all pages matching filters)"}
               </span>
               <button
-                onClick={() => setSelectedIds(new Set())}
+                onClick={() => {
+                  setSelectedIds(new Set());
+                  setSelectAllPages(false);
+                }}
                 className="text-blue-600 hover:text-blue-800 text-sm underline"
               >
                 Clear selection
@@ -485,24 +520,33 @@ export default function EmployeeList({
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
+          {loading && !isInitialLoad && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+              <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
+            </div>
+          )}
           <EmployeeFilterPanel
             filters={filters}
             setFilters={setFilters}
             clearFilters={clearFilters}
             departments={departments}
-            // hasActiveFilters={hasActiveFilters}
+          // hasActiveFilters={hasActiveFilters}
           />
 
           <EmployeeTable
             employees={employees}
             userRole={userRole}
+            selectedIds={selectedIds}
+            isAllSelected={selectAllPages}
+            onToggleSelection={handleSelectRow}
+            onToggleSelectAll={handleSelectAll}
             onSendInvitation={handleSendInvitation}
             onPrintCard={handlePrintCard}
             onRoleChange={handleRoleChange}
             routes={{
-              card: (id) => `/card/${id}`,
-              detail: (id) => `/detail/${id}`,
+              card: (id: string) => `/card/${id}`,
+              detail: (id: string) => `/detail/${id}`,
             }}
           />
 
@@ -519,11 +563,10 @@ export default function EmployeeList({
                 <button
                   onClick={handlePreviousPage}
                   disabled={currentPage === 1}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    currentPage === 1
-                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                      : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                  }`}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${currentPage === 1
+                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                    : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                    }`}
                 >
                   Previous
                 </button>
@@ -533,11 +576,10 @@ export default function EmployeeList({
                 <button
                   onClick={handleNextPage}
                   disabled={currentPage >= Math.ceil(totalRecords / pageSize)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    currentPage >= Math.ceil(totalRecords / pageSize)
-                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                      : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                  }`}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${currentPage >= Math.ceil(totalRecords / pageSize)
+                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                    : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                    }`}
                 >
                   Next
                 </button>
