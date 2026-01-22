@@ -221,8 +221,7 @@ export default function EmployeeList({
     let ids: string[];
 
     if (selectAllPages) {
-      const response = await employeeService.getAll(1, totalRecords, debouncedFilters);
-      ids = response.items.map(e => e.id);
+      ids = []
     } else {
       ids = Array.from(selectedIds);
     }
@@ -238,7 +237,7 @@ export default function EmployeeList({
     setEmailDialog({ isOpen: false, isBulk: false });
 
     try {
-      const result = await employeeService.sendBulkEmail(ids, message);
+      const result = await employeeService.sendBulkEmail(ids, message, filters, selectAllPages);
 
       updateNotification(notificationId, {
         type: "success",

@@ -119,11 +119,13 @@ export const employeeService = {
   async sendBulkEmail(
     ids: string[],
     message: string,
+    filter: EmployeeFilters,
+    isAll: boolean,
   ): Promise<{ success: number; failed: number }> {
     const response = await fetch(`${API_BASE_URL}/employees/bulk-email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeIds: ids, message }),
+      body: JSON.stringify({ employeeIds: ids, message, filter, isAll }),
     });
     if (!response.ok) throw new Error("Failed to send bulk emails");
     return response.json();
