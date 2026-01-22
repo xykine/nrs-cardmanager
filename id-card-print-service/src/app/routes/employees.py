@@ -1,11 +1,13 @@
 
 from __future__ import annotations
 
+import html
 import logging
 import os
 import shutil
 import smtplib
 import tempfile
+import textwrap
 import uuid
 from datetime import datetime, timezone
 from email.message import EmailMessage
@@ -417,18 +419,22 @@ def _send_mailgun_message(
     *,
     to_email: str,
     subject: str,
-    body: str,
+    text: str,
+    html_body: Optional[str] = None,
 ) -> None:
     url = f"{settings['base_url']}/{settings['domain']}/messages"
+    data: Dict[str, Any] = {
+        "from": settings["sender"],
+        "to": to_email,
+        "subject": subject,
+        "text": text,
+    }
+    if html_body:
+        data["html"] = html_body
     response = requests.post(
         url,
         auth=("api", settings["api_key"]),
-        data={
-            "from": settings["sender"],
-            "to": to_email,
-            "subject": subject,
-            "text": body,
-        },
+        data=data,
         timeout=20,
     )
     if not response.ok:
@@ -438,6 +444,7 @@ def _send_mailgun_message(
 def _build_photo_upload_message(
     name: Optional[str],
     link: str,
+    login_code: Optional[object],
     extra_message: Optional[str],
 ) -> str:
     safe_name = (name or "").strip()
@@ -448,11 +455,234 @@ def _build_photo_upload_message(
         "Please upload your photo using the link below:",
         link,
     ]
+    safe_login = (str(login_code) if login_code is not None else "").strip()
+    if safe_login:
+        lines.extend(["", f"Login code: {safe_login}"])
     extra = (extra_message or "").strip()
     if extra:
         lines.extend(["", extra])
     lines.extend(["", "Thank you."])
     return "\n".join(lines)
+
+
+def _build_photo_upload_html(
+    name: Optional[str],
+    link: str,
+    login_code: Optional[object],
+    extra_message: Optional[str],
+    *,
+    support_email: str,
+    organization_name: str,
+    hr_team: str,
+    support_contact: str,
+    sample_image_url: Optional[str],
+) -> str:
+    safe_name = html.escape((name or "").strip() or "there")
+    safe_link = html.escape(link, quote=True)
+    safe_login = html.escape((str(login_code) if login_code is not None else "").strip())
+    safe_support_email = html.escape((support_email or "").strip() or "HR Department")
+    safe_org = html.escape((organization_name or "").strip() or "Your Organization Name")
+    safe_hr_team = html.escape((hr_team or "").strip() or "HR / Administration Team")
+    safe_support_contact = html.escape((support_contact or "").strip())
+    safe_extra = html.escape((extra_message or "").strip())
+    if safe_extra:
+        safe_extra = safe_extra.replace("\n", "<br>")
+
+    current_year = datetime.now(timezone.utc).year
+
+    extra_block = ""
+    if safe_extra:
+        extra_block = (
+            f"<p style=\"margin:0 0 18px 0; font-size:14px; line-height:1.6;\">"
+            f"{safe_extra}</p>"
+        )
+
+    login_block = ""
+    if safe_login:
+        login_block = (
+            "<div>"
+            "<strong>Login Code:</strong> "
+            "<span style=\"font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "
+            "Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:13px; "
+            "background-color:#111827; color:#ffffff; padding:3px 8px; "
+            "border-radius:8px; display:inline-block;\">"
+            f"{safe_login}</span>"
+            "</div>"
+        )
+
+    sample_block = ""
+    if sample_image_url:
+        safe_sample = html.escape(sample_image_url, quote=True)
+        sample_block = textwrap.dedent(
+            f"""
+            <h3 style="margin:18px 0 10px 0; font-size:15px; line-height:1.3; color:#111827;">
+              Sample Photo (For Guidance)
+            </h3>
+            <p style="margin:0 0 12px 0; font-size:13px; line-height:1.6; color:#374151;">
+              The image below is an example of an acceptable ID photo style
+              (white background, centered head and shoulders).
+            </p>
+            <div style="border:1px solid #e5e7eb; border-radius:12px; padding:14px; background-color:#ffffff;">
+              <img
+                alt="Sample ID Photo Guidance"
+                width="360"
+                style="display:block; width:200px; max-width:100%; height:auto; border-radius:10px; margin:0 auto;"
+                src="{safe_sample}"
+              />
+            </div>
+            <p style="margin:12px 0 0 0; font-size:12px; line-height:1.6; color:#6b7280;">
+              Note: This is a guide illustration. Your actual photo should closely match
+              these framing and background rules.
+            </p>
+            """
+        ).strip()
+
+    support_contact_block = ""
+    if safe_support_contact:
+        support_contact_block = f"<br><span style=\"color:#6b7280\">{safe_support_contact}</span>"
+
+    return textwrap.dedent(
+        f"""\
+        <!doctype html>
+        <html>
+          <body style="margin:0; padding:0; background-color:#f3f4f6; font-family:Arial, Helvetica, sans-serif;">
+            <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
+              Please upload a compliant ID photo (white or transparent background, centered face).
+              Use your login code to access the portal.
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+              style="background-color:#f3f4f6; padding:24px 0; width:100%;">
+              <tbody>
+                <tr>
+                  <td align="center">
+                    <table role="presentation" width="640" cellpadding="0" cellspacing="0"
+                      style="width:640px; max-width:95%; background-color:#ffffff; border-radius:14px;
+                      overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+                      <tbody>
+                        <tr>
+                          <td style="background:linear-gradient(135deg,#0f172a,#1d4ed8); padding:22px 26px;">
+                            <div style="color:#ffffff; font-size:18px; font-weight:700; line-height:1.2;">
+                              Employee ID Card Photo Upload
+                            </div>
+                            <div style="color:#dbeafe; font-size:13px; margin-top:6px; line-height:1.4;">
+                              Action required to complete your ID card production.
+                            </div>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding:24px 26px 10px 26px; color:#111827;">
+                            <p style="margin:0 0 14px 0; font-size:14px; line-height:1.6;">
+                              Dear <strong>{safe_name}</strong>,
+                            </p>
+                            <p style="margin:0 0 18px 0; font-size:14px; line-height:1.6;">
+                              Welcome to the NRS ID card self service. Please use the link below to
+                              upload your passport photograph.
+                            </p>
+                            {extra_block}
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                              style="background-color:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:14px;">
+                              <tbody>
+                                <tr>
+                                  <td style="font-size:13px; line-height:1.6; color:#111827; padding:6px;">
+                                    <div style="margin-bottom:6px;">
+                                      <strong>Upload Link:</strong>
+                                      <a href="{safe_link}" style="color:#1d4ed8; text-decoration:underline;">
+                                        Click here to upload your photo
+                                      </a>
+                                    </div>
+                                    {login_block}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                            <h3 style="margin:22px 0 10px 0; font-size:15px; line-height:1.3; color:#111827;">
+                              Photo Requirements (Important)
+                            </h3>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                              style="border-collapse:separate; border-spacing:0 10px;">
+                              <tbody>
+                                <tr>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">1.</td>
+                                  <td style="font-size:14px; line-height:1.6;">
+                                    <strong>Dimensions:</strong> 35mm wide by 45mm high (3.5 cm x 4.5 cm).
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">2.</td>
+                                  <td style="font-size:14px; line-height:1.6;">
+                                    <strong>Background:</strong> Plain white.
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">3.</td>
+                                  <td style="font-size:14px; line-height:1.6;">
+                                    <strong>Resolution (Digital):</strong> 600 DPI is recommended for high quality.
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">4.</td>
+                                  <td style="font-size:14px; line-height:1.6;">
+                                    <strong>Digital Pixel Size:</strong> 600x800 pixels or 700x900 pixels.
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">5.</td>
+                                  <td style="font-size:14px; line-height:1.6;">
+                                    <strong>Face Coverage:</strong> The face should cover 70-80% of the photo.
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">6.</td>
+                                  <td style="font-size:14px; line-height:1.6;">
+                                    <strong>Expression:</strong> Neutral expression, mouth closed, eyes open.
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">7.</td>
+                                  <td style="font-size:14px; line-height:1.6;">
+                                    <strong>Quality:</strong> High-resolution, full color, no shadows.
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                            {sample_block}
+                            <div style="margin:18px 0 0 0; padding:12px 14px; background-color:#fffbeb;
+                              border:1px solid #fde68a; border-radius:12px; color:#92400e;
+                              font-size:13px; line-height:1.6;">
+                              <strong>Automatic validation:</strong> Uploaded photos are automatically checked.
+                              If your photo does not meet requirements, it may be rejected and you will be asked
+                              to upload another.
+                            </div>
+                            <p style="margin:18px 0 0 0; font-size:13px; line-height:1.6; color:#374151;">
+                              If you have questions or experience issues uploading, please contact
+                              <strong>{safe_support_email}</strong>.
+                            </p>
+                            <p style="margin:18px 0 0 0; font-size:14px; line-height:1.6;">
+                              Kind regards,<br>
+                              <strong>{safe_org}</strong><br>
+                              <span style="color:#6b7280">{safe_hr_team}</span>
+                              {support_contact_block}
+                            </p>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding:16px 26px 22px 26px; background-color:#f9fafb;
+                            border-top:1px solid #e5e7eb; color:#6b7280; font-size:12px; line-height:1.6;">
+                            This email was sent to you because you are scheduled for Employee ID Card issuance.
+                            <br>Copyright {current_year} {safe_org}. All rights reserved.
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <div style="height:18px; line-height:18px;">&nbsp;</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </body>
+        </html>
+        """
+    ).strip()
 
 
 def replace_all_employees_in_db(
@@ -967,19 +1197,39 @@ def send_bulk_email(
     skipped = 0
 
     try:
-        # for employee in employees:
-        for _ in range(2):
-            to_email = _normalize_email("balaraje2@gmail.com")
+        for employee in employees:
+        # for _ in range(2):
+            # to_email = _normalize_email("balaraje2@gmail.com")
+            to_email = _normalize_email(employee.email)
             if not to_email:
                 skipped += 1
                 continue
 
+            upload_link = f"{base_ui_url}/card/123"
             # upload_link = f"{base_ui_url}/card/{employee.id}"
-            upload_link = f"{base_ui_url}/card/1"
-            body = _build_photo_upload_message(
-                "Babatunde Alaraje",
+            # login_code = employee.employee_id
+            login_code = 1234
+            extra_message = payload.message if payload else None
+            text_body = _build_photo_upload_message(
+                employee.name,
+                # "Babatunde Alaraje",
                 upload_link,
-                payload.message if payload else None,
+                login_code,
+                extra_message,
+            )
+            html_body = _build_photo_upload_html(
+                employee.name,
+                # "Babatunde Alaraje",
+                upload_link,
+                login_code,
+                extra_message,
+                support_email=(os.getenv("PHOTO_UPLOAD_SUPPORT_EMAIL") or "HR Department").strip(),
+                organization_name=(
+                    os.getenv("PHOTO_UPLOAD_ORGANIZATION_NAME") or "Your Organization Name"
+                ).strip(),
+                hr_team=(os.getenv("PHOTO_UPLOAD_HR_TEAM") or "HR / Administration Team").strip(),
+                support_contact=(os.getenv("PHOTO_UPLOAD_SUPPORT_CONTACT") or "").strip(),
+                sample_image_url=(os.getenv("PHOTO_UPLOAD_SAMPLE_IMAGE_URL") or "").strip() or None,
             )
 
             try:
@@ -988,14 +1238,16 @@ def send_bulk_email(
                         settings,
                         to_email=to_email,
                         subject=subject,
-                        body=body,
+                        text=text_body,
+                        html_body=html_body,
                     )
                 else:
                     msg = EmailMessage()
                     msg["From"] = settings["sender"]
                     msg["To"] = to_email
                     msg["Subject"] = subject
-                    msg.set_content(body)
+                    msg.set_content(text_body)
+                    msg.add_alternative(html_body, subtype="html")
                     smtp.send_message(msg)
                 success += 1
             except Exception:
