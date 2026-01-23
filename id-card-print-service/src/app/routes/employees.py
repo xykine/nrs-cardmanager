@@ -1248,7 +1248,7 @@ def send_bulk_email(
                 skipped += 1
                 continue
 
-            upload_link = f"{base_ui_url}/card/{employee.id}"
+            upload_link = f"{base_ui_url}/card-upload/invitation"
             login_code = employee.employee_id
             extra_message = payload.message if payload else None
             text_body = _build_photo_upload_message(
