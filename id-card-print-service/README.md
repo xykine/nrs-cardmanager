@@ -24,17 +24,16 @@ To save seeder
 sqlite3 print.db < src/app/sample-data.sql
 
 
-
 ########
 build image
 ############
 
-docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/id-card-print-service:0.1.5 --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/id-card-print-service:0.1.7 --push .
 
 #########
 build UI image
 #########
 
-docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/nrs-cardmanager-ui:0.1.2 --build-arg VITE_API_URL=/api --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/nrs-cardmanager-ui:0.1.3 --build-arg VITE_API_URL=/api --push .
 
 

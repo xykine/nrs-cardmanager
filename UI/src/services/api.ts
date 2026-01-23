@@ -132,7 +132,7 @@ export const employeeService = {
   },
 
   async printCard(id: string): Promise<{ success: boolean; message: string }> {
-    const response = await fetch(`${API_BASE_URL}/employees/${id}/print-card`, {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}/ `, {
       method: "POST",
     });
     if (!response.ok) throw new Error("Failed to print card");

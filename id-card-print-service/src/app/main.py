@@ -25,6 +25,6 @@ def on_startup():
 def health_check():
     return {"status": "ok"}
 
-app.include_router(router, prefix="/api")
+app.include_router(router)
 app.include_router(employees.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")

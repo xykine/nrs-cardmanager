@@ -25,7 +25,8 @@ from ..schemas import (
 from ..storage import ASSETS_DIR, job_dir
 
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
+PRINT_JOBS_API_BASE = "/api/print-jobs"
 
 
 def _now() -> datetime:
@@ -138,8 +139,8 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
             printerId=payload.printerId,
             status=job.status.value,
             attempts=0,
-            frontPngUrl=f"/print-jobs/{job_id}/front.png",
-            backPngUrl=f"/print-jobs/{job_id}/back.png",
+            frontPngUrl=f"{PRINT_JOBS_API_BASE}/{job_id}/front.png",
+            backPngUrl=f"{PRINT_JOBS_API_BASE}/{job_id}/back.png",
         ))
 
     db.commit()
@@ -165,8 +166,8 @@ def list_jobs(
             printerId=j.printer_id,
             status=j.status.value,
             attempts=j.attempts,
-            frontPngUrl=f"/print-jobs/{j.job_id}/front.png",
-            backPngUrl=f"/print-jobs/{j.job_id}/back.png",
+            frontPngUrl=f"{PRINT_JOBS_API_BASE}/{j.job_id}/front.png",
+            backPngUrl=f"{PRINT_JOBS_API_BASE}/{j.job_id}/back.png",
         )
         for j in jobs
     ]
@@ -176,7 +177,6 @@ def list_jobs(
 def claim_jobs(payload: ClaimIn, db: Session = Depends(get_db)):
     # Claim PENDING/RETRY jobs (ignore those with next_run_at in future)
     now = _now()
-
     stmt = (
         select(PrintJob)
         .where(PrintJob.tenant_id == payload.tenantId)
@@ -188,8 +188,6 @@ def claim_jobs(payload: ClaimIn, db: Session = Depends(get_db)):
 
     jobs = db.execute(stmt).scalars().all()
     claimed: List[ClaimedJob] = []
-
-    print("Claiming jobs payload:", payload)
 
     for j in jobs:
         if j.next_run_at and j.next_run_at > now:
@@ -204,8 +202,8 @@ def claim_jobs(payload: ClaimIn, db: Session = Depends(get_db)):
             jobId=j.job_id,
             employeeId=j.employee_id,
             fullName=j.full_name,
-            frontPngUrl=f"/print-jobs/{j.job_id}/front.png",
-            backPngUrl=f"/print-jobs/{j.job_id}/back.png",
+            frontPngUrl=f"{PRINT_JOBS_API_BASE}/{j.job_id}/front.png",
+            backPngUrl=f"{PRINT_JOBS_API_BASE}/{j.job_id}/back.png",
             attempts=j.attempts,
             maxAttempts=j.max_attempts,
         ))
@@ -308,4 +306,3 @@ def delete_bulk_batches(
         
     db.commit()
     return {"ok": True, "deleted": len(jobs)}
-

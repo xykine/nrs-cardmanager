@@ -479,7 +479,7 @@ def _build_photo_upload_html(
     safe_link = html.escape(link, quote=True)
     safe_login = html.escape((str(login_code) if login_code is not None else "").strip())
     safe_support_email = html.escape((support_email or "").strip() or "HR Department")
-    safe_org = html.escape((organization_name or "").strip() or "Your Organization Name")
+    safe_org = html.escape((organization_name or "").strip() or "NRS")
     safe_hr_team = html.escape((hr_team or "").strip() or "HR / Administration Team")
     safe_support_contact = html.escape((support_contact or "").strip())
     safe_extra = html.escape((extra_message or "").strip())
@@ -997,6 +997,54 @@ def get_employee_byid_or_404(db: Session, employee_id: str) -> Employee:
     return employee
 
 
+def _apply_employee_filters(
+    query,
+    *,
+    name: Optional[str],
+    employee_id: Optional[str],
+    photo_status: Optional[str],
+    department: Optional[str],
+):
+    name = (name or "").strip()
+    if name:
+        query = query.filter(Employee.name.ilike(f"%{name}%"))
+
+    employee_id = (employee_id or "").strip()
+    if employee_id:
+        query = query.filter(Employee.employee_id.ilike(f"%{employee_id}%"))
+
+    department = (department or "").strip()
+    if department and department.lower() != "all":
+        query = query.filter(Employee.department.ilike(department))
+
+    photo_status = (photo_status or "").strip().lower()
+    if photo_status and photo_status != "all":
+        if photo_status in ("yes", "true", "1"):
+            query = query.filter(Employee.photo_present.is_(True))
+        elif photo_status in ("no", "false", "0"):
+            query = query.filter(Employee.photo_present.is_(False))
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail='photoStatus must be "yes" or "no"',
+            )
+
+    return query
+
+
+def _filters_are_empty(filters: Any) -> bool:
+    name = (getattr(filters, "name", "") or "").strip()
+    employee_id = (getattr(filters, "employee_id", "") or "").strip()
+    photo_status = (getattr(filters, "photo_status", "") or "").strip().lower()
+    department = (getattr(filters, "department", "") or "").strip().lower()
+    return (
+        not name
+        and not employee_id
+        and photo_status in ("", "all")
+        and department in ("", "all")
+    )
+
+
 @router.get("/sync-employee", response_model=list[EmployeeOut])
 def sync_employees(db: Session = Depends(get_db)):
     try:
@@ -1041,33 +1089,13 @@ def list_employees(
     db: Session = Depends(get_db),
 ):
     query = db.query(Employee).options(joinedload(Employee.card))
-
-    if name:
-        name = name.strip()
-        if name:
-            query = query.filter(Employee.name.ilike(f"%{name}%"))
-
-    if employee_id:
-        employee_id = employee_id.strip()
-        if employee_id:
-            query = query.filter(Employee.employee_id.ilike(f"%{employee_id}%"))
-
-    if department:
-        department = department.strip()
-        if department:
-            query = query.filter(Employee.department.ilike(department))
-
-    if photo_status:
-        normalized = photo_status.strip().lower()
-        if normalized in ("yes", "true", "1"):
-            query = query.filter(Employee.photo_present.is_(True))
-        elif normalized in ("no", "false", "0"):
-            query = query.filter(Employee.photo_present.is_(False))
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail='photoStatus must be "yes" or "no"',
-            )
+    query = _apply_employee_filters(
+        query,
+        name=name,
+        employee_id=employee_id,
+        photo_status=photo_status,
+        department=department,
+    )
 
     total = query.count()
     offset = (page - 1) * page_size
@@ -1163,12 +1191,24 @@ def send_bulk_email(
         subject = "Upload your photo"
 
     query = db.query(Employee)
-    if payload and payload.employee_ids is not None:
-        if not payload.employee_ids:
-            return {"success": 0, "failed": 0, "skipped": 0}
-        employees = query.filter(Employee.id.in_(payload.employee_ids)).all()
-    else:
+    employee_ids = payload.employee_ids if payload else None
+    filters = payload.filters if payload else None
+    is_all = payload.is_all if payload else False
+
+    if employee_ids:
+        employees = query.filter(Employee.id.in_(employee_ids)).all()
+    elif is_all:
+        if filters and not _filters_are_empty(filters):
+            query = _apply_employee_filters(
+                query,
+                name=filters.name,
+                employee_id=filters.employee_id,
+                photo_status=filters.photo_status,
+                department=filters.department,
+            )
         employees = query.all()
+    else:
+        return {"success": 0, "failed": 0, "skipped": 0}
 
     if not employees:
         return {"success": 0, "failed": 0, "skipped": 0}
@@ -1238,7 +1278,7 @@ def send_bulk_email(
                     msg["Subject"] = subject
                     msg.set_content(text_body)
                     msg.add_alternative(html_body, subtype="html")
-                    # smtp.send_message(msg)
+                    smtp.send_message(msg)
                 success += 1
             except Exception:
                 failed += 1
@@ -1301,116 +1341,66 @@ def update_role(employee_id: str, payload: EmployeeRoleUpdate, db: Session = Dep
     db.refresh(employee)
     return employee
 
-def border_pixels_hsv(hsv: np.ndarray, border_px: int = 20) -> np.ndarray:
-    h, w = hsv.shape[:2]
-    t = max(1, min(border_px, h // 2, w // 2))  # safe for small images
 
-    strips = [
-        hsv[:t, :, :].reshape(-1, 3),     # top
-        hsv[-t:, :, :].reshape(-1, 3),    # bottom
-        hsv[:, :t, :].reshape(-1, 3),     # left
-        hsv[:, -t:, :].reshape(-1, 3),    # right
-    ]
-    return np.vstack(strips)  # shape (N, 3)
+
+def _top_corner_pixels_bgr(bgr: np.ndarray, patch_px: int) -> np.ndarray:
+    """Pixels from top-left + top-right corner patches only."""
+    h, w = bgr.shape[:2]
+    p = max(10, min(patch_px, h // 2, w // 2))
+
+    tl = bgr[:p, :p, :].reshape(-1, 3)
+    tr = bgr[:p, w - p :, :].reshape(-1, 3)
+
+    return np.concatenate([tl, tr], axis=0)
+
+
+def _lab_distance_to_white(pixels_bgr: np.ndarray) -> np.ndarray:
+    """Per-pixel LAB distance to pure white."""
+    pixels_bgr = pixels_bgr.astype(np.uint8)
+    lab = cv2.cvtColor(pixels_bgr.reshape(-1, 1, 3), cv2.COLOR_BGR2LAB).reshape(-1, 3).astype(np.float32)
+
+    white_lab = cv2.cvtColor(
+        np.array([[[255, 255, 255]]], dtype=np.uint8),
+        cv2.COLOR_BGR2LAB
+    ).reshape(3).astype(np.float32)
+
+    return np.linalg.norm(lab - white_lab, axis=1)
+
 
 def validate_id_photo(image_path: str) -> Dict:
+    """
+    ONLY validates that the background is white / close-to-white.
+    Uses top-corners only (avoids sampling shirt/face at bottom).
+    """
     errors: List[str] = []
 
-    img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    img = cv2.imread(image_path, cv2.IMREAD_COLOR)
     if img is None:
         return {"status": "error", "errors": ["Invalid or unreadable image file."]}
 
-    # -----------------------------------
-    # Normalize image
-    # -----------------------------------
-    if img.ndim == 2:
-        bgr = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        alpha = None
-    elif img.shape[2] == 4:
-        bgr = img[:, :, :3]
-        alpha = img[:, :, 3]
-    else:
-        bgr = img
-        alpha = None
+    h, w = img.shape[:2]
 
-    h, w = bgr.shape[:2]
+    # Sample ONLY top corners (simple + robust for portraits)
+    patch_px = max(30, int(min(h, w) * 0.12))  # ~12% of image
+    sample = _top_corner_pixels_bgr(img, patch_px=patch_px)
 
-    # -----------------------------------
-    # 1. BACKGROUND CHECK
-    # -----------------------------------
-    background_ok = False
+    dist = _lab_distance_to_white(sample)
 
-    # A. Transparent background
-    if alpha is not None:
-        transparent_ratio = np.mean(alpha < 10)
-        if transparent_ratio >= 0.01:
-            background_ok = True
-        else:
-            errors.append("Image has alpha channel but background is not transparent.")
+    # Tuning knobs (simple):
+    threshold = 40.0        # how close to white each pixel must be (higher = more tolerant)
+    ratio_required = 0.90   # how much of the corner pixels must be white-ish
 
-    # B. White background check
-    if not background_ok:
-        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    white_ratio = float(np.mean(dist <= threshold))
 
-        border_px = max(5, int(min(h, w) * 0.06))
-        border = border_pixels_hsv(hsv, border_px=border_px)
+    if white_ratio < ratio_required:
+        errors.append(
+            f"Background is not white enough. (white_ratio={white_ratio:.2f}, required={ratio_required:.2f})"
+        )
 
-
-        mean_s = np.mean(border[:, 1])
-        mean_v = np.mean(border[:, 2])
-
-        if mean_v >= 235 and mean_s <= 35:
-            background_ok = True
-        else:
-            errors.append("Background is not white or transparent.")
-
-    # -----------------------------------
-    # 2. FOREGROUND / POSITIONING
-    # -----------------------------------
-    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-    s, v = hsv[:, :, 1], hsv[:, :, 2]
-
-    fg_mask = np.logical_not((s < 40) & (v > 200)).astype(np.uint8) * 255
-
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(fg_mask)
-
-    if num_labels <= 1:
-        errors.append("No clear subject detected in the image.")
-    else:
-        subject = stats[1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])]
-        x, y, bw, bh, area = subject
-
-        area_ratio = area / (h * w)
-        cx = x + bw / 2
-        cy = y + bh / 2
-
-        center_x_offset = abs(cx - w / 2) / w
-        center_y_offset = abs(cy - h / 2) / h
-
-        if area_ratio < 0.12 or area_ratio > 0.65:
-            errors.append("Subject size is not suitable for an ID photo.")
-
-        if center_x_offset > 0.12 or center_y_offset > 0.18:
-            errors.append("Subject is not properly centered.")
-
-        if x < 0.03 * w or y < 0.02 * h or (x + bw) > 0.97 * w or (y + bh) > 0.98 * h:
-            errors.append("Subject is too close to the image edge or cropped.")
-
-    # -----------------------------------
-    # FINAL RESULT
-    # -----------------------------------
     if errors:
-        return {
-            "status": "error",
-            "errors": errors
-        }
+        return {"status": "error", "errors": errors}
 
-    return {
-        "status": "success"
-    }
+    return {"status": "success"}
 
 
 @router.post("/validate-photo")

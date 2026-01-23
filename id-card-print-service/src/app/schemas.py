@@ -72,8 +72,17 @@ class EmployeePhotoStatusUpdate(APIModel):
     photo_present: bool = Field(alias="photoPresent")
 
 
+class EmployeeFilters(APIModel):
+    name: str = ""
+    employee_id: str = Field(default="", alias="employeeId")
+    photo_status: str = Field(default="all", alias="photoStatus")
+    department: str = "all"
+
+
 class BulkEmailRequest(APIModel):
     employee_ids: Optional[list[str]] = Field(default=None, alias="employeeIds")
+    filters: Optional[EmployeeFilters] = None
+    is_all: bool = Field(default=False, alias="isAll")
     message: Optional[str] = None
 
 
