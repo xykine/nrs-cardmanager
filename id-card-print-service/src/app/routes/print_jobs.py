@@ -23,7 +23,10 @@ from ..schemas import (
     ReportIn,
 )
 from ..storage import ASSETS_DIR, job_dir
+from .employees import _apply_employee_filters, _filters_are_empty
 
+import subprocess
+import shutil
 
 router = APIRouter(prefix="/api")
 PRINT_JOBS_API_BASE = "/api/print-jobs"
@@ -58,6 +61,35 @@ def _decode_photo_data(photo_data: str) -> Image.Image:
     return img
 
 
+def _get_available_printers() -> List[str]:
+    """List printers using lpstat -p -d | awk '{print $2}' logic."""
+    try:
+        # Mac/Linux: lpstat -p -d
+        # Output example:
+        # printer Canon_LBP6200 is idle.  enabled since ...
+        # printer Canon_LBP6200 generic_driver...
+        res = subprocess.run(["lpstat", "-p"], capture_output=True, text=True)
+        if res.returncode != 0:
+            return []
+        
+        printers = []
+        for line in res.stdout.splitlines():
+            # line: "printer <name> is idle. ..." => split by space, index 1
+            parts = line.strip().split()
+            if len(parts) >= 2 and parts[0] == "printer":
+                printers.append(parts[1])
+        
+        # Unique and sorted
+        return sorted(list(set(printers)))
+    except Exception:
+        return []
+
+
+@router.get("/printers", response_model=List[str])
+def list_printers():
+    return _get_available_printers()
+
+
 # @router.get("/health")
 # def health():
 #     return {"ok": True}
@@ -73,20 +105,35 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
     if not icon.exists():
         raise HTTPException(400, f"Missing asset: {icon}")
 
-    if not payload.employeeIds:
-        raise HTTPException(400, "employeeIds is required")
+    employee_ids = payload.employeeIds or []
+    
+    if payload.is_all:
+         query = db.query(Employee).options(joinedload(Employee.card))
+         if payload.filters and not _filters_are_empty(payload.filters):
+             query = _apply_employee_filters(
+                query,
+                name=payload.filters.name,
+                employee_id=payload.filters.employee_id,
+                photo_status=payload.filters.photo_status,
+                department=payload.filters.department,
+            )
+         employees = query.all()
+         employee_ids = [e.id for e in employees]
+    elif employee_ids:
+        employees = (
+            db.query(Employee)
+            .options(joinedload(Employee.card))
+            .filter(Employee.id.in_(employee_ids))
+            .all()
+        )
+    else:
+        # No IDs and not is_all => empty
+        employees = []
 
-    employee_ids = [str(employee_id).strip() for employee_id in payload.employeeIds]
-    employees = (
-        db.query(Employee)
-        .options(joinedload(Employee.card))
-        .filter(Employee.id.in_(employee_ids))
-        .all()
-    )
     employees_by_id = {employee.id: employee for employee in employees}
-    missing = [employee_id for employee_id in employee_ids if employee_id not in employees_by_id]
-    if missing:
-        raise HTTPException(404, f"Employees not found: {', '.join(missing)}")
+    # missing = [employee_id for employee_id in employee_ids if employee_id not in employees_by_id]
+    # if missing:
+    #     raise HTTPException(404, f"Employees not found: {', '.join(missing)}")
 
     out: List[JobOut] = []
 
@@ -142,6 +189,36 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
             frontPngUrl=f"{PRINT_JOBS_API_BASE}/{job_id}/front.png",
             backPngUrl=f"{PRINT_JOBS_API_BASE}/{job_id}/back.png",
         ))
+
+
+
+        # ---------------------------------------------------------
+        # ACTUAL PRINTING
+        # ---------------------------------------------------------
+        # If printerId is provided and valid, try to print.
+        # Note: 'lp' returns 0 on success.
+        if payload.printerId:
+            try:
+                # Print Front
+                subprocess.run(
+                    ["lp", "-d", payload.printerId, str(front_path)], 
+                    check=False
+                )
+                # Print Back
+                subprocess.run(
+                    ["lp", "-d", payload.printerId, str(back_path)], 
+                    check=False
+                )
+                
+                # Update status to PRINTING or PRINTED?
+                # For now we'll mark it as PRINTING if command sent
+                job.status = JobStatus.PRINTING
+                job.updated_at = _now()
+                
+            except Exception as e:
+                print(f"Failed to print job {job_id}: {e}")
+                # We don't fail the request, just log it. 
+                # The user will see status PENDING or whatever we set.
 
     db.commit()
     return out

@@ -221,7 +221,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl text-gray-600">Loading...</div>
+        <div className="text-xl text-gray-600">Page loading wait...</div>
       </div>
     );
   }

@@ -64,6 +64,14 @@ function App() {
             }
           />
           <Route
+            path="/card-upload/invitation"
+            element={
+              <ProtectedRoute isAuthenticated={isAuthenticated}>
+                <CardPage onLogout={handleLogout} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/detail/:employeeId"
             element={
               <ProtectedRoute isAuthenticated={isAuthenticated}>

@@ -641,6 +641,15 @@ def _build_photo_upload_html(
                                     <strong>Quality:</strong> High-resolution, full color, no shadows.
                                   </td>
                                 </tr>
+
+                                <tr>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">7.</td>
+                                  <td style="font-size:14px; line-height:1.6;">
+                                    <strong>Deadline:</strong> Submission of ID card is 30th of January 2026.
+                                  </td>
+                                </tr>
+
+                                
                               </tbody>
                             </table>
                             {sample_block}

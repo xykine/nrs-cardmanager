@@ -26,8 +26,7 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
       const intendedLocation = sessionStorage.getItem("nrs_intended_location");
       if (
         employee &&
-        (intendedLocation?.split("/card/")[1] === employee.id ||
-          employee.role === "manager")
+        (intendedLocation?.split("/card/")[1] === employee.id || employeeCode === employee.employeeId || employee.role === "manager")
       ) {
         sessionStorage.setItem("nrs_employee_id", employee.id);
         sessionStorage.setItem("nrs_user_role", employee.role);

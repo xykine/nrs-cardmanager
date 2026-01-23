@@ -8,12 +8,14 @@ from .models import JobStatus
 
 class CreateJobsIn(BaseModel):
     tenantId: str = "nrs"
-    printerId: str = "ZXP7_OFFICE_1"
+    printerId: str = Field(default="ZXP7_OFFICE_1", alias="stationId")
     requestedBy: str = "system"
     templateId: str = "NRS_MINIMAL_V1"
     dpi: int = 300
     copies: int = 1
-    employeeIds: List[str]
+    employeeIds: Optional[List[str]] = None
+    filters: Optional["EmployeeFilters"] = None
+    is_all: bool = Field(default=False, alias="isAll")
 
 
 class JobOut(BaseModel):

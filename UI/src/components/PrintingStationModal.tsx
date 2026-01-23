@@ -34,8 +34,10 @@ export default function PrintingStationModal({ isOpen, onClose, onSubmit, employ
   };
 
   const handleSubmit = () => {
-      onSubmit("");
+    if (selectedStation) {
+      onSubmit(selectedStation);
       setSelectedStation(null);
+    }
   };
 
   if (!isOpen) return null;
@@ -71,7 +73,8 @@ export default function PrintingStationModal({ isOpen, onClose, onSubmit, employ
           ) : stations.length === 0 ? (
             <div className="text-center py-12">
               {/* <XCircle className="w-12 h-12 text-slate-400 mx-auto mb-3" /> */}
-              <p className="text-slate-600">You are about to print the ID Card for the selected Employee.</p>
+              <p className="text-slate-600">No printing stations detected online.</p>
+              <p className="text-sm text-slate-500 mt-2">Please ensure your printer is connected and recognized by the system.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -84,39 +87,34 @@ export default function PrintingStationModal({ isOpen, onClose, onSubmit, employ
                     key={station.id}
                     onClick={() => isOnline && setSelectedStation(station.id)}
                     disabled={!isOnline}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                      isSelected
+                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${isSelected
                         ? 'border-blue-600 bg-blue-50'
                         : isOnline
-                        ? 'border-slate-200 hover:border-blue-300 bg-white'
-                        : 'border-slate-200 bg-slate-50 cursor-not-allowed opacity-60'
-                    }`}
+                          ? 'border-slate-200 hover:border-blue-300 bg-white'
+                          : 'border-slate-200 bg-slate-50 cursor-not-allowed opacity-60'
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                            isOnline ? 'bg-green-100' : 'bg-slate-200'
-                          }`}
+                          className={`w-12 h-12 rounded-lg flex items-center justify-center ${isOnline ? 'bg-green-100' : 'bg-slate-200'
+                            }`}
                         >
                           <Printer
-                            className={`w-6 h-6 ${
-                              isOnline ? 'text-green-600' : 'text-slate-400'
-                            }`}
+                            className={`w-6 h-6 ${isOnline ? 'text-green-600' : 'text-slate-400'
+                              }`}
                           />
                         </div>
                         <div>
                           <h3 className="font-semibold text-slate-900">{station.name}</h3>
                           <div className="flex items-center gap-2 mt-1">
                             <div
-                              className={`w-2 h-2 rounded-full ${
-                                isOnline ? 'bg-green-500' : 'bg-slate-400'
-                              }`}
+                              className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-slate-400'
+                                }`}
                             />
                             <span
-                              className={`text-sm font-medium ${
-                                isOnline ? 'text-green-600' : 'text-slate-500'
-                              }`}
+                              className={`text-sm font-medium ${isOnline ? 'text-green-600' : 'text-slate-500'
+                                }`}
                             >
                               {isOnline ? 'Online' : 'Offline'}
                             </span>
@@ -143,12 +141,11 @@ export default function PrintingStationModal({ isOpen, onClose, onSubmit, employ
           </button>
           <button
             onClick={handleSubmit}
-            // disabled={selectedStation}
-            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-              selectedStation
+            disabled={!selectedStation}
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${selectedStation
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
+                : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+              }`}
           >
             Start Printing
           </button>

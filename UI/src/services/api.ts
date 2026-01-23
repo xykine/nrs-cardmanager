@@ -213,9 +213,18 @@ export const cardService = {
 
 export const printingService = {
   async getStations(): Promise<PrintingStation[]> {
-    const response = await fetch(`${API_BASE_URL}/printing/stations`);
+    const response = await fetch(`${API_BASE_URL}/printers`);
     if (!response.ok) throw new Error("Failed to fetch printing stations");
-    return response.json();
+    const names: string[] = await response.json();
+    return names.map(name => ({
+      id: name,
+      name: name,
+      status: "online",
+      location: "Office",
+      last_seen: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }));
   },
 
   async createBatch(
