@@ -1,23 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Employee } from "../types";
-import { employeeService, cardService } from "../services/api";
-import {
-  Upload,
-  Printer,
-  Mail,
-  Save,
-  ArrowLeft,
-  Phone,
-  LogOut,
-  RefreshCw,
-} from "lucide-react";
-import { useNotification } from "../contexts/NotificationContext";
-import EmailDialog from "./EmailDialog";
-import nrsLogo from "../assets/logoNRS.png";
-import nrsLogoBottomBar from "../assets/logoBottomBar.png";
-import nrsLogo2 from "../assets/nrs-logo.png";
-import ErrorAlert from "./ErrorAlert";
+import { Employee } from "../../types";
+import { employeeService, cardService } from "../../services/api";
+import { Upload, Printer, Mail, Save, ArrowLeft, LogOut } from "lucide-react";
+import { useNotification } from "../../contexts/NotificationContext";
+import EmailDialog from "../EmailDialog";
+import chairmanSignature2 from "../../assets/chairman_signature2.png";
+import nrsLogoBottomBar from "../../assets/logoBottomBar.png";
+import nrsLogo2 from "../../assets/nrs-logo.png";
+import ErrorAlert from "../ErrorAlert";
+import BackPage from "./BackPage";
+import FrontPage from "./FrontPage";
 
 export default function CardPage({ onLogout }: { onLogout: () => void }) {
   const { employeeId } = useParams<{ employeeId: string }>();
@@ -328,145 +321,30 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                 </div>
               </div>
               <div className="mt-6">
-                <ErrorAlert errors={photoErrors} onClose={() => setPhotoErrors([])} />
+                <ErrorAlert
+                  errors={photoErrors}
+                  onClose={() => setPhotoErrors([])}
+                />
               </div>
             </div>
 
-            <div>
-              <h2 className="text-lg font-semibold text-slate-700 mb-4 print:hidden">
-                Front Side
-              </h2>
-              <div className="bg-white rounded-2xl shadow-xl aspect-[3/5] w-full max-w-sm overflow-hidden border border-gray-200">
-                <div className="flex flex-col h-full items-center">
-                  {/* Logo */}
-                  <div className="p-14">
-                    <div className="flex justify-center">
-                      <img
-                        src={nrsLogo2}
-                        alt="NRS"
-                        className="h-15 object-contain"
-                      />
-                    </div>
-                  </div>
+            <FrontPage
+              showTitle={true}
+              employee={employee}
+              nrsLogoSrc={nrsLogo2}
+              nrsLogoBottomBarSrc={nrsLogoBottomBar}
+              photoData={photoData}
+              validating={validating}
+              fileInputRef={fileInputRef}
+            />
 
-                  {/* Photo */}
-                  <div className="w-52 h-52 border-[8px] border-red-600 rounded-md overflow-hidden bg-gray-100 mb-6">
-                    {photoData && !validating ? (
-                      <img
-                        src={photoData}
-                        alt={employee.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                        {validating ? (
-                          <div className="flex flex-col items-center gap-2">
-                            <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
-                            <span className="text-xs text-blue-600 font-medium">Validating...</span>
-                          </div>
-                        ) : (
-                          <Upload
-                            onClick={() => fileInputRef.current?.click()}
-                            className="w-14 h-14 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
-                          />
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Name */}
-                  <h3 className="text-3xl font-bold text-gray-600 tracking-wide text-center">
-                    {employee.name.toUpperCase()}
-                  </h3>
-
-                  {/* ID */}
-                  <p className="text-l font-semibold text-gray-600 mt-10">
-                    IR {employee.employeeId}
-                  </p>
-
-                  {/* Spacer */}
-                  {/* <div className="flex-1" /> */}
-
-                  {/* Bottom accent */}
-                  <div className="flex items-center gap-2 mx-20 mt-2">
-                    <img
-                      src={nrsLogoBottomBar}
-                      alt="NRS Logo Bottom Bar"
-                      className="h-25"
-                    />
-                  </div>
-                  <div className="w-full flex items-center gap-2 mt-10"></div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold text-slate-700 mb-4 print:hidden">
-                Back Side
-              </h2>
-              <div className="bg-white rounded-2xl shadow-xl aspect-[3/5] w-full max-w-sm overflow-hidden border border-gray-200">
-                <div className="flex flex-col h-full">
-                  {/* Top: Logo */}
-                  <div className="p-14">
-                    <div className="flex justify-center">
-                      <img
-                        src={nrsLogo2}
-                        alt="NRS"
-                        className="h-15 object-contain"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Middle: Content */}
-                  <div className="flex-1 px-10 flex flex-col items-center justify-center text-center">
-                    <p className="text-[12px] font-semibold text-gray-600">
-                      This is a property of
-                    </p>
-                    <p className="text-[12px] font-semibold text-gray-600 mt-0">
-                      Nigeria Revenue Service
-                    </p>
-
-                    <div className="mt-6 space-y-0">
-                      <p className="text-[12px] text-gray-600">
-                        If found, please return to any
-                      </p>
-                      <p className="text-[12px] text-gray-600">
-                        NRS office or contact below:
-                      </p>
-                    </div>
-
-                    {/* Contacts */}
-                    <div className="ml-20 mt-6 w-full space-y-0 mb-4">
-                      <div className="ml-6 flex items-start justify-start gap-2">
-                        <Phone className="w-3 h-3 text-red-600" />
-                        <span className="text-[12px] font-medium text-gray-800">
-                          0907 211 1111; 0907 444 4441
-                        </span>
-                      </div>
-
-                      <div className="ml-6 flex items-start justify-start gap-2">
-                        {/* red dot bullet like the image */}
-                        <span className="w-3 h-3 rounded-full bg-red-600 inline-block" />
-                        <span className="text-[12px] font-medium text-gray-800">
-                          lostcard@nrs.gov.ng
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bottom: Red band */}
-                  <div className="bg-red-600 py-6 px-8">
-                    <div className="text-center text-white leading-tight">
-                      <p className="text-sm font-bold">HCMD Department</p>
-                      <p className="text-sm font-semibold mt-1">
-                        NRS Headquarters
-                      </p>
-                    </div>
-                  </div>
-                  <div className="w-full flex items-center gap-2 mt-20"></div>
-                </div>
-              </div>
-            </div>
+            <BackPage
+              showTitle={true}
+              chairmanSignatureSrc={chairmanSignature2}
+              nrsLogoSrc={nrsLogo2}
+              phoneText="+234 700 2255 677"
+              emailText="lostcard@nrs.gov.ng"
+            />
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import EmployeeList from "./components/EmployeeList";
-import CardPage from "./components/CardPage";
+import CardPage from "./components/Card/CardPage";
 import EmployeeDetail from "./components/EmployeeDetail";
 import Login from "./components/Login";
 import PrintingTasksPage from "./components/PrintingTasksPage";

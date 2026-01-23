@@ -558,14 +558,14 @@ def _build_photo_upload_html(
                       overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,0.08);">
                       <tbody>
                         <tr>
-                          <td style="background:linear-gradient(135deg,#0f172a,#1d4ed8); padding:22px 26px;">
+                         <td style="background:linear-gradient(135deg,#063C2B,#0B4F3A); padding:22px 26px;">
                             <div style="color:#ffffff; font-size:18px; font-weight:700; line-height:1.2;">
-                              Employee ID Card Photo Upload
+                                Employee ID Card Photo Upload
                             </div>
-                            <div style="color:#dbeafe; font-size:13px; margin-top:6px; line-height:1.4;">
-                              Action required to complete your ID card production.
+                            <div style="color:#CFEDE3; font-size:13px; margin-top:6px; line-height:1.4;">
+                                Action required to complete your ID card production.
                             </div>
-                          </td>
+                         </td>
                         </tr>
                         <tr>
                           <td style="padding:24px 26px 10px 26px; color:#111827;">
@@ -584,7 +584,7 @@ def _build_photo_upload_html(
                                   <td style="font-size:13px; line-height:1.6; color:#111827; padding:6px;">
                                     <div style="margin-bottom:6px;">
                                       <strong>Upload Link:</strong>
-                                      <a href="{safe_link}" style="color:#1d4ed8; text-decoration:underline;">
+                                      <a href="{safe_link}" style="color:#0B4F3A; text-decoration:underline;">
                                         Click here to upload your photo
                                       </a>
                                     </div>
