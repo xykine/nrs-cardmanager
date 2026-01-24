@@ -24,6 +24,7 @@ from ..schemas import (
 )
 from ..storage import ASSETS_DIR, job_dir
 from .employees import _apply_employee_filters, _filters_are_empty
+from ..pdf_generator import create_id_card_pdf
 
 import subprocess
 import shutil
@@ -168,17 +169,11 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
             updated_at=_now(),
         )
 
-        # Render image immediately (MVP)
-        front_path = d / "front.png"
-        img = render_front(full_name, empp_ID, str(photo_path), logo, icon)
-        img.save(front_path, "PNG")
-        job.front_png_path = str(front_path)
-
-        # Render + save BACK
-        back_path = d / "back.png"
-        back_img = render_back(logo_path=logo)   # you can pass dept/phones/email too
-        back_img.save(back_path, "PNG")
-        job.back_png_path = str(back_path)
+        # Optimization: Do NOT render front/back images to disk here.
+        # We will render them on-the-fly when PDF is requested.
+        # This saves disk space and inodes.
+        job.front_png_path = None
+        job.back_png_path = None
 
         db.add(job)
         out.append(JobOut(
@@ -186,42 +181,76 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
             printerId=payload.printerId,
             status=job.status.value,
             attempts=0,
+            # These URLs might 404 if accessed directly now, but frontend only needs jobId for PDF
             frontPngUrl=f"{PRINT_JOBS_API_BASE}/{job_id}/front.png",
             backPngUrl=f"{PRINT_JOBS_API_BASE}/{job_id}/back.png",
         ))
 
-
-
-        # ---------------------------------------------------------
-        # ACTUAL PRINTING
-        # ---------------------------------------------------------
-        # If printerId is provided and valid, try to print.
-        # Note: 'lp' returns 0 on success.
-        if payload.printerId:
-            try:
-                # Print Front
-                subprocess.run(
-                    ["lp", "-d", payload.printerId, str(front_path)], 
-                    check=False
-                )
-                # Print Back
-                subprocess.run(
-                    ["lp", "-d", payload.printerId, str(back_path)], 
-                    check=False
-                )
-                
-                # Update status to PRINTING or PRINTED?
-                # For now we'll mark it as PRINTING if command sent
-                job.status = JobStatus.PRINTING
-                job.updated_at = _now()
-                
-            except Exception as e:
-                print(f"Failed to print job {job_id}: {e}")
-                # We don't fail the request, just log it. 
-                # The user will see status PENDING or whatever we set.
-
     db.commit()
     return out
+
+
+@router.post("/print-jobs/batch-pdf")
+def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
+    job_ids = payload.get("jobIds", [])
+    if not job_ids:
+        raise HTTPException(400, "No jobIds provided")
+
+    jobs = db.query(PrintJob).filter(PrintJob.job_id.in_(job_ids)).all()
+    if not jobs:
+        raise HTTPException(404, "No jobs found")
+
+    # Validate assets exist once
+    logo = ASSETS_DIR / "nrs_logo.png"
+    icon = ASSETS_DIR / "bottom_icon.png"
+    if not logo.exists() or not icon.exists():
+        raise HTTPException(500, "Server assets missing (logo/icon)")
+
+    card_images = []
+    
+    for job in jobs:
+        try:
+            # We need to render on the fly.
+            # 1. Load photo
+            if not job.photo_url:
+                print(f"Skipping job {job.job_id}: No photo_url")
+                continue
+                
+            # Render Front
+            front_img = render_front(
+                job.full_name, 
+                job.employee_id, 
+                job.photo_url, # render_front opens this path
+                logo, 
+                icon
+            )
+            
+            # Render Back
+            back_img = render_back(logo_path=logo)
+            
+            card_images.append((front_img, back_img))
+            
+        except Exception as e:
+            print(f"Failed to render job {job.job_id}: {e}")
+            continue
+    
+    if not card_images:
+         raise HTTPException(400, "No valid images could be generated for provided jobs")
+
+    # Create temporary PDF
+    # We use the first job's directory to store the PDF momentarily
+    # Or just a temp file. Let's stick to the pattern but maybe cleaner.
+    pdf_filename = f"batch_{_now().strftime('%Y%m%d%H%M%S')}.pdf"
+    output_path = job_dir(jobs[0].job_id).parent / pdf_filename 
+    
+    # Pass PIL images directly to generator
+    pdf_path = create_id_card_pdf(card_images, str(output_path))
+    
+    return FileResponse(
+        pdf_path, 
+        media_type="application/pdf", 
+        filename="print_batch.pdf"
+    )
 
 
 @router.get("/print-jobs", response_model=List[JobOut])

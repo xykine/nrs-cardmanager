@@ -11,7 +11,7 @@ def _inch_to_px(inches: float) -> int:
 
 CARD_W, CARD_H = _inch_to_px(2.125), _inch_to_px(3.375)
 
-BG_COLOR = "#F2F2F2"
+BG_COLOR = "#FFFFFF"
 RED = "#C62828"
 DARK_GRAY = "#4A4A4A"
 LIGHT_GRAY = "#6A6A6A"
@@ -135,7 +135,7 @@ def render_front(
 
 def render_back(
     logo_path: Path,
-    department_line1: str = "HCMD Department",
+    department_line1: str = "HCM Group",
     department_line2: str = "NRS Headquarters",
     phone_left: str = "0907 211 1111",
     phone_right: str = "0907 444 4441",

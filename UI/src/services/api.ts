@@ -232,7 +232,7 @@ export const printingService = {
     employeeIds: string[],
     filters: EmployeeFilters,
     isAll: boolean,
-  ): Promise<PrintBatch> {
+  ): Promise<any[]> {
     const response = await fetch(`${API_BASE_URL}/print-jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -286,5 +286,15 @@ export const printingService = {
     });
     if (!response.ok) throw new Error("Failed to delete batches");
     return response.json();
+  },
+
+  async downloadBatchPdf(jobIds: string[]): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/print-jobs/batch-pdf`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobIds }),
+    });
+    if (!response.ok) throw new Error("Failed to generate PDF");
+    return response.blob();
   },
 };

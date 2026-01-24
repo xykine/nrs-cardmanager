@@ -412,30 +412,42 @@ export default function EmployeeList({
     setPrintingModal({ isOpen: true, employeeIds: [employee.id] });
   };
 
-  const handlePrintingSubmit = async (stationId: string) => {
+  const handlePrintingSubmit = async (/* stationId ignored */) => {
     const employeeCount = selectAllPages ? "All pages" : printingModal.employeeIds.length;
     setPrintingModal({ isOpen: false, employeeIds: [] });
 
     const notificationId = addNotification({
       type: "progress",
-      title: "Creating Print Batch",
-      message: `Preparing ${employeeCount} card(s) for printing...`,
+      title: "Generating Print PDF",
+      message: `Preparing PDF for ${employeeCount} card(s)...`,
       progress: 50,
       autoClose: false,
     });
 
     try {
-      await printingService.createBatch(
-        stationId,
+      // 1. Create Jobs (Backend will generate images)
+      // Pass "PDF_GENERATION" as stationId since backend expects a string, though it won't be used for `lp` anymore.
+      const jobs = await printingService.createBatch(
+        "PDF_GENERATION",
         printingModal.employeeIds,
         filters,
         selectAllPages
       );
 
+      // 2. Get Job IDs
+      const jobIds = jobs.map((j: any) => j.jobId);
+
+      // 3. Download PDF
+      const blob = await printingService.downloadBatchPdf(jobIds);
+      const url = window.URL.createObjectURL(blob);
+
+      // 4. Open PDF
+      window.open(url, '_blank');
+
       updateNotification(notificationId, {
         type: "success",
-        title: "Print Batch Created",
-        message: `${employeeCount} card(s) queued for printing`,
+        title: "PDF Generated",
+        message: `PDF opened in new tab`,
         autoClose: true,
       });
 
@@ -444,7 +456,7 @@ export default function EmployeeList({
       updateNotification(notificationId, {
         type: "error",
         title: "Print Failed",
-        message: "Failed to create print batch. Please try again.",
+        message: "Failed to generate print PDF. Please try again.",
         autoClose: true,
       });
       console.error(err);
