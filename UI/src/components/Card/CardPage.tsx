@@ -356,13 +356,15 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
               isEditable={true}
             />
 
-            <BackPage
-              showTitle={true}
-              chairmanSignatureSrc={chairmanSignature2}
-              nrsLogoSrc={nrsLogo2}
-              phoneText="+234 700 2255 677"
-              emailText="lostcard@nrs.gov.ng"
-            />
+            {currentUserRole === "manager" && (
+              <BackPage
+                showTitle={true}
+                chairmanSignatureSrc={chairmanSignature2}
+                nrsLogoSrc={nrsLogo2}
+                phoneText="+234 700 2255 677"
+                emailText="lostcard@nrs.gov.ng"
+              />
+            )}
           </div>
         </div>
       </div>
