@@ -278,16 +278,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:hidden">
-                {(photoData || !saving) && (
-                  <button
-                    onClick={handleSave}
-                    disabled={!photoData || saving}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors font-semibold text-l shadow-md"
-                  >
-                    <Save className="w-4 h-4" />
-                    {saving ? "Saving..." : "Submit"}
-                  </button>
-                )}
+
 
                 {currentUserRole &&
                   currentUserRole === "manager" &&
@@ -328,6 +319,17 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                     {photoData ? "Change Photo" : "Upload Photo"}
                   </button>
                 </div>
+
+                {(photoData || !saving) && (
+                  <button
+                    onClick={handleSave}
+                    disabled={!photoData || saving}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors font-semibold text-l shadow-md"
+                  >
+                    <Save className="w-4 h-4" />
+                    {saving ? "Saving..." : "Submit"}
+                  </button>
+                )}
               </div>
               <div className="mt-6">
                 <ErrorAlert
@@ -338,7 +340,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
             </div>
 
             <FrontPage
-              showTitle={true}
+              showTitle={false}
               employee={employee}
               nrsLogoSrc={nrsLogo2}
               nrsLogoBottomBarSrc={nrsLogoBottomBar}
@@ -354,11 +356,12 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                 setPhotoScale(s);
               }}
               isEditable={true}
+              currentUserRole={currentUserRole}
             />
 
             {currentUserRole === "manager" && (
               <BackPage
-                showTitle={true}
+                showTitle={false}
                 chairmanSignatureSrc={chairmanSignature2}
                 nrsLogoSrc={nrsLogo2}
                 phoneText="+234 700 2255 677"

@@ -28,6 +28,7 @@ export type FrontPageProps = {
   /** Optional */
   showTitle?: boolean;
   className?: string;
+  currentUserRole?: string;
 };
 
 const FrontPage: React.FC<FrontPageProps> = ({
@@ -44,6 +45,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
   isEditable = true,
   showTitle = true,
   className = "",
+  currentUserRole = "staff",
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -101,7 +103,11 @@ const FrontPage: React.FC<FrontPageProps> = ({
           {/* Logo */}
           <div className="p-14">
             <div className="flex justify-center">
-              <img src={nrsLogoSrc} alt="NRS" className="h-15 object-contain" />
+              {currentUserRole === "manager" ? (
+                <img src={nrsLogoSrc} alt="NRS" className="h-15 object-contain" />
+              ) : (
+                <div className="h-15 object-contain" style={{ backgroundColor: "#FF0000" }}></div>
+              )}
             </div>
           </div>
 
@@ -187,13 +193,15 @@ const FrontPage: React.FC<FrontPageProps> = ({
           </p>
 
           {/* Bottom accent */}
-          <div className="flex items-center gap-2 mx-20 mt-2">
-            <img
-              src={nrsLogoBottomBarSrc}
-              alt="NRS Logo Bottom Bar"
-              className="h-25"
-            />
-          </div>
+          {currentUserRole === "manager" && (
+            <div className="flex items-center gap-2 mx-20 mt-2">
+              <img
+                src={nrsLogoBottomBarSrc}
+                alt="NRS Logo Bottom Bar"
+                className="h-25"
+              />
+            </div>
+          )}
 
           {/* Spacer */}
           <div className="w-full flex items-center gap-2 mt-10" />
