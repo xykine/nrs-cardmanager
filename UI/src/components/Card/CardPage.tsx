@@ -23,6 +23,9 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
   const [saving, setSaving] = useState(false);
   const [photoErrors, setPhotoErrors] = useState<string[]>([]);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [photoX, setPhotoX] = useState(0);
+  const [photoY, setPhotoY] = useState(0);
+  const [photoScale, setPhotoScale] = useState(1.0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentUserRole = sessionStorage.getItem("nrs_user_role") || "staff";
 
@@ -70,6 +73,9 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
 
       if (employeeData.card?.photoData) {
         setPhotoData(employeeData.card.photoData);
+        setPhotoX(employeeData.card.photoX || 0);
+        setPhotoY(employeeData.card.photoY || 0);
+        setPhotoScale(employeeData.card.photoScale || 1.0);
       }
     } catch (err) {
       console.error("Failed to load employee data:", err);
@@ -90,6 +96,9 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
     const reader = new FileReader();
     reader.onload = (e) => {
       setPhotoData(e.target?.result as string);
+      setPhotoX(0);
+      setPhotoY(0);
+      setPhotoScale(1.0);
     };
     reader.readAsDataURL(file);
   };
@@ -116,7 +125,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
 
     try {
       setSaving(true);
-      await cardService.saveCard(employeeId, photoData);
+      await cardService.saveCard(employeeId, photoData, photoX, photoY, photoScale);
 
       updateNotification(notificationId, {
         type: "success",
@@ -336,6 +345,15 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
               photoData={photoData}
               validating={validating}
               fileInputRef={fileInputRef}
+              photoX={photoX}
+              photoY={photoY}
+              photoScale={photoScale}
+              onPositionChange={(x, y, s) => {
+                setPhotoX(x);
+                setPhotoY(y);
+                setPhotoScale(s);
+              }}
+              isEditable={true}
             />
 
             <BackPage

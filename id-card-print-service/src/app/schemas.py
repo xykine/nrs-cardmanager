@@ -107,6 +107,9 @@ class CardPublic(APIModel):
     employee_id: str = Field(alias="employeeId")
     photo_url: Optional[str] = Field(default=None, alias="photoUrl")
     photo_data: Optional[str] = Field(default=None, alias="photoData")
+    photo_x: int = Field(default=0, alias="photoX")
+    photo_y: int = Field(default=0, alias="photoY")
+    photo_scale: float = Field(default=1.0, alias="photoScale")
     created_at: datetime = Field(alias="createdAt")
     updated_at: datetime = Field(alias="updatedAt")
 
@@ -128,3 +131,6 @@ class CardOut(CardPublic):
 
 class CardSave(APIModel):
     photo_data: Optional[str] = Field(default=None, alias="photoData")
+    photo_x: int = Field(default=0, alias="photoX")
+    photo_y: int = Field(default=0, alias="photoY")
+    photo_scale: float = Field(default=1.0, alias="photoScale")

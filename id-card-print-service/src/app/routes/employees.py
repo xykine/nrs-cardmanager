@@ -577,22 +577,7 @@ def _build_photo_upload_html(
                               upload your passport photograph.
                             </p>
                             {extra_block}
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                              style="background-color:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:14px;">
-                              <tbody>
-                                <tr>
-                                  <td style="font-size:13px; line-height:1.6; color:#111827; padding:6px;">
-                                    <div style="margin-bottom:6px;">
-                                      <strong>Upload Link:</strong>
-                                      <a href="{safe_link}" style="color:#0B4F3A; text-decoration:underline;">
-                                        Click here to upload your photo
-                                      </a>
-                                    </div>
-                                    {login_block}
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
+                            
                             <h3 style="margin:22px 0 10px 0; font-size:15px; line-height:1.3; color:#111827;">
                               Photo Requirements (Important)
                             </h3>
@@ -652,6 +637,24 @@ def _build_photo_upload_html(
                                 
                               </tbody>
                             </table>
+
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                              style="background-color:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:14px;">
+                              <tbody>
+                                <tr>
+                                  <td style="font-size:13px; line-height:1.6; color:#111827; padding:6px;">
+                                    <div style="margin-bottom:6px;">
+                                      <strong>Upload Link:</strong>
+                                      <a href="{safe_link}" style="color:#0B4F3A; text-decoration:underline;">
+                                        Click here to upload your photo
+                                      </a>
+                                    </div>
+                                    {login_block}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                            
                             {sample_block}
                             <div style="margin:18px 0 0 0; padding:12px 14px; background-color:#fffbeb;
                               border:1px solid #fde68a; border-radius:12px; color:#92400e;
@@ -1402,9 +1405,7 @@ def validate_id_photo(image_path: str) -> Dict:
     white_ratio = float(np.mean(dist <= threshold))
 
     if white_ratio < ratio_required:
-        errors.append(
-            f"Background is not white enough. (white_ratio={white_ratio:.2f}, required={ratio_required:.2f})"
-        )
+        errors.append("Background is not white enough.")
 
     if errors:
         return {"status": "error", "errors": errors}

@@ -171,13 +171,24 @@ export const employeeService = {
 };
 
 export const cardService = {
-  async saveCard(employeeId: string, photoData: string): Promise<Card> {
+  async saveCard(
+    employeeId: string,
+    photoData: string,
+    photoX: number = 0,
+    photoY: number = 0,
+    photoScale: number = 1.0,
+  ): Promise<Card> {
     const response = await fetch(
       `${API_BASE_URL}/cards/employee/${employeeId}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoData }),
+        body: JSON.stringify({
+          photoData,
+          photoX,
+          photoY,
+          photoScale,
+        }),
       },
     );
     if (!response.ok) throw new Error("Failed to save card");

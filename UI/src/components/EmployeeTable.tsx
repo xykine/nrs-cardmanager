@@ -143,7 +143,7 @@ export default function EmployeeTable({
             )}
             <th className="px-6 py-4 text-left text-sm font-semibold">Name</th>
             <th className="px-6 py-4 text-left text-sm font-semibold">
-              Employee ID
+              ID
             </th>
             <th className="px-6 py-4 text-left text-sm font-semibold">
               Department

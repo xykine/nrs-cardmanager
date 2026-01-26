@@ -80,6 +80,9 @@ def render_front(
     photo_url: str,
     logo_path: Path,
     bottom_icon_path: Path,
+    photo_x: int = 0,
+    photo_y: int = 0,
+    photo_scale: float = 1.0,
 ) -> Image.Image:
     card = Image.new("RGB", (CARD_W, CARD_H), BG_COLOR)
     draw = ImageDraw.Draw(card)
@@ -96,7 +99,7 @@ def render_front(
     logo_y = int(CARD_H * 0.01)
     card.paste(logo, (logo_x, logo_y), logo)
 
-    # Photo with red rounded border
+    # Photo container dimensions
     pw = int(CARD_W * 0.6)
     ph = pw
     px = (CARD_W - pw) // 2
@@ -105,15 +108,88 @@ def render_front(
     inner_radius = int(pw * 0.03)
     outer_radius = inner_radius + border
 
+    # Draw border
     draw.rounded_rectangle(
         (px - border, py - border, px + pw + border, py + ph + border),
         radius=outer_radius,
         fill=RED,
     )
 
-    photo = _load_image_from_url_or_path(photo_url)
-    photo = _rounded_image(photo, (pw, ph), radius=inner_radius)
-    card.paste(photo, (px, py), photo)
+    # Load and process photo
+    photo = _load_image_from_url_or_path(photo_url).convert("RGB")
+    photo = ImageOps.exif_transpose(photo)
+
+    # Base scale to cover the frame (object-fit: cover equivalent)
+    # Target frame is (pw, ph)
+    w, h = photo.size
+    aspect_photo = w / h
+    aspect_frame = pw / ph
+
+    if aspect_photo > aspect_frame:
+        # Photo is wider than frame, scale by height
+        base_scale = ph / h
+    else:
+        # Photo is taller than frame, scale by width
+        base_scale = pw / w
+
+    current_scale = base_scale * photo_scale
+    new_w = int(w * current_scale)
+    new_h = int(h * current_scale)
+    photo = photo.resize((new_w, new_h), Image.LANCZOS)
+
+    # Calculate center position + offsets
+    # photo_x and photo_y are assumed to be in "frontend pixels" (208 container)
+    # We should scale them to the backend resolution.
+    # Frontend container width is 208px. Backend container width is pw.
+    scale_to_dpi = pw / 208.0
+    
+    offset_x = int(photo_x * scale_to_dpi)
+    offset_y = int(photo_y * scale_to_dpi)
+
+    # Paste position (relative to card)
+    # Center of photo in center of container:
+    paste_x = px + (pw - new_w) // 2 + offset_x
+    paste_y = py + (ph - new_h) // 2 + offset_y
+
+    # Create a mask for the rounded photo container
+    mask = Image.new("L", (CARD_W, CARD_H), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.rounded_rectangle(
+        (px, py, px + pw, py + ph),
+        radius=inner_radius,
+        fill=255
+    )
+
+    # Fill container area with white first (base background for photo)
+    draw.rounded_rectangle(
+        (px, py, px + pw, py + ph),
+        radius=inner_radius,
+        fill="white"
+    )
+
+    # 1. Create a transparent layer for the photo (matches card size)
+    photo_layer = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
+    # 2. Paste the photo onto it at its designated position
+    photo_rgba = photo.convert("RGBA")
+    photo_layer.paste(photo_rgba, (paste_x, paste_y))
+    
+    # 3. Create the container clipping mask
+    container_mask = Image.new("L", (CARD_W, CARD_H), 0)
+    container_mask_draw = ImageDraw.Draw(container_mask)
+    container_mask_draw.rounded_rectangle(
+        (px, py, px + pw, py + ph),
+        radius=inner_radius,
+        fill=255
+    )
+    
+    # 4. Create the final mask by intersecting photo's alpha with container's mask
+    # This prevents black borders where the photo has transparency or doesn't reach the edge
+    photo_alpha = photo_layer.split()[3]
+    final_mask = Image.new("L", (CARD_W, CARD_H), 0)
+    final_mask.paste(photo_alpha, (0, 0), container_mask)
+    
+    # 5. Paste the photo layer onto the card using the intersected mask
+    card.paste(photo_layer, (0, 0), final_mask)
 
     # Name + ID
     name_y = py + ph + int(CARD_H * 0.07)

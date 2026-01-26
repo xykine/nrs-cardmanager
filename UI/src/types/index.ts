@@ -18,6 +18,9 @@ export interface Card {
   employeeId: string;
   photoUrl?: string;
   photoData?: string;
+  photoX?: number;
+  photoY?: number;
+  photoScale?: number;
   createdAt: string;
   updatedAt: string;
   employee?: Employee;

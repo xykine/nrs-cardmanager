@@ -160,6 +160,9 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
             employee_id=empp_ID,
             full_name=full_name,
             photo_url=str(photo_path),
+            photo_x=employee.card.photo_x or 0,
+            photo_y=employee.card.photo_y or 0,
+            photo_scale=employee.card.photo_scale or "1.0",
             template_id=payload.templateId,
             dpi=payload.dpi,
             status=JobStatus.PENDING,
@@ -222,7 +225,10 @@ def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
                 job.employee_id, 
                 job.photo_url, # render_front opens this path
                 logo, 
-                icon
+                icon,
+                photo_x=job.photo_x,
+                photo_y=job.photo_y,
+                photo_scale=float(job.photo_scale or 1.0)
             )
             
             # Render Back

@@ -33,8 +33,17 @@ def save_card(employee_id: str, payload: CardSave, db: Session = Depends(get_db)
 
     if card:
         card.photo_data = payload.photo_data
+        card.photo_x = payload.photo_x
+        card.photo_y = payload.photo_y
+        card.photo_scale = str(payload.photo_scale)
     else:
-        card = Card(employee_id=employee_id, photo_data=payload.photo_data)
+        card = Card(
+            employee_id=employee_id,
+            photo_data=payload.photo_data,
+            photo_x=payload.photo_x,
+            photo_y=payload.photo_y,
+            photo_scale=str(payload.photo_scale)
+        )
         db.add(card)
 
     employee.photo_present = True

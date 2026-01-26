@@ -27,6 +27,9 @@ class PrintJob(Base):
     employee_id = Column(String, nullable=False)
     full_name = Column(String, nullable=False)
     photo_url = Column(String, nullable=False)
+    photo_x = Column(Integer, nullable=False, default=0)
+    photo_y = Column(Integer, nullable=False, default=0)
+    photo_scale = Column(String, nullable=False, default="1.0")
 
     template_id = Column(String, nullable=False, default="NRS_MINIMAL_V1")
     dpi = Column(Integer, nullable=False, default=300)
@@ -81,6 +84,9 @@ class Card(Base):
     employee_id = Column("employeeId", String, ForeignKey("employees.id"), unique=True, nullable=False)
     photo_url = Column("photoUrl", Text, nullable=True)
     photo_data = Column("photoData", Text, nullable=True)
+    photo_x = Column("photoX", Integer, nullable=False, default=0)
+    photo_y = Column("photoY", Integer, nullable=False, default=0)
+    photo_scale = Column("photoScale", String, nullable=False, default="1.0")
     created_at = Column("createdAt", DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         "updatedAt",
