@@ -12,6 +12,7 @@ export type FrontPageProps = {
   /** Base logos */
   nrsLogoSrc: string;
   nrsLogoBottomBarSrc: string;
+  middleAccentSrc: string;
 
   /** Photo state */
   photoData?: string | null;
@@ -35,6 +36,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
   employee,
   nrsLogoSrc,
   nrsLogoBottomBarSrc,
+  middleAccentSrc,
   photoData,
   validating = false,
   fileInputRef,
@@ -98,7 +100,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
         </h2>
       )}
 
-      <div className="bg-white rounded-2xl shadow-xl aspect-[3/5] w-full max-w-sm overflow-hidden border border-gray-200">
+      <div className="bg-white shadow-xl aspect-[3/5] w-full max-w-sm  border border-gray-200">
         <div className="flex flex-col h-full items-center">
           {/* Logo */}
           <div className="p-14">
@@ -115,7 +117,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
           <div className="relative group">
             <div
               ref={containerRef}
-              className={`w-52 h-52 border-[8px] border-red-600 rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? 'cursor-move' : ''}`}
+              className={`w-48 h-60 border-[4px] border-gray-400 overflow-hidden  relative ${isEditable && photoData ? 'cursor-move' : ''}`}
               onMouseDown={handleMouseDown}
             >
               {photoData && !validating ? (
@@ -182,30 +184,38 @@ const FrontPage: React.FC<FrontPageProps> = ({
             )}
           </div>
 
-          {/* Name */}
-          <h3 className="text-3xl font-bold text-gray-600 tracking-wide text-center">
-            {employee.name.toUpperCase()}
-          </h3>
-
-          {/* Employee ID */}
-          <p className="text-l font-semibold text-gray-600 mt-10">
-            IR {employee.employeeId}
-          </p>
-
-          {/* Bottom accent */}
+          {/* Middle accent */}
           {currentUserRole === "manager" && (
-            <div className="flex items-center gap-2 mx-20 mt-2">
+            <div className="flex items-center mt-[-32px]">
               <img
-                src={nrsLogoBottomBarSrc}
-                alt="NRS Logo Bottom Bar"
+                src={middleAccentSrc}
+                alt="Middle Accent"
                 className="h-25"
               />
             </div>
           )}
 
-          {/* Spacer */}
-          <div className="w-full flex items-center gap-2 mt-10" />
+          {/* Name */}
+          <h3 className="text-3xl font-bold text-gray-900 tracking-wide text-center">
+            {employee.name.toUpperCase()}
+          </h3>
+
+          {/* Employee ID */}
+          <p className="text-xl font-semibold text-gray-600 mt-4">
+            IR {employee.employeeId}
+          </p>
         </div>
+
+        {/* Bottom accent */}
+        {currentUserRole === "manager" && (
+          <div className="flex items-center gap-2 mr-20">
+            <img
+              src={nrsLogoBottomBarSrc}
+              alt="NRS Logo Bottom Bar"
+              className="h-25"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

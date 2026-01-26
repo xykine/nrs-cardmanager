@@ -1,5 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+import os
+import io
+import hmac
+import hashlib
+import qrcode
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session, joinedload
+from cryptography.fernet import Fernet
 
 from ..db import get_db
 from ..models import Card, Employee
@@ -71,3 +77,43 @@ def get_card_for_print(card_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Card not found")
 
     return card
+
+@router.get("/employee/{employee_id}/qr")
+def get_employee_qr(employee_id: str, db: Session = Depends(get_db)):
+    employee = db.query(Employee).filter(Employee.employee_id == employee_id).first()
+    if not employee:
+        # Check by internal ID if not found by employee_id string
+        employee = db.query(Employee).filter(Employee.id == employee_id).first()
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+
+    secret_key = os.getenv("QR_SECRET_KEY", "default-secret-key-for-qr")
+    
+    # We use the secret key to derive a Fernet key for encryption
+    # In a real app, this should be a properly managed 32-byte base64 key.
+    # Here we'll derive it simply for demonstration.
+    key = hashlib.sha256(secret_key.encode()).digest()
+    import base64
+    fernet_key = base64.urlsafe_b64encode(key)
+    f = Fernet(fernet_key)
+    
+    # Encrypt the employee_id
+    token = f.encrypt(employee.employee_id.encode()).decode()
+    
+    # Generate QR code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(token)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr = img_byte_arr.getvalue()
+
+    return Response(content=img_byte_arr, media_type="image/png")

@@ -5,8 +5,9 @@ import { employeeService, cardService } from "../../services/api";
 import { Upload, Printer, Mail, Save, ArrowLeft, LogOut } from "lucide-react";
 import { useNotification } from "../../contexts/NotificationContext";
 import EmailDialog from "../EmailDialog";
-import chairmanSignature2 from "../../assets/chairman_signature2.png";
-import nrsLogoBottomBar from "../../assets/logoBottomBar.png";
+// chairmanSignature2 removed since it's now part of the BackPageImage template
+import nrsLogoBottomBar from "../../assets/ButtomImage.png";
+import middleAccent from "../../assets/MiddleImage.png";
 import nrsLogo2 from "../../assets/nrs-logo.png";
 import ErrorAlert from "../ErrorAlert";
 import MessageAlert from "../MessageAlert";
@@ -352,6 +353,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
               employee={employee}
               nrsLogoSrc={nrsLogo2}
               nrsLogoBottomBarSrc={nrsLogoBottomBar}
+              middleAccentSrc={middleAccent}
               photoData={photoData}
               validating={validating}
               fileInputRef={fileInputRef}
@@ -368,15 +370,14 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
               currentUserRole={currentUserRole}
             />
 
+
             {currentUserRole === "manager" && (
               <BackPage
                 showTitle={false}
-                chairmanSignatureSrc={chairmanSignature2}
-                nrsLogoSrc={nrsLogo2}
-                phoneText="+234 700 2255 677"
-                emailText="lostcard@nrs.gov.ng"
+                employee={employee}
               />
             )}
+
           </div>
         </div>
       </div>
