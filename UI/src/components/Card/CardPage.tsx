@@ -9,6 +9,7 @@ import chairmanSignature2 from "../../assets/chairman_signature2.png";
 import nrsLogoBottomBar from "../../assets/logoBottomBar.png";
 import nrsLogo2 from "../../assets/nrs-logo.png";
 import ErrorAlert from "../ErrorAlert";
+import MessageAlert from "../MessageAlert";
 import BackPage from "./BackPage";
 import FrontPage from "./FrontPage";
 
@@ -26,6 +27,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
   const [photoX, setPhotoX] = useState(0);
   const [photoY, setPhotoY] = useState(0);
   const [photoScale, setPhotoScale] = useState(1.0);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentUserRole = sessionStorage.getItem("nrs_user_role") || "staff";
 
@@ -61,6 +63,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     if (photoData) {
       validatePhoto(photoData);
+      setHasUnsavedChanges(true);
     }
   }, [photoData]);
 
@@ -81,6 +84,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
       console.error("Failed to load employee data:", err);
     } finally {
       setLoading(false);
+      setHasUnsavedChanges(false);
     }
   };
 
@@ -145,6 +149,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
       console.error(err);
     } finally {
       setSaving(false);
+      setHasUnsavedChanges(false);
     }
   };
 
@@ -331,11 +336,14 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                   </button>
                 )}
               </div>
-              <div className="mt-6">
+              <div className="mt-6 flex flex-col gap-4">
                 <ErrorAlert
                   errors={photoErrors}
                   onClose={() => setPhotoErrors([])}
                 />
+                {hasUnsavedChanges && !saving && (
+                  <MessageAlert message="You have unsaved changes. Please click Submit to save." />
+                )}
               </div>
             </div>
 
@@ -354,6 +362,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                 setPhotoX(x);
                 setPhotoY(y);
                 setPhotoScale(s);
+                setHasUnsavedChanges(true);
               }}
               isEditable={true}
               currentUserRole={currentUserRole}
