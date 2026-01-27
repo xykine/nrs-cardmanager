@@ -64,6 +64,7 @@ class EmployeeCreate(APIModel):
     name: str
     employee_id: str = Field(alias="employeeId")
     email: str
+    department: Optional[str] = None
 
 
 class EmployeeRoleUpdate(APIModel):

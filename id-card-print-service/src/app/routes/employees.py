@@ -1162,6 +1162,7 @@ def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
         name=payload.name,
         employee_id=payload.employee_id,
         email=payload.email,
+        department=payload.department,
         photo_present=False,
     )
     db.add(employee)
