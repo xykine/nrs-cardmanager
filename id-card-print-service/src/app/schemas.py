@@ -134,3 +134,15 @@ class CardSave(APIModel):
     photo_x: int = Field(default=0, alias="photoX")
     photo_y: int = Field(default=0, alias="photoY")
     photo_scale: float = Field(default=1.0, alias="photoScale")
+
+
+class AdminLogin(APIModel):
+    ir_number: str = Field(alias="irNumber")
+    password: str
+
+
+class AdminOut(APIModel):
+    id: str
+    ir_number: str = Field(alias="irNumber")
+    name: str
+    created_at: datetime = Field(alias="createdAt")

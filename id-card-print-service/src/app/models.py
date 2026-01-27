@@ -98,3 +98,13 @@ class Card(Base):
 
     employee = relationship("Employee", back_populates="card")
 
+
+class Admin(Base):
+    __tablename__ = "admins"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    ir_number = Column("irNumber", String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
+    password = Column(String, nullable=False)
+    created_at = Column("createdAt", DateTime(timezone=True), server_default=func.now(), nullable=False)
+

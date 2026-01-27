@@ -9,6 +9,8 @@ import smtplib
 import tempfile
 import textwrap
 import uuid
+import secrets
+import string
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from typing import Dict, Any, Iterable, List, Optional
@@ -35,7 +37,7 @@ from dotenv import load_dotenv
 
 
 from ..db import get_db
-from ..models import Employee
+from ..models import Employee, Admin
 from ..schemas import (
     BulkEmailRequest,
     EmployeeCreate,
@@ -1329,6 +1331,81 @@ def send_bulk_email(
     return {"success": success, "failed": failed, "skipped": skipped}
 
 
+def _generate_random_password(length: int = 10) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def _send_admin_credentials_email(employee: Employee, password: str):
+    base_ui_url = _get_base_ui_url()
+    subject = "NRS Card Management System - Admin Access"
+    
+    mailgun_configured = any(
+        (os.getenv("MAILGUN_API_KEY"), os.getenv("MAILGUN_DOMAIN"), os.getenv("MAILGUN_FROM"))
+    )
+    
+    text_body = textwrap.dedent(
+        f"""
+        Hello {employee.name},
+
+        You have been granted Manager access to the NRS Card Management System.
+        
+        Please use the following credentials to access the administrative dashboards:
+        IR Number: {employee.employee_id}
+        Password: {password}
+        
+        You can log in here: {base_ui_url}/login
+        
+        Regards,
+        System Administrator
+        """
+    ).strip()
+
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+          <h2 style="color: #2563eb;">Admin Access Granted</h2>
+          <p>Hello <strong>{employee.name}</strong>,</p>
+          <p>You have been granted <strong>Manager</strong> access to the NRS Card Management System.</p>
+          <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>IR Number:</strong> {employee.employee_id}</p>
+            <p style="margin: 5px 0 0 0;"><strong>Password:</strong> <code style="background: #e2e8f0; padding: 2px 5px; border-radius: 4px;">{password}</code></p>
+          </div>
+          <p>You can access the administrative dashboards here:</p>
+          <a href="{base_ui_url}/login" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to Dashboard</a>
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+          <p style="font-size: 12px; color: #666;">This is an automated message from the NRS Card Management System.</p>
+        </div>
+      </body>
+    </html>
+    """
+
+    try:
+        if mailgun_configured:
+            settings = _get_mailgun_settings()
+            _send_mailgun_message(
+                settings,
+                to_email=employee.email,
+                subject=subject,
+                text=text_body,
+                html_body=html_body,
+            )
+        else:
+            settings = _get_smtp_settings()
+            with _open_smtp_connection(settings) as smtp:
+                msg = EmailMessage()
+                msg["From"] = settings["sender"]
+                msg["To"] = employee.email
+                msg["Subject"] = subject
+                msg.set_content(text_body)
+                msg.add_alternative(html_body, subtype="html")
+                smtp.send_message(msg)
+        logger.info("Admin credentials email sent to %s", employee.email)
+    except Exception:
+        logger.exception("Failed to send admin credentials email to %s", employee.email)
+
+
 @router.patch("/{employee_id}/photo-status", response_model=EmployeeOut)
 def update_photo_status(
     employee_id: str,
@@ -1357,13 +1434,49 @@ def update_role(employee_id: str, payload: EmployeeRoleUpdate, db: Session = Dep
             status_code=400, detail='Invalid role. Must be "manager" or "staff"'
         )
 
+    old_role = employee.role
     employee.role = payload.role
 
-    try:
-        db.commit()
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to update role") from exc
+    # Handle Admin table sync
+    if old_role != "manager" and payload.role == "manager":
+        # Create/Update Admin entry
+        admin = db.query(Admin).filter(Admin.ir_number == employee.employee_id).first()
+        password = _generate_random_password()
+        
+        if not admin:
+            admin = Admin(
+                ir_number=employee.employee_id,
+                name=employee.name,
+                password=password
+            )
+            db.add(admin)
+        else:
+            admin.password = password
+            admin.name = employee.name
+        
+        # We commit before sending email to ensure DB is updated
+        try:
+            db.commit()
+            _send_admin_credentials_email(employee, password)
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Failed to create admin entry") from exc
+            
+    elif old_role == "manager" and payload.role == "staff":
+        # Remove Admin entry
+        db.query(Admin).filter(Admin.ir_number == employee.employee_id).delete()
+        try:
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Failed to remove admin entry") from exc
+    else:
+        # No role change or non-manager related change
+        try:
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Failed to update role") from exc
 
     db.refresh(employee)
     return employee
