@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState } from "react";
 
 interface AdminAuthContextType {
     isAdminAuthenticated: boolean;
-    loginAdmin: (irNumber: string, password: string) => Promise<boolean>;
+    loginAdmin: (password: string) => Promise<boolean>;
     logoutAdmin: () => void;
 }
 
@@ -15,12 +15,12 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
-    const loginAdmin = async (irNumber: string, password: string) => {
+    const loginAdmin = async (password: string) => {
         try {
             const response = await fetch(`${API_BASE_URL}/admin/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ irNumber, password }),
+                body: JSON.stringify({ password }),
             });
 
             if (response.ok) {

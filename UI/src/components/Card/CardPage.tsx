@@ -250,6 +250,10 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
     );
   }
 
+  if (!employeeId) {
+    navigate("/login");
+  }
+
   if (!employee) {
     return (
       <div className="flex items-center justify-center min-h-screen">

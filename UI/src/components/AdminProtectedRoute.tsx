@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../contexts/AdminAuthContext";
 import { Lock, ShieldAlert } from "lucide-react";
 
@@ -7,8 +8,8 @@ interface AdminProtectedRouteProps {
 }
 
 export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ children }) => {
-    const { isAdminAuthenticated, loginAdmin } = useAdminAuth();
-    const [irNumber, setIrNumber] = useState("");
+    const { isAdminAuthenticated, loginAdmin, logoutAdmin } = useAdminAuth();
+    const navigate = useNavigate();
     const [password, setPassword] = useState("");
     const [error, setError] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -18,13 +19,25 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
         setLoading(true);
         setError(false);
 
-        if (await loginAdmin(irNumber, password)) {
+        if (await loginAdmin(password)) {
             setError(false);
         } else {
             setError(true);
             setPassword("");
         }
         setLoading(false);
+    };
+
+    const handleBack = () => {
+        // Clear all authentication storage
+        sessionStorage.removeItem("nrs_employee_id");
+        sessionStorage.removeItem("nrs_user_role");
+        sessionStorage.removeItem("nrs_intended_location");
+
+        // Clear admin auth context
+        logoutAdmin();
+
+        navigate("/login");
     };
 
     if (!isAdminAuthenticated) {
@@ -43,15 +56,7 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
 
                         <form onSubmit={handleSubmit} className="w-full space-y-4">
                             <div className="space-y-2">
-                                <input
-                                    type="text"
-                                    value={irNumber}
-                                    onChange={(e) => setIrNumber(e.target.value)}
-                                    placeholder="Enter IR Number"
-                                    className={`w-full px-4 py-3 bg-slate-50 border ${error ? "border-red-500" : "border-slate-200"
-                                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all`}
-                                    disabled={loading}
-                                />
+
                                 <input
                                     type="password"
                                     value={password}
@@ -79,10 +84,10 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
                         </form>
 
                         <button
-                            onClick={() => window.history.back()}
+                            onClick={handleBack}
                             className="mt-6 text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors"
                         >
-                            Go Back
+                            Go Back to Login
                         </button>
                     </div>
                 </div>

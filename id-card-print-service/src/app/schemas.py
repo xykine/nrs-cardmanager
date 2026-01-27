@@ -138,7 +138,7 @@ class CardSave(APIModel):
 
 
 class AdminLogin(APIModel):
-    ir_number: str = Field(alias="irNumber")
+    ir_number: Optional[str] = Field(default=None, alias="irNumber")
     password: str
 
 

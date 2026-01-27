@@ -11,10 +11,16 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.post("/login", response_model=AdminOut)
 def admin_login(payload: AdminLogin, db: Session = Depends(get_db)):
     # Simple password check for now as requested
-    admin = db.query(Admin).filter(Admin.ir_number == payload.ir_number).first()
+    
+    if payload.ir_number:
+        admin = db.query(Admin).filter(Admin.ir_number == payload.ir_number).first()
+    else:
+        # If no IR number, find the admin with the matching password
+        # This assumes single admin or shared password for now
+        admin = db.query(Admin).filter(Admin.password == payload.password).first()
     
     if not admin or admin.password != payload.password:
-        raise HTTPException(status_code=401, detail="Invalid IR Number or Password")
+        raise HTTPException(status_code=401, detail="Invalid Credentials")
         
     return admin
 
