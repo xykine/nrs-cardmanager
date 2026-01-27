@@ -158,7 +158,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
             </div>
 
             {isEditable && photoData && !validating && (
-              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+              <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
                 <button
                   onClick={() => handleZoom(photoScale - 0.1)}
                   className="p-1 hover:bg-gray-100 rounded-full text-slate-600"

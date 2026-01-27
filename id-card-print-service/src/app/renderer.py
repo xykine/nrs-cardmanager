@@ -1,7 +1,12 @@
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from pathlib import Path
 import io
+import os
 import httpx
+import qrcode
+import hashlib
+import base64
+from cryptography.fernet import Fernet
 
 # CR80 (2.125" x 3.375") @ 300dpi, portrait
 DPI = 300
@@ -79,7 +84,8 @@ def render_front(
     employee_id: str,
     photo_url: str,
     logo_path: Path,
-    bottom_icon_path: Path,
+    middle_accent_path: Path,
+    bottom_accent_path: Path,
     photo_x: int = 0,
     photo_y: int = 0,
     photo_scale: float = 1.0,
@@ -92,27 +98,28 @@ def render_front(
 
     # Logo (top centered)
     logo = Image.open(logo_path).convert("RGBA")
-    logo_w = int(CARD_W * 0.7)
+    logo_w = int(CARD_W * 0.6)
     logo_h = int(logo.height * (logo_w / logo.width))
     logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
     logo_x = (CARD_W - logo_w) // 2
     logo_y = int(CARD_H * 0.01)
     card.paste(logo, (logo_x, logo_y), logo)
 
-    # Photo container dimensions
-    pw = int(CARD_W * 0.6)
-    ph = pw
+    # Photo container dimensions - 8:10 aspect ratio
+    # Front-end: w-48 (192px), h-60 (240px)
+    pw = int(CARD_W * 0.45) # approx 1.15" -> 345px at 300dpi
+    ph = int(pw * 1.15)    # 8:10 ratio (pw/ph = 0.8 => ph = pw/0.8)
     px = (CARD_W - pw) // 2
     py = int(CARD_H * 0.30)
-    border = max(12, int(pw * 0.04))
+    border = max(4, int(pw * 0.015)) 
     inner_radius = int(pw * 0.03)
     outer_radius = inner_radius + border
 
     # Draw border
     draw.rounded_rectangle(
         (px - border, py - border, px + pw + border, py + ph + border),
-        radius=outer_radius,
-        fill=RED,
+        radius=inner_radius,
+        fill=LIGHT_GRAY,
     )
 
     # Load and process photo
@@ -138,10 +145,10 @@ def render_front(
     photo = photo.resize((new_w, new_h), Image.LANCZOS)
 
     # Calculate center position + offsets
-    # photo_x and photo_y are assumed to be in "frontend pixels" (208 container)
+    # photo_x and photo_y are assumed to be in "frontend pixels" (192 container now)
     # We should scale them to the backend resolution.
-    # Frontend container width is 208px. Backend container width is pw.
-    scale_to_dpi = pw / 208.0
+    # Frontend container width is 192px. Backend container width is pw.
+    scale_to_dpi = pw / 192.0
     
     offset_x = int(photo_x * scale_to_dpi)
     offset_y = int(photo_y * scale_to_dpi)
@@ -191,93 +198,75 @@ def render_front(
     # 5. Paste the photo layer onto the card using the intersected mask
     card.paste(photo_layer, (0, 0), final_mask)
 
-    # Name + ID
-    name_y = py + ph + int(CARD_H * 0.07)
-    id_y = name_y + int(CARD_H * 0.09)
-    _draw_center_text(draw, (full_name or "").upper(), name_y, name_font, DARK_GRAY)
-    _draw_center_text(draw, (employee_id or "").strip(), id_y, id_font, DARK_GRAY)
+    # Middle Accent
+    if middle_accent_path.exists():
+        mid = Image.open(middle_accent_path).convert("RGBA")
+        mid_w = int(CARD_W)
+        mid_h = int(mid.height * (mid_w / mid.width))
+        mid = mid.resize((mid_w, mid_h), Image.LANCZOS)
+        mid_x = (CARD_W - mid_w) // 2
+        mid_y = py + ph - int(mid_h * 0.35) # Overlay slightly over photo bottom
+        card.paste(mid, (mid_x, mid_y), mid)
 
-    # Bottom icon (centered)
-    icon = Image.open(bottom_icon_path).convert("RGBA")
-    icon_w = int(CARD_W * 0.72)
-    icon_h = int(icon.height * (icon_w / icon.width))
-    icon = icon.resize((icon_w, icon_h), Image.LANCZOS)
-    icon_x = (CARD_W - icon_w) // 2
-    icon_y = int(CARD_H * 0.90)
-    card.paste(icon, (icon_x, icon_y), icon)
+    # Name + ID
+    name_y = py + ph + int(CARD_H * 0.1)
+    id_y = name_y + int(CARD_H * 0.07)
+    _draw_center_text(draw, (full_name or "").upper(), name_y, name_font, "#000000")
+    _draw_center_text(draw, f"IR {(employee_id or '').strip()}", id_y, id_font, DARK_GRAY)
+
+    # Bottom icon (right aligned according to new design?)
+    # Frontend: <div className="flex items-center gap-2 mr-20">
+    if bottom_accent_path.exists():
+        icon = Image.open(bottom_accent_path).convert("RGBA")
+        icon_w = int(CARD_W * 0.7)
+        icon_h = int(icon.height * (icon_w / icon.width))
+        icon = icon.resize((icon_w, icon_h), Image.LANCZOS)
+        icon_x = 0 # Centered for now, check frontend alignment
+        icon_y = int(CARD_H * 0.95)
+        card.paste(icon, (icon_x, icon_y), icon)
 
     return card
 
-
 def render_back(
-    logo_path: Path,
-    department_line1: str = "HCM Group",
-    department_line2: str = "NRS Headquarters",
-    phone_left: str = "0907 211 1111",
-    phone_right: str = "0907 444 4441",
-    email: str = "lostcard@nrs.gov.ng",
+    employee_id: str,
+    back_template_path: Path,
 ) -> Image.Image:
-    card = Image.new("RGB", (CARD_W, CARD_H), BG_COLOR)
+    if not back_template_path.exists():
+        # Fallback to empty white card if template missing
+        return Image.new("RGB", (CARD_W, CARD_H), BG_COLOR)
+
+    card = Image.open(back_template_path).convert("RGB")
+    card = card.resize((CARD_W, CARD_H), Image.LANCZOS)
     draw = ImageDraw.Draw(card)
 
-    # Fonts (tuned to your sample)
-    logo_scale = 0.62
-    title_font   = _load_font(int(CARD_W * 0.040), bold=True)   # Nigeria Revenue Service
-    body_font    = _load_font(int(CARD_W * 0.040), bold=True)  # helper text
-    contact_font = _load_font(int(CARD_W * 0.040), bold=True)   # phone/email
-    band_font    = _load_font(int(CARD_W * 0.045), bold=True)   # band text
+    # Secret key for QR code
+    secret_key = os.getenv("QR_SECRET_KEY", "default-secret-key-for-qr")
+    key = hashlib.sha256(secret_key.encode()).digest()
+    fernet_key = base64.urlsafe_b64encode(key)
+    f = Fernet(fernet_key)
+    token = f.encrypt(employee_id.encode()).decode()
 
-    # --- Logo (top centered) ---
-    logo = Image.open(logo_path).convert("RGBA")
-    logo_w = int(CARD_W * logo_scale)
-    logo_h = int(logo.height * (logo_w / logo.width))
-    logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
-    logo_x = (CARD_W - logo_w) // 2
-    logo_y = int(CARD_H * 0.07)
-    card.paste(logo, (logo_x, logo_y), logo)
+    # Generate QR code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=0,
+    )
+    qr.add_data(token)
+    qr.make(fit=True)
 
-    # --- Text block (centered) ---
-    y = int(CARD_H * 0.38)
-    _draw_center_text(draw, "This is a property of", y, body_font, DARK_GRAY)
-    y += int(CARD_H * 0.050)
-    _draw_center_text(draw, "Nigeria Revenue Service", y, title_font, DARK_GRAY)
-
-    y += int(CARD_H * 0.090)
-    _draw_center_text(draw, "If found, please return to any", y, body_font, LIGHT_GRAY)
-    y += int(CARD_H * 0.040)
-    _draw_center_text(draw, "NRS office or contact below:", y, body_font, LIGHT_GRAY)
-
-    # --- Contacts (icon + text) ---
-    y += int(CARD_H * 0.095)
-
-    icon_r = int(CARD_W * 0.020)
-    icon_x = int(CARD_W * 0.20)
-    text_center_x = int(CARD_W * 0.58)
-
-    def red_circle(cx: int, cy: int):
-        draw.ellipse((cx - icon_r, cy - icon_r, cx + icon_r, cy + icon_r), fill=RED)
-
-    # phone line
-    phone_y = y
-    red_circle(icon_x, phone_y)
-    phones = f"{phone_left}; {phone_right}"
-    draw.text((text_center_x, phone_y), phones, font=contact_font, fill=DARK_GRAY, anchor="mm")
-
-    # email line
-    email_y = y + int(CARD_H * 0.070)
-    red_circle(icon_x, email_y)
-    draw.text((text_center_x - int(CARD_W * 0.08), email_y), email, font=contact_font, fill=DARK_GRAY, anchor="mm")
-
-    # --- Bottom red band ---
-    band_h = int(CARD_H * 0.16)
-    band_y0 = int(CARD_H * 0.78)
-    band_y1 = band_y0 + band_h
-    draw.rectangle((0, band_y0, CARD_W, band_y1), fill=RED)
-
-    # band text (centered)
-    band_text_y1 = band_y0 + int(band_h * 0.28)
-    band_text_y2 = band_y0 + int(band_h * 0.62)
-    _draw_center_text(draw, department_line1, band_text_y1, band_font, "white")
-    _draw_center_text(draw, department_line2, band_text_y2, band_font, "white")
+    qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
+    
+    # Frontend: top-[23.5%], size 120px in a ~384px wide container
+    # Ratio: 120 / 384 = 0.3125
+    qw = int(CARD_W * 0.275)
+    qh = qw
+    qr_img = qr_img.resize((qw, qh), Image.LANCZOS)
+    
+    qx = (CARD_W - qw) // 2
+    qy = int(CARD_H * 0.24)
+    
+    card.paste(qr_img, (qx, qy), qr_img)
 
     return card

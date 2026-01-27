@@ -100,11 +100,14 @@ def list_printers():
 def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
     # Validate assets exist
     logo = ASSETS_DIR / "nrs_logo.png"
-    icon = ASSETS_DIR / "bottom_icon.png"
-    if not logo.exists():
-        raise HTTPException(400, f"Missing asset: {logo}")
-    if not icon.exists():
-        raise HTTPException(400, f"Missing asset: {icon}")
+    middle = ASSETS_DIR / "MiddleImage.png"
+    bottom = ASSETS_DIR / "ButtomImage.png"
+    back = ASSETS_DIR / "BackPageImage.png"
+    
+    required_assets = [logo, middle, bottom, back]
+    for asset in required_assets:
+        if not asset.exists():
+            raise HTTPException(400, f"Missing asset: {asset.name}")
 
     employee_ids = payload.employeeIds or []
     
@@ -205,9 +208,12 @@ def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
 
     # Validate assets exist once
     logo = ASSETS_DIR / "nrs_logo.png"
-    icon = ASSETS_DIR / "bottom_icon.png"
-    if not logo.exists() or not icon.exists():
-        raise HTTPException(500, "Server assets missing (logo/icon)")
+    middle = ASSETS_DIR / "MiddleImage.png"
+    bottom = ASSETS_DIR / "ButtomImage.png"
+    back = ASSETS_DIR / "BackPageImage.png"
+    
+    if not all(a.exists() for a in [logo, middle, bottom, back]):
+        raise HTTPException(500, "Server assets missing (logo/accent/back template)")
 
     card_images = []
     
@@ -223,16 +229,17 @@ def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
             front_img = render_front(
                 job.full_name, 
                 job.employee_id, 
-                job.photo_url, # render_front opens this path
+                job.photo_url,
                 logo, 
-                icon,
+                middle,
+                bottom,
                 photo_x=job.photo_x,
                 photo_y=job.photo_y,
                 photo_scale=float(job.photo_scale or 1.0)
             )
             
             # Render Back
-            back_img = render_back(logo_path=logo)
+            back_img = render_back(job.employee_id, back)
             
             card_images.append((front_img, back_img))
             
