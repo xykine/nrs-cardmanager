@@ -38,7 +38,9 @@ export default function CreateEmployeeModal({
     }
 
     if (!formData.employeeId.trim()) {
-      newErrors.employeeId = "Employee ID is required";
+      newErrors.employeeId = "IR Number is required";
+    } else if (!/^\d+$/.test(formData.employeeId)) {
+      newErrors.employeeId = "IR Number must contain only numbers and no spaces";
     }
 
     if (!formData.email.trim()) {
@@ -76,6 +78,17 @@ export default function CreateEmployeeModal({
       });
       setErrors({});
       onClose();
+    } catch (error: any) {
+      const msg = error.message || "An error occurred";
+      // Basic heuristic to map backend error to field
+      if (msg.toLowerCase().includes("email")) {
+        setErrors({ email: msg });
+      } else if (msg.toLowerCase().includes("id")) {
+        setErrors({ employeeId: msg });
+      } else {
+        // General error - show at top of form or use a special field
+        setErrors({ root: msg });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -103,7 +116,7 @@ export default function CreateEmployeeModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <h2 className="text-xl font-bold text-slate-800">Create Employee</h2>
@@ -118,6 +131,11 @@ export default function CreateEmployeeModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {errors.root && (
+            <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+              {errors.root}
+            </div>
+          )}
           {/* Full Name */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -151,7 +169,7 @@ export default function CreateEmployeeModal({
               value={formData.employeeId}
               onChange={handleInputChange}
               disabled={submitting || isLoading}
-              placeholder="Enter employee ID"
+              placeholder="Enter IR Number"
               className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.employeeId
                 ? "border-red-500 focus:ring-red-500"
                 : "border-slate-300 focus:ring-blue-500"

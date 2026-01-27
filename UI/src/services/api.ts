@@ -73,7 +73,10 @@ export const employeeService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to create employee");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to create employee");
+    }
     return response.json();
   },
 

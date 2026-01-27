@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from sqlalchemy.orm import Session
 from sqlalchemy import delete
+from sqlalchemy.exc import IntegrityError
 
 
 from ..models import Employee
@@ -293,7 +294,6 @@ def build_employee_directory() -> List[Dict[str, Any]]:
     emails = pull_all_primary_emails()
     departments = pull_all_departments()
     print("Dept sample for 21855:", departments.get("21855"))
-  
 
 
     merged: List[Dict[str, Any]] = []
@@ -1151,6 +1151,13 @@ def get_employee(employee_id: str, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=EmployeeOut, status_code=201)
 def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
+    # Pre-check for duplicates to give specific error messages
+    if db.query(Employee).filter(Employee.employee_id == payload.employee_id).first():
+        raise HTTPException(status_code=409, detail="Employee with this IR Number already exists")
+    
+    if db.query(Employee).filter(Employee.email == payload.email).first():
+        raise HTTPException(status_code=409, detail="Employee with this Email already exists")
+
     employee = Employee(
         name=payload.name,
         employee_id=payload.employee_id,
@@ -1160,8 +1167,16 @@ def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
     db.add(employee)
     try:
         db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        logger.warning("Duplicate entry creation attempt: %s", exc)
+        raise HTTPException(
+            status_code=409, 
+            detail="Employee with this Email or ID already exists"
+        ) from exc
     except Exception as exc:
         db.rollback()
+        logger.error("Failed to create employee: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to create employee") from exc
     db.refresh(employee)
     return employee

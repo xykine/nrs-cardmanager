@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { employeeService } from "../services/api";
 import { CreditCard, AlertCircle } from "lucide-react";
+import CreateEmployeeModal from "./CreateEmployeeModal";
 
 interface LoginProps {
   setIsAuthenticated: (auth: boolean) => void;
@@ -11,13 +12,34 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
   const [employeeCode, setEmployeeCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [departments, setDepartments] = useState<string[]>([]);
+
+  useEffect(() => {
+    loadDepartments();
+  }, []);
+
+  const loadDepartments = async () => {
+    try {
+      const deps = await employeeService.getDepartments();
+      setDepartments(deps);
+    } catch (error) {
+      console.error("Failed to load departments:", error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!employeeCode.trim()) {
-      setError("Please enter an Employee ID");
+      setError("Please enter an IR Number");
       return;
     }
+
+    if (!/^\d+$/.test(employeeCode)) {
+      setError("IR Number must contain only numbers and no spaces");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -36,10 +58,34 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
         setError("Unauthorized Access. Please contact your administrator.");
       }
     } catch (err) {
-      setError("Failed to verify Employee ID. Please try again.");
+      setError("We couldn’t verify your IR Number. Please try again, or use the link below to create an account.");
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateEmployee = async (data: {
+    name: string;
+    employeeId: string;
+    email: string;
+    department?: string;
+  }) => {
+    try {
+      const newEmployee = await employeeService.create(data);
+
+      // Auto-login the new employee
+      sessionStorage.setItem("nrs_employee_id", newEmployee.id);
+      sessionStorage.setItem("nrs_user_role", "staff");
+      setUserRole("staff");
+      setIsAuthenticated(true);
+      // The App routing will automatically redirect to /card/:id for staff role
+      // or we can force it if needed, but ProtectedRoute logic handles it:
+      // savedRole === "manager" ? navigate(`/`) : navigate(`/card/${savedEmployeeId}`);
+
+    } catch (error) {
+      console.error("Failed to create employee:", error);
+      throw error; // Re-throw so modal stays open or handles error
     }
   };
 
@@ -55,7 +101,7 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
               NRS Card Manager
             </h1>
             <p className="text-slate-600">
-              Enter your Employee ID to access the system
+              Enter your IR number to access the system
             </p>
           </div>
 
@@ -65,7 +111,7 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
                 htmlFor="employeeId"
                 className="block text-sm font-medium text-slate-700 mb-2"
               >
-                Employee ID
+                IR Number
               </label>
               <input
                 type="text"
@@ -75,7 +121,7 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
                   setEmployeeCode(e.target.value);
                   setError(null);
                 }}
-                placeholder="Enter your Employee ID"
+                placeholder="Enter your IR number"
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors text-lg"
                 disabled={loading}
                 autoFocus
@@ -98,6 +144,17 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
             </button>
           </form>
 
+          <div className="mt-4 text-center">
+            <span className="text-lg text-slate-600 mr-2 font-bold">Having trouble logging in?</span>
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              className="text-lg text-blue-600 hover:text-blue-800 hover:underline font-bold transition-colors"
+            >
+              click here
+            </button>
+          </div>
+
           <div className="mt-6 pt-6 border-t border-slate-200">
             <p className="text-xs text-center text-slate-500">
               Nigeria Revenue Service - Employee Card Management System
@@ -111,6 +168,13 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
           </p>
         </div>
       </div>
+
+      <CreateEmployeeModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateEmployee}
+        departments={departments}
+      />
     </div>
   );
 }
