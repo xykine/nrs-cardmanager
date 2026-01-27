@@ -124,18 +124,12 @@ const FrontPage: React.FC<FrontPageProps> = ({
                 <img
                   src={photoData}
                   alt={employee.name}
-                  onLoad={(e) => {
-                    const img = e.currentTarget;
-                    setAspect(img.naturalWidth / img.naturalHeight);
-                  }}
-                  className="absolute pointer-events-none select-none left-1/2 top-1/2"
+                  draggable={false}
+                  className="absolute pointer-events-none select-none left-0 top-0 w-full h-full"
                   style={{
-                    maxWidth: 'none',
-                    width: aspect > 1 ? 'auto' : '100%',
-                    height: aspect > 1 ? '100%' : 'auto',
-                    minWidth: '100%',
-                    minHeight: '100%',
-                    transform: `translate(calc(-50% + ${photoX}px), calc(-50% + ${photoY}px)) scale(${photoScale})`,
+                    objectFit: "cover",
+                    transformOrigin: "center",
+                    transform: `translate(${photoX}px, ${photoY}px) scale(${photoScale})`,
                   }}
                 />
               ) : (

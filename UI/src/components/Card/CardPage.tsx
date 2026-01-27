@@ -89,12 +89,21 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  const MAX_FILE_SIZE = 0.5 * 1024 * 1024; // 5MB
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setPhotoErrors([]);
+
+    if (file.size > MAX_FILE_SIZE) {
+      setPhotoErrors(["Image size is too big. Please upload a file smaller than 500KB."]);
+      return;
+    }
+
     if (!file.type.startsWith("image/")) {
-      alert("Please upload an image file");
+      setPhotoErrors(["Please upload an image file"]);
       return;
     }
 
@@ -249,6 +258,8 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
     );
   }
 
+  const showSpecialFeatures = false;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="max-w-7xl mx-auto px-0 py-8">
@@ -286,7 +297,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:hidden">
 
 
-                {currentUserRole &&
+                {showSpecialFeatures && currentUserRole &&
                   currentUserRole === "manager" &&
                   photoData && (
                     <button
@@ -299,7 +310,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                     </button>
                   )}
 
-                {currentUserRole && currentUserRole === "manager" && (
+                {showSpecialFeatures && currentUserRole && currentUserRole === "manager" && (
                   <button
                     onClick={handleResendLink}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-semibold text-l shadow-md"
@@ -337,6 +348,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                   </button>
                 )}
               </div>
+
               <div className="mt-6 flex flex-col gap-4">
                 <ErrorAlert
                   errors={photoErrors}
