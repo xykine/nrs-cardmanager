@@ -18,9 +18,14 @@ export function ProtectedRoute({
       const savedEmployeeId = sessionStorage.getItem("nrs_employee_id");
       const savedRole = sessionStorage.getItem("nrs_user_role");
 
-      savedRole === "manager"
-        ? navigate(`/`)
-        : navigate(`/card/${savedEmployeeId}`);
+      if (savedRole === "manager") {
+        navigate(`/`);
+      } else if (savedEmployeeId && savedEmployeeId !== "null") {
+        navigate(`/card/${savedEmployeeId}`);
+      } else {
+        // Fallback if no employee ID is found for a staff member
+        navigate("/login");
+      }
 
       sessionStorage.removeItem("nrs_intended_location");
     }

@@ -9,7 +9,6 @@ interface AdminProtectedRouteProps {
 
 export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ children }) => {
     const { isAdminAuthenticated, loginAdmin, logoutAdmin } = useAdminAuth();
-    const navigate = useNavigate();
     const [password, setPassword] = useState("");
     const [error, setError] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -37,7 +36,8 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
         // Clear admin auth context
         logoutAdmin();
 
-        navigate("/login");
+        // Use full page redirect to clear all React/Context state
+        window.location.href = "/login";
     };
 
     if (!isAdminAuthenticated) {

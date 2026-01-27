@@ -33,7 +33,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
   const currentUserRole = sessionStorage.getItem("nrs_user_role") || "staff";
 
   useEffect(() => {
-    if (employeeId) {
+    if (employeeId && employeeId !== "null") {
       loadEmployeeData();
     }
   }, [employeeId]);
@@ -248,10 +248,6 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
         <div className="text-xl text-gray-600">Page loading wait...</div>
       </div>
     );
-  }
-
-  if (!employeeId) {
-    navigate("/login");
   }
 
   if (!employee) {
