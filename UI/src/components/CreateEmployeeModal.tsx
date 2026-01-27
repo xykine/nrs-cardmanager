@@ -130,11 +130,10 @@ export default function CreateEmployeeModal({
               onChange={handleInputChange}
               disabled={submitting || isLoading}
               placeholder="Enter employee's full name"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                errors.name
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-slate-300 focus:ring-blue-500"
-              } disabled:bg-slate-100 disabled:cursor-not-allowed`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.name
+                ? "border-red-500 focus:ring-red-500"
+                : "border-slate-300 focus:ring-blue-500"
+                } disabled:bg-slate-100 disabled:cursor-not-allowed`}
             />
             {errors.name && (
               <p className="text-red-600 text-sm mt-1">{errors.name}</p>
@@ -144,7 +143,7 @@ export default function CreateEmployeeModal({
           {/* Employee ID */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Employee ID *
+              IR Number *
             </label>
             <input
               type="text"
@@ -153,11 +152,10 @@ export default function CreateEmployeeModal({
               onChange={handleInputChange}
               disabled={submitting || isLoading}
               placeholder="Enter employee ID"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                errors.employeeId
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-slate-300 focus:ring-blue-500"
-              } disabled:bg-slate-100 disabled:cursor-not-allowed`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.employeeId
+                ? "border-red-500 focus:ring-red-500"
+                : "border-slate-300 focus:ring-blue-500"
+                } disabled:bg-slate-100 disabled:cursor-not-allowed`}
             />
             {errors.employeeId && (
               <p className="text-red-600 text-sm mt-1">{errors.employeeId}</p>
@@ -176,11 +174,10 @@ export default function CreateEmployeeModal({
               onChange={handleInputChange}
               disabled={submitting || isLoading}
               placeholder="Enter email address"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                errors.email
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-slate-300 focus:ring-blue-500"
-              } disabled:bg-slate-100 disabled:cursor-not-allowed`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.email
+                ? "border-red-500 focus:ring-red-500"
+                : "border-slate-300 focus:ring-blue-500"
+                } disabled:bg-slate-100 disabled:cursor-not-allowed`}
             />
             {errors.email && (
               <p className="text-red-600 text-sm mt-1">{errors.email}</p>

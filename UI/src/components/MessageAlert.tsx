@@ -10,10 +10,10 @@ const MessageAlert: React.FC<MessageAlertProps> = ({ message }) => {
     return (
         <div
             role="alert"
-            className="relative rounded-lg border border-blue-300 bg-blue-50 p-4 text-blue-800 shadow-sm"
+            className="relative rounded-lg border border-orange-300 bg-orange-50 p-4 text-orange-800 shadow-sm"
         >
             <div className="flex items-center gap-2 font-semibold">
-                <span className="text-lg">ℹ️</span>
+                <span className="text-lg">⚠️</span>
                 <span>Information</span>
             </div>
             <div className="mt-1 text-sm">{message}</div>

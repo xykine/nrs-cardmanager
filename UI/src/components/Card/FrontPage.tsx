@@ -190,7 +190,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
           )}
 
           {/* Name */}
-          <h3 className="text-3xl font-bold text-gray-900 tracking-wide text-center">
+          <h3 className="text-lg font-bold text-gray-900 tracking-wide text-center mt-4">
             {employee.name.toUpperCase()}
           </h3>
 
