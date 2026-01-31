@@ -47,6 +47,56 @@ def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
         f"Checked: {[str(p) for p in candidates]}"
     )
 
+def _draw_multiline_center_text(
+    draw: ImageDraw.ImageDraw, 
+    text: str, 
+    y: int, 
+    font: ImageFont.FreeTypeFont, 
+    color: str,
+    max_width: int,
+    line_spacing_ratio: float = 1.2
+) -> int:
+    """
+    Draws text centered horizontally. Wraps to new line if wider than max_width.
+    Returns the total vertical height consumed.
+    """
+    text = (text or "").strip()
+    if not text:
+        return 0
+
+    lines = []
+    words = text.split()
+    current_line = []
+    
+    # Simple word wrapping
+    for word in words:
+        test_line = " ".join(current_line + [word])
+        w = draw.textlength(test_line, font=font)
+        if w <= max_width:
+            current_line.append(word)
+        else:
+            if current_line:
+                lines.append(" ".join(current_line))
+                current_line = [word]
+            else:
+                lines.append(word)
+                current_line = []
+    
+    if current_line:
+        lines.append(" ".join(current_line))
+        
+    # Draw lines
+    current_y = y
+    line_height = font.size * line_spacing_ratio
+    
+    for line in lines:
+        w = draw.textlength(line, font=font)
+        x = (CARD_W - w) // 2
+        draw.text((x, current_y), line, font=font, fill=color)
+        current_y += line_height
+        
+    return int(len(lines) * line_height)
+
 def _draw_center_text(draw: ImageDraw.ImageDraw, text: str, y: int, font, color: str):
     text = (text or "").strip()
     tw = draw.textlength(text, font=font)
@@ -199,8 +249,24 @@ def render_front(
 
     # Name + ID
     name_y = py + ph + int(CARD_H * 0.05)
-    id_y = name_y + int(CARD_H * 0.15)
-    _draw_center_text(draw, (full_name or "").upper(), name_y, name_font, "#000000")
+    
+    # Use multi-line drawing for name
+    # Allow roughly 90% of card width for the name
+    max_name_width = int(CARD_W * 0.9)
+    name_height_consumed = _draw_multiline_center_text(
+        draw, 
+        (full_name or "").upper(), 
+        name_y, 
+        name_font, 
+        "#000000",
+        max_width=max_name_width
+    )
+    
+    # Adjust ID position based on name height
+    # Give it some padding after the last line of the name
+    id_padding = int(CARD_H * 0.02)
+    id_y = name_y + name_height_consumed + id_padding
+    
     _draw_center_text(draw, f"IR {(employee_id or '').strip()}", id_y, id_font, DARK_GRAY)
 
        # Bottom icon (centered)
