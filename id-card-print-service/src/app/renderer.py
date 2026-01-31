@@ -84,7 +84,6 @@ def render_front(
     employee_id: str,
     photo_url: str,
     logo_path: Path,
-    middle_accent_path: Path,
     bottom_accent_path: Path,
     photo_x: int = 0,
     photo_y: int = 0,
@@ -111,15 +110,15 @@ def render_front(
     ph = int(pw * 1.15)    # 8:10 ratio (pw/ph = 0.8 => ph = pw/0.8)
     px = (CARD_W - pw) // 2
     py = int(CARD_H * 0.30)
-    border = max(4, int(pw * 0.015)) 
+    border = max(4, int(pw * 0.04)) 
     inner_radius = int(pw * 0.03)
     outer_radius = inner_radius + border
 
     # Draw border
     draw.rounded_rectangle(
         (px - border, py - border, px + pw + border, py + ph + border),
-        radius=inner_radius,
-        fill=LIGHT_GRAY,
+        radius=outer_radius,
+        fill=RED,
     )
 
     # Load and process photo
@@ -198,32 +197,20 @@ def render_front(
     # 5. Paste the photo layer onto the card using the intersected mask
     card.paste(photo_layer, (0, 0), final_mask)
 
-    # Middle Accent
-    if middle_accent_path.exists():
-        mid = Image.open(middle_accent_path).convert("RGBA")
-        mid_w = int(CARD_W)
-        mid_h = int(mid.height * (mid_w / mid.width))
-        mid = mid.resize((mid_w, mid_h), Image.LANCZOS)
-        mid_x = (CARD_W - mid_w) // 2
-        mid_y = py + ph - int(mid_h * 0.35) # Overlay slightly over photo bottom
-        card.paste(mid, (mid_x, mid_y), mid)
-
     # Name + ID
-    name_y = py + ph + int(CARD_H * 0.1)
-    id_y = name_y + int(CARD_H * 0.07)
+    name_y = py + ph + int(CARD_H * 0.05)
+    id_y = name_y + int(CARD_H * 0.15)
     _draw_center_text(draw, (full_name or "").upper(), name_y, name_font, "#000000")
     _draw_center_text(draw, f"IR {(employee_id or '').strip()}", id_y, id_font, DARK_GRAY)
 
-    # Bottom icon (right aligned according to new design?)
-    # Frontend: <div className="flex items-center gap-2 mr-20">
-    if bottom_accent_path.exists():
-        icon = Image.open(bottom_accent_path).convert("RGBA")
-        icon_w = int(CARD_W * 0.7)
-        icon_h = int(icon.height * (icon_w / icon.width))
-        icon = icon.resize((icon_w, icon_h), Image.LANCZOS)
-        icon_x = 0 # Centered for now, check frontend alignment
-        icon_y = int(CARD_H * 0.95)
-        card.paste(icon, (icon_x, icon_y), icon)
+       # Bottom icon (centered)
+    icon = Image.open(bottom_accent_path).convert("RGBA")
+    icon_w = int(CARD_W * 0.52)
+    icon_h = int(icon.height * (icon_w / icon.width))
+    icon = icon.resize((icon_w, icon_h), Image.LANCZOS)
+    icon_x = (CARD_W - icon_w) // 2
+    icon_y = int(CARD_H * 0.87)
+    card.paste(icon, (icon_x, icon_y), icon)
 
     return card
 

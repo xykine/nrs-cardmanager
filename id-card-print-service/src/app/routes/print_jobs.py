@@ -208,11 +208,10 @@ def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
 
     # Validate assets exist once
     logo = ASSETS_DIR / "nrs_logo.png"
-    middle = ASSETS_DIR / "MiddleImage.png"
-    bottom = ASSETS_DIR / "ButtomImage.png"
+    bottom = ASSETS_DIR / "bottom_icon.png"
     back = ASSETS_DIR / "BackPageImage.png"
     
-    if not all(a.exists() for a in [logo, middle, bottom, back]):
+    if not all(a.exists() for a in [logo, bottom, back]):
         raise HTTPException(500, "Server assets missing (logo/accent/back template)")
 
     card_images = []
@@ -230,8 +229,7 @@ def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
                 job.full_name, 
                 job.employee_id, 
                 job.photo_url,
-                logo, 
-                middle,
+                logo,
                 bottom,
                 photo_x=job.photo_x,
                 photo_y=job.photo_y,

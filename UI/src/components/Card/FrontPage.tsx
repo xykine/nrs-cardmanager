@@ -12,7 +12,6 @@ export type FrontPageProps = {
   /** Base logos */
   nrsLogoSrc: string;
   nrsLogoBottomBarSrc: string;
-  middleAccentSrc: string;
 
   /** Photo state */
   photoData?: string | null;
@@ -36,7 +35,6 @@ const FrontPage: React.FC<FrontPageProps> = ({
   employee,
   nrsLogoSrc,
   nrsLogoBottomBarSrc,
-  middleAccentSrc,
   photoData,
   validating = false,
   fileInputRef,
@@ -100,7 +98,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
         </h2>
       )}
 
-      <div className="bg-white shadow-xl aspect-[3/5] w-full max-w-sm  border border-gray-200">
+      <div className="bg-white rounded-2xl shadow-xl aspect-[3/5] w-full max-w-sm overflow-hidden border border-gray-200">
         <div className="flex flex-col h-full items-center">
           {/* Logo */}
           <div className="p-14">
@@ -117,19 +115,25 @@ const FrontPage: React.FC<FrontPageProps> = ({
           <div className="relative group">
             <div
               ref={containerRef}
-              className={`w-48 h-60 border-[4px] border-gray-400 overflow-hidden  relative ${isEditable && photoData ? 'cursor-move' : ''}`}
+              className={`w-52 h-52 border-[8px] border-red-600 rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? 'cursor-move' : ''}`}
               onMouseDown={handleMouseDown}
             >
               {photoData && !validating ? (
                 <img
                   src={photoData}
                   alt={employee.name}
-                  draggable={false}
-                  className="absolute pointer-events-none select-none left-0 top-0 w-full h-full"
+                  onLoad={(e) => {
+                    const img = e.currentTarget;
+                    setAspect(img.naturalWidth / img.naturalHeight);
+                  }}
+                  className="absolute pointer-events-none select-none left-1/2 top-1/2"
                   style={{
-                    objectFit: "cover",
-                    transformOrigin: "center",
-                    transform: `translate(${photoX}px, ${photoY}px) scale(${photoScale})`,
+                    maxWidth: 'none',
+                    width: aspect > 1 ? 'auto' : '100%',
+                    height: aspect > 1 ? '100%' : 'auto',
+                    minWidth: '100%',
+                    minHeight: '100%',
+                    transform: `translate(calc(-50% + ${photoX}px), calc(-50% + ${photoY}px)) scale(${photoScale})`,
                   }}
                 />
               ) : (
@@ -152,7 +156,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
             </div>
 
             {isEditable && photoData && !validating && (
-              <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
                 <button
                   onClick={() => handleZoom(photoScale - 0.1)}
                   className="p-1 hover:bg-gray-100 rounded-full text-slate-600"
@@ -178,41 +182,34 @@ const FrontPage: React.FC<FrontPageProps> = ({
             )}
           </div>
 
-          {/* Middle accent */}
+          {/* Name */}
+          <h3 className="text-3xl font-bold text-gray-600 tracking-wide text-center">
+            {employee.name.toUpperCase()}
+          </h3>
+
+          {/* Employee ID */}
+          <p className="text-l font-semibold text-gray-600 mt-10">
+            IR {employee.employeeId}
+          </p>
+
+          {/* Bottom accent */}
           {currentUserRole === "manager" && (
-            <div className="flex items-center mt-[-32px]">
+            <div className="flex items-center gap-2 mx-20 mt-2">
               <img
-                src={middleAccentSrc}
-                alt="Middle Accent"
+                src={nrsLogoBottomBarSrc}
+                alt="NRS Logo Bottom Bar"
                 className="h-25"
               />
             </div>
           )}
 
-          {/* Name */}
-          <h3 className="text-lg font-bold text-gray-900 tracking-wide text-center mt-4">
-            {employee.name.toUpperCase()}
-          </h3>
-
-          {/* Employee ID */}
-          <p className="text-xl font-semibold text-gray-600 mt-4">
-            IR {employee.employeeId}
-          </p>
+          {/* Spacer */}
+          <div className="w-full flex items-center gap-2 mt-10" />
         </div>
-
-        {/* Bottom accent */}
-        {currentUserRole === "manager" && (
-          <div className="flex items-center gap-2 mr-20">
-            <img
-              src={nrsLogoBottomBarSrc}
-              alt="NRS Logo Bottom Bar"
-              className="h-25"
-            />
-          </div>
-        )}
       </div>
     </div>
   );
 };
 
 export default FrontPage;
+

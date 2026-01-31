@@ -6,8 +6,7 @@ import { Upload, Printer, Mail, Save, ArrowLeft, LogOut } from "lucide-react";
 import { useNotification } from "../../contexts/NotificationContext";
 import EmailDialog from "../EmailDialog";
 // chairmanSignature2 removed since it's now part of the BackPageImage template
-import nrsLogoBottomBar from "../../assets/ButtomImage.png";
-import middleAccent from "../../assets/MiddleImage.png";
+import nrsLogoBottomBar from "../../assets/logoBottomBar.png";
 import nrsLogo2 from "../../assets/nrs-logo.png";
 import ErrorAlert from "../ErrorAlert";
 import MessageAlert from "../MessageAlert";
@@ -365,7 +364,6 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
               employee={employee}
               nrsLogoSrc={nrsLogo2}
               nrsLogoBottomBarSrc={nrsLogoBottomBar}
-              middleAccentSrc={middleAccent}
               photoData={photoData}
               validating={validating}
               fileInputRef={fileInputRef}
