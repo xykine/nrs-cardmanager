@@ -7,12 +7,13 @@ from typing import List, Optional
 
 from PIL import Image
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from ..db import get_db
-from ..models import Employee, PrintJob, JobStatus
+from ..db import get_db
+from ..models import Employee, PrintJob, JobStatus, Card
 from ..renderer import render_front, render_back
 from ..schemas import (
     ClaimIn,
@@ -151,10 +152,9 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
         # Create DB record
         full_name = employee.name or employee.employee_id
         empp_ID = employee.employee_id or "N/A"
-        photo_img = _decode_photo_data(employee.card.photo_data)
-        d = job_dir(job_id)
-        photo_path = d / "photo.png"
-        photo_img.save(photo_path, "PNG")
+        
+        # Use MEMORY placeholder as requested
+        photo_data_uri = "MEMORY"
 
         job = PrintJob(
             job_id=job_id,
@@ -162,7 +162,7 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
             printer_id=payload.printerId,
             employee_id=empp_ID,
             full_name=full_name,
-            photo_url=str(photo_path),
+            photo_url=photo_data_uri,
             photo_x=employee.card.photo_x or 0,
             photo_y=employee.card.photo_y or 0,
             photo_scale=employee.card.photo_scale or "1.0",
@@ -223,12 +223,33 @@ def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
             if not job.photo_url:
                 print(f"Skipping job {job.job_id}: No photo_url")
                 continue
-                
+            
+            photo_url_to_use = job.photo_url
+
+            if job.photo_url == "MEMORY":
+                # Fetch dynamically from Card via Employee
+                # We join Employee and Card to get the photo data
+                stmt = (
+                    select(Card)
+                    .join(Employee, Card.employee_id == Employee.id)
+                    .where(Employee.employee_id == job.employee_id)
+                )
+                card = db.execute(stmt).scalars().first()
+                if card and card.photo_data:
+                    original_data = card.photo_data.strip()
+                    if original_data.startswith("data:"):
+                        photo_url_to_use = original_data
+                    else:
+                        photo_url_to_use = f"data:image/png;base64,{original_data}"
+                else:
+                    print(f"Skipping job {job.job_id}: Card or photo data not found for employee {job.employee_id}")
+                    continue
+
             # Render Front
             front_img = render_front(
                 job.full_name, 
                 job.employee_id, 
-                job.photo_url,
+                photo_url_to_use,
                 logo,
                 bottom,
                 photo_x=job.photo_x,
@@ -248,20 +269,25 @@ def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
     if not card_images:
          raise HTTPException(400, "No valid images could be generated for provided jobs")
 
-    # Create temporary PDF
-    # We use the first job's directory to store the PDF momentarily
-    # Or just a temp file. Let's stick to the pattern but maybe cleaner.
-    pdf_filename = f"batch_{_now().strftime('%Y%m%d%H%M%S')}.pdf"
-    output_path = job_dir(jobs[0].job_id).parent / pdf_filename 
+    # Generate PDF bytes in memory
+    pdf_bytes = create_id_card_pdf(card_images)
     
-    # Pass PIL images directly to generator
-    pdf_path = create_id_card_pdf(card_images, str(output_path))
-    
-    return FileResponse(
-        pdf_path, 
-        media_type="application/pdf", 
-        filename="print_batch.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=batch_{_now().strftime('%Y%m%d%H%M%S')}.pdf"}
     )
+ 
+    # Old logic removed:
+    # pdf_filename = f"batch_{_now().strftime('%Y%m%d%H%M%S')}.pdf"
+    # output_path = job_dir(jobs[0].job_id).parent / pdf_filename 
+    # pdf_path = create_id_card_pdf(card_images, str(output_path))
+    # return FileResponse(
+    #     pdf_path, 
+    #     media_type="application/pdf", 
+    #     filename="print_batch.pdf"
+    # )
+
 
 
 @router.get("/print-jobs", response_model=List[JobOut])
@@ -389,8 +415,11 @@ def delete_batch(id: str, db: Session = Depends(get_db)):
         raise HTTPException(404, "Batch not found")
     
     # Optional: Delete files on disk
+    # (Since we removed photo saving, this dir might not exist or be empty)
     try:
-        shutil.rmtree(job_dir(job.job_id))
+        d = job_dir(job.job_id)
+        if d.exists():
+            shutil.rmtree(d)
     except Exception:
         pass  # ignore file errors
 
@@ -416,7 +445,9 @@ def delete_bulk_batches(
     for job in jobs:
         # cleanup files
         try:
-             shutil.rmtree(job_dir(job.job_id))
+             d = job_dir(job.job_id)
+             if d.exists():
+                 shutil.rmtree(d)
         except Exception:
             pass
         db.delete(job)

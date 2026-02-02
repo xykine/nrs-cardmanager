@@ -120,7 +120,15 @@ def _rounded_image(
     return out
 
 def _load_image_from_url_or_path(photo_url: str) -> Image.Image:
-    if photo_url.startswith("http://") or photo_url.startswith("https://"):
+    if photo_url.startswith("data:"):
+        # Handle Base64 Data URI
+        try:
+             header, encoded = photo_url.split(",", 1)
+             data = base64.b64decode(encoded)
+             return Image.open(io.BytesIO(data))
+        except Exception as e:
+             raise ValueError("Invalid data URI") from e
+    elif photo_url.startswith("http://") or photo_url.startswith("https://"):
         with httpx.Client(timeout=20) as client:
             r = client.get(photo_url)
             r.raise_for_status()

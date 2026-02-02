@@ -5,12 +5,13 @@ from typing import List, Tuple, Union
 
 def create_id_card_pdf(
     card_images: List[Tuple[Union[str, Image.Image], Union[str, Image.Image]]], 
-    output_path: str,
+    output_path: str = None,
     orientation: str = "P"
-) -> str:
+) -> Union[str, bytes]:
     """
     Generates a PDF with Front and Back images for ID cards.
     Accepts file paths OR PIL Image objects.
+    If output_path is None, returns bytes.
     """
     pdf = FPDF(orientation=orientation, unit='mm', format=(53.98, 85.60)) # CR80 standard dimensions
     pdf.set_auto_page_break(False)
@@ -58,5 +59,9 @@ def create_id_card_pdf(
         else:
             pdf.image(back_src, x, y, page_w, page_h)
         
-    pdf.output(output_path)
-    return output_path
+    if output_path:
+        pdf.output(output_path)
+        return output_path
+    else:
+        # Return bytes
+        return pdf.output()
