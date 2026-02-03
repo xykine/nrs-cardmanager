@@ -22,8 +22,11 @@ import cv2
 import numpy as np
 from typing import Dict, List
 
+import csv
+import io
 import requests
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 from sqlalchemy.orm import Session
@@ -45,6 +48,7 @@ from ..schemas import (
     EmployeeOut,
     EmployeePhotoStatusUpdate,
     EmployeeRoleUpdate,
+    EmployeeUpdate,
 )
 
 router = APIRouter(prefix="/employees", tags=["employees"])
@@ -1025,7 +1029,7 @@ def _apply_employee_filters(
 
     employee_id = (employee_id or "").strip()
     if employee_id:
-        query = query.filter(Employee.employee_id.ilike(f"%{employee_id}%"))
+        query = query.filter(Employee.employee_id.ilike(f"{employee_id}%"))
 
     department = (department or "").strip()
     if department and department.lower() != "all":
@@ -1483,6 +1487,26 @@ def update_role(employee_id: str, payload: EmployeeRoleUpdate, db: Session = Dep
     return employee
 
 
+@router.patch("/{employee_id}", response_model=EmployeeOut)
+def update_employee(
+    employee_id: str,
+    payload: EmployeeUpdate,
+    db: Session = Depends(get_db),
+):
+    employee = get_employee_byid_or_404(db, employee_id)
+
+    if payload.name is not None:
+        employee.name = payload.name
+
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update employee") from exc
+
+    db.refresh(employee)
+    return employee
+
 
 def _top_corner_pixels_bgr(bgr: np.ndarray, patch_px: int) -> np.ndarray:
     """Pixels from top-left + top-right corner patches only."""
@@ -1593,3 +1617,45 @@ def delete_bulk_employees(
     db.commit()
     
     return {"ok": True, "deleted": result.rowcount}
+
+
+@router.post("/export-csv")
+def export_employees_csv(
+    payload: BulkEmailRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(Employee)
+    employee_ids = payload.employee_ids if payload else None
+    filters = payload.filters if payload else None
+    is_all = payload.is_all if payload else False
+
+    if employee_ids:
+        employees = query.filter(Employee.id.in_(employee_ids)).all()
+    elif is_all:
+        if filters and not _filters_are_empty(filters):
+            query = _apply_employee_filters(
+                query,
+                name=filters.name,
+                employee_id=filters.employee_id,
+                photo_status=filters.photo_status,
+                department=filters.department,
+            )
+        employees = query.all()
+    else:
+        employees = []
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["S/N", "Employee Name", "Employee ID"])
+
+    for i, emp in enumerate(employees, start=1):
+        name = emp.name.title() if emp.name else ""
+        writer.writerow([i, name, emp.employee_id])
+
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=employees.csv"}
+    )

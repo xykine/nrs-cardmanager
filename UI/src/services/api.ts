@@ -17,6 +17,13 @@ interface PaginatedResponse<T> {
   page_size: number;
 }
 
+export interface BulkActionPayload {
+  employeeIds?: string[];
+  filters?: EmployeeFilters;
+  isAll?: boolean;
+  message?: string;
+}
+
 export const employeeService = {
 
   async getDepartments(): Promise<string[]> {
@@ -101,6 +108,16 @@ export const employeeService = {
     return response.json();
   },
 
+  async update(id: string, data: { name: string }): Promise<Employee> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to update employee");
+    return response.json();
+  },
+
   async syncData(): Promise<Employee[]> {
     const response = await fetch(`${API_BASE_URL}/employees/sync-employee`);
     if (!response.ok) throw new Error("Failed to sync data");
@@ -133,6 +150,16 @@ export const employeeService = {
     });
     if (!response.ok) throw new Error("Failed to send bulk emails");
     return response.json();
+  },
+
+  async exportCsv(payload: BulkActionPayload): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/employees/export-csv`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error("Failed to export CSV");
+    return response.blob();
   },
 
   async printCard(id: string): Promise<{ success: boolean; message: string }> {

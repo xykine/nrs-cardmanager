@@ -10,6 +10,7 @@ import {
   List,
   Plus,
   Trash,
+  Download,
 } from "lucide-react";
 import { useNotification } from "../contexts/NotificationContext";
 import EmailDialog from "./EmailDialog";
@@ -18,6 +19,7 @@ import CreateEmployeeModal from "./CreateEmployeeModal";
 import EmployeeTable from "./EmployeeTable";
 import EmployeeFilterPanel, { EmployeeFilters } from "./FilterEmployee";
 import Pagination from "./Pagination";
+import DownloadEmployeeModal from "./DownloadEmployeeModal";
 
 interface EmployeeListProps {
   onLogout: () => void;
@@ -45,6 +47,7 @@ export default function EmployeeList({
     employeeIds: string[];
   }>({ isOpen: false, employeeIds: [] });
   const [createEmployeeModal, setCreateEmployeeModal] = useState(false);
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<EmployeeFilters>({
     name: "",
@@ -160,6 +163,84 @@ export default function EmployeeList({
       await loadEmployees();
     } catch (err) {
       alert("Failed to update role");
+      console.error(err);
+    }
+  };
+
+  const handleDownloadSubmit = async (option: "all" | "filtered" | "selected") => {
+    let ids: string[] | undefined = undefined;
+    let isAll = false;
+    // We pass filters if "filtered" or default behavior for "all" 
+    // Wait, backend logic for "all" relies on `isAll=true` and NO filters/ids?
+    // Actually `export_employees_csv`:
+    // if ids -> use ids
+    // elif isAll -> if filters -> apply filters, else -> all
+    // else -> empty
+
+    // So:
+    // Option "selected": pass `employeeIds` = selectedIds
+    // Option "filtered": pass `isAll=true`, `filters` = debouncedFilters
+    // Option "all": pass `isAll=true`, `filters` = empty (or ignore filters in backend if we want pure all? but usually "all" implies "all currently visible/available" or "entire database"?
+    // The requirement is "Download All Employee", "Download Filtered Employee".
+    // "Download All" -> Entire DB.
+    // "Download Filtered" -> Current filters.
+
+    // So for "all": isAll=true, filters=undefined/empty
+    // For "filtered": isAll=true, filters=debouncedFilters
+
+    let payloadFilters: EmployeeFilters | undefined = undefined;
+
+    if (option === "selected") {
+      ids = Array.from(selectedIds);
+      if (ids.length === 0) return; // Should be disabled anyway
+    } else if (option === "filtered") {
+      isAll = true;
+      payloadFilters = debouncedFilters;
+    } else if (option === "all") {
+      isAll = true;
+      payloadFilters = undefined; // Clear filters to get everyone
+    }
+
+    setDownloadModalOpen(false);
+
+    const notificationId = addNotification({
+      type: "progress",
+      title: "Exporting CSV",
+      message: "Generating CSV file...",
+      progress: 0,
+      autoClose: false,
+    });
+
+    try {
+      const blob = await employeeService.exportCsv({
+        employeeIds: ids,
+        filters: payloadFilters,
+        isAll: isAll,
+      });
+
+      // trigger download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "employees.csv";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      updateNotification(notificationId, {
+        type: "success",
+        title: "Export Complete",
+        message: "CSV file downloaded successfully",
+        autoClose: true,
+      });
+    } catch (err) {
+      updateNotification(notificationId, {
+        type: "error",
+        title: "Export Failed",
+        message: "Failed to download CSV",
+        autoClose: true,
+      });
       console.error(err);
     }
   };
@@ -546,6 +627,14 @@ export default function EmployeeList({
               Create Employee
             </button>
             <button
+              onClick={() => setDownloadModalOpen(true)}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium shadow-md disabled:bg-slate-400 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </button>
+            <button
               onClick={handleSyncData}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md disabled:bg-slate-400 disabled:cursor-not-allowed"
@@ -555,13 +644,13 @@ export default function EmployeeList({
               />
               Sync Data
             </button>
-            <button
+            {/* <button
               onClick={() => navigate("/printing")}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-md"
             >
               <List className="w-4 h-4" />
               Printing Tasks
-            </button>
+            </button> */}
             <button
               onClick={onLogout}
               className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium shadow-md"
@@ -684,6 +773,14 @@ export default function EmployeeList({
         onClose={() => setCreateEmployeeModal(false)}
         onSubmit={handleCreateEmployee}
         departments={departments}
+      />
+
+      <DownloadEmployeeModal
+        isOpen={downloadModalOpen}
+        onClose={() => setDownloadModalOpen(false)}
+        onSubmit={handleDownloadSubmit}
+        hasSelection={selectedIds.size > 0}
+        hasFilters={!!(debouncedFilters.name || debouncedFilters.employeeId || debouncedFilters.department !== "all" || debouncedFilters.photoStatus !== "all")}
       />
     </div>
   );
