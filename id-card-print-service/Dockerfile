@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY src ./src
 COPY assets ./assets
-COPY sample_data ./sample_data
+
 
 EXPOSE 8000
 
