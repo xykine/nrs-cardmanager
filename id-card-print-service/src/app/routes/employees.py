@@ -1099,7 +1099,7 @@ def sync_employees(db: Session = Depends(get_db)):
 @router.get("/", response_model=EmployeeListOut)
 def list_employees(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=200),
     name: Optional[str] = Query(None),
     employee_id: Optional[str] = Query(None, alias="employeeId"),
     photo_status: Optional[str] = Query(None, alias="photoStatus"),
