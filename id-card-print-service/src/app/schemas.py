@@ -67,6 +67,10 @@ class EmployeeCreate(APIModel):
     department: Optional[str] = None
 
 
+class EmployeeUpdate(APIModel):
+    name: Optional[str] = None
+
+
 class EmployeeRoleUpdate(APIModel):
     role: str
 

@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Employee } from "../../types";
 import { employeeService, cardService } from "../../services/api";
-import { Upload, Printer, Mail, Save, ArrowLeft, LogOut } from "lucide-react";
+import { Upload, Printer, Mail, Save, ArrowLeft, LogOut, Pencil } from "lucide-react";
 import { useNotification } from "../../contexts/NotificationContext";
 import EmailDialog from "../EmailDialog";
+import EditNameModal from "./EditNameModal";
 // chairmanSignature2 removed since it's now part of the BackPageImage template
 import nrsLogoBottomBar from "../../assets/logoBottomBar.png";
 import nrsLogo2 from "../../assets/nrs-logo.png";
@@ -24,6 +25,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
   const [saving, setSaving] = useState(false);
   const [photoErrors, setPhotoErrors] = useState<string[]>([]);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [editNameModalOpen, setEditNameModalOpen] = useState(false);
   const [photoX, setPhotoX] = useState(0);
   const [photoY, setPhotoY] = useState(0);
   const [photoScale, setPhotoScale] = useState(1.0);
@@ -241,6 +243,40 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  const handleNameUpdate = async (firstName: string, lastName: string) => {
+    if (!employeeId) return;
+    const newName = `${firstName} ${lastName}`.trim();
+
+    const notificationId = addNotification({
+      type: "progress",
+      title: "Updating Name",
+      message: "Updating employee name...",
+      progress: 0,
+      autoClose: false,
+    });
+
+    try {
+      await employeeService.update(employeeId, { name: newName });
+
+      updateNotification(notificationId, {
+        type: "success",
+        title: "Name Updated",
+        message: "Employee name updated successfully",
+        autoClose: true,
+      });
+
+      await loadEmployeeData();
+    } catch (err) {
+      updateNotification(notificationId, {
+        type: "error",
+        title: "Update Failed",
+        message: "Failed to update employee name",
+        autoClose: true,
+      });
+      console.error(err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -288,7 +324,18 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                   Employee Card
                 </h1>
                 <div className="text-slate-600">
-                  <p className="text-lg font-medium">{employee.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-lg font-medium">{employee.name}</p>
+                    {currentUserRole === "manager" && (
+                      <button
+                        onClick={() => setEditNameModalOpen(true)}
+                        className="p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-blue-600 transition-colors"
+                        title="Edit Name"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                   <p className="text-sm">ID: {employee.employeeId}</p>
                 </div>
               </div>
@@ -398,6 +445,13 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
         onSend={handleSendEmail}
         employeeName={employee?.name}
         isBulk={false}
+      />
+
+      <EditNameModal
+        isOpen={editNameModalOpen}
+        onClose={() => setEditNameModalOpen(false)}
+        onSubmit={handleNameUpdate}
+        currentName={employee?.name || ""}
       />
     </div>
   );

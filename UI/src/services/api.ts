@@ -101,6 +101,16 @@ export const employeeService = {
     return response.json();
   },
 
+  async update(id: string, data: { name: string }): Promise<Employee> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to update employee");
+    return response.json();
+  },
+
   async syncData(): Promise<Employee[]> {
     const response = await fetch(`${API_BASE_URL}/employees/sync-employee`);
     if (!response.ok) throw new Error("Failed to sync data");

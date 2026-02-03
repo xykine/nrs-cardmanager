@@ -45,6 +45,7 @@ from ..schemas import (
     EmployeeOut,
     EmployeePhotoStatusUpdate,
     EmployeeRoleUpdate,
+    EmployeeUpdate,
 )
 
 router = APIRouter(prefix="/employees", tags=["employees"])
@@ -1482,6 +1483,26 @@ def update_role(employee_id: str, payload: EmployeeRoleUpdate, db: Session = Dep
     db.refresh(employee)
     return employee
 
+
+@router.patch("/{employee_id}", response_model=EmployeeOut)
+def update_employee(
+    employee_id: str,
+    payload: EmployeeUpdate,
+    db: Session = Depends(get_db),
+):
+    employee = get_employee_byid_or_404(db, employee_id)
+
+    if payload.name is not None:
+        employee.name = payload.name
+
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update employee") from exc
+
+    db.refresh(employee)
+    return employee
 
 
 def _top_corner_pixels_bgr(bgr: np.ndarray, patch_px: int) -> np.ndarray:
