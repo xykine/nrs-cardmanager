@@ -17,6 +17,13 @@ interface PaginatedResponse<T> {
   page_size: number;
 }
 
+export interface BulkActionPayload {
+  employeeIds?: string[];
+  filters?: EmployeeFilters;
+  isAll?: boolean;
+  message?: string;
+}
+
 export const employeeService = {
 
   async getDepartments(): Promise<string[]> {
@@ -143,6 +150,16 @@ export const employeeService = {
     });
     if (!response.ok) throw new Error("Failed to send bulk emails");
     return response.json();
+  },
+
+  async exportCsv(payload: BulkActionPayload): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/employees/export-csv`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error("Failed to export CSV");
+    return response.blob();
   },
 
   async printCard(id: string): Promise<{ success: boolean; message: string }> {

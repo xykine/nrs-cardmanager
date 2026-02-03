@@ -22,8 +22,11 @@ import cv2
 import numpy as np
 from typing import Dict, List
 
+import csv
+import io
 import requests
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 from sqlalchemy.orm import Session
@@ -1614,3 +1617,45 @@ def delete_bulk_employees(
     db.commit()
     
     return {"ok": True, "deleted": result.rowcount}
+
+
+@router.post("/export-csv")
+def export_employees_csv(
+    payload: BulkEmailRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(Employee)
+    employee_ids = payload.employee_ids if payload else None
+    filters = payload.filters if payload else None
+    is_all = payload.is_all if payload else False
+
+    if employee_ids:
+        employees = query.filter(Employee.id.in_(employee_ids)).all()
+    elif is_all:
+        if filters and not _filters_are_empty(filters):
+            query = _apply_employee_filters(
+                query,
+                name=filters.name,
+                employee_id=filters.employee_id,
+                photo_status=filters.photo_status,
+                department=filters.department,
+            )
+        employees = query.all()
+    else:
+        employees = []
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["S/N", "Employee Name", "Employee ID"])
+
+    for i, emp in enumerate(employees, start=1):
+        name = emp.name.title() if emp.name else ""
+        writer.writerow([i, name, emp.employee_id])
+
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=employees.csv"}
+    )
