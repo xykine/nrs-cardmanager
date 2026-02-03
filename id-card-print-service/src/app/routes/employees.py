@@ -1026,7 +1026,7 @@ def _apply_employee_filters(
 
     employee_id = (employee_id or "").strip()
     if employee_id:
-        query = query.filter(Employee.employee_id.ilike(f"%{employee_id}%"))
+        query = query.filter(Employee.employee_id.ilike(f"{employee_id}%"))
 
     department = (department or "").strip()
     if department and department.lower() != "all":
