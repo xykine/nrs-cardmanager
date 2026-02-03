@@ -17,6 +17,7 @@ import PrintingStationModal from "./PrintingStationModal";
 import CreateEmployeeModal from "./CreateEmployeeModal";
 import EmployeeTable from "./EmployeeTable";
 import EmployeeFilterPanel, { EmployeeFilters } from "./FilterEmployee";
+import Pagination from "./Pagination";
 
 interface EmployeeListProps {
   onLogout: () => void;
@@ -53,7 +54,7 @@ export default function EmployeeList({
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [pageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(20);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [selectAllPages, setSelectAllPages] = useState(false);
 
@@ -71,7 +72,7 @@ export default function EmployeeList({
 
   useEffect(() => {
     if (userRole === "manager") loadEmployees();
-  }, [currentPage, userRole, debouncedFilters]);
+  }, [currentPage, pageSize, userRole, debouncedFilters]);
 
   const loadDepartments = async () => {
     const response = await employeeService.getDepartments();
@@ -102,19 +103,15 @@ export default function EmployeeList({
     }
   };
 
-  const handleNextPage = () => {
-    const totalPages = Math.ceil(totalRecords / pageSize);
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-      setSelectedIds(new Set());
-    }
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setSelectedIds(new Set());
   };
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-      setSelectedIds(new Set());
-    }
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1);
+    setSelectedIds(new Set());
   };
 
   const handleSyncData = async () => {
@@ -376,7 +373,7 @@ export default function EmployeeList({
     setEmailDialog({ isOpen: false, isBulk: false });
 
     try {
-      await employeeService.sendBulkEmail([employeeId], message);
+      await employeeService.sendBulkEmail([employeeId], message, filters, selectAllPages);
 
       updateNotification(notificationId, {
         type: "success",
@@ -652,39 +649,14 @@ export default function EmployeeList({
 
 
           {employees.length > 0 && (
-            <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-              <div className="text-sm text-slate-600">
-                Showing {(currentPage - 1) * pageSize + 1} to{" "}
-                {Math.min(currentPage * pageSize, totalRecords)} of{" "}
-                {totalRecords.toLocaleString()} employee
-                {totalRecords !== 1 ? "s" : ""}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${currentPage === 1
-                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                    : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                    }`}
-                >
-                  Previous
-                </button>
-                <span className="px-4 py-2 text-sm text-slate-600">
-                  Page {currentPage} of {Math.ceil(totalRecords / pageSize)}
-                </span>
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPage >= Math.ceil(totalRecords / pageSize)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${currentPage >= Math.ceil(totalRecords / pageSize)
-                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                    : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                    }`}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalItems={totalRecords}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              itemName="employee"
+            />
           )}
         </div>
       </div>
