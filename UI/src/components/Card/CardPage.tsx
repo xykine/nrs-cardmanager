@@ -329,14 +329,15 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                     {currentUserRole === "manager" && (
                       <button
                         onClick={() => setEditNameModalOpen(true)}
-                        className="p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-blue-600 transition-colors"
+                        className="flex gap-2  items-center px-2 py-1 border border-red-700 rounded-full text-slate-400 hover:text-blue-600 transition-colors"
                         title="Edit Name"
                       >
-                        <Pencil className="w-4 h-4" />
+
+                        <Pencil className="w-4 h-4 text-red-700" /> <span className="text-red-700">Edit</span>
                       </button>
                     )}
                   </div>
-                  <p className="text-sm">ID: {employee.employeeId}</p>
+                  <p className="text-sm mb-2">ID: {employee.employeeId}</p>
                 </div>
               </div>
 
