@@ -1537,8 +1537,9 @@ def _lab_distance_to_white(pixels_bgr: np.ndarray) -> np.ndarray:
 
 def validate_id_photo(image_path: str) -> Dict:
     """
-    ONLY validates that the background is white / close-to-white.
-    Uses top-corners only (avoids sampling shirt/face at bottom).
+    Validates:
+    1. Background is white / close-to-white (stricter than before).
+    2. Person is NOT wearing glasses.
     """
     errors: List[str] = []
 
@@ -1548,20 +1549,57 @@ def validate_id_photo(image_path: str) -> Dict:
 
     h, w = img.shape[:2]
 
+    # --- 1. Background Validation (Stricter) ---
     # Sample ONLY top corners (simple + robust for portraits)
     patch_px = max(30, int(min(h, w) * 0.12))  # ~12% of image
     sample = _top_corner_pixels_bgr(img, patch_px=patch_px)
 
     dist = _lab_distance_to_white(sample)
 
-    # Tuning knobs (simple):
-    threshold = 40.0        # how close to white each pixel must be (higher = more tolerant)
-    ratio_required = 0.90   # how much of the corner pixels must be white-ish
+    # Tuning knobs: 
+    # threshold 35.0 is a bit more tolerant than 30.0 but still rejects gray.
+    threshold = 35.0        
+    ratio_required = 0.90   # 90% of corners must be white-ish
 
     white_ratio = float(np.mean(dist <= threshold))
 
     if white_ratio < ratio_required:
-        errors.append("Background is not white enough.")
+        errors.append("Background is not white enough (gray or off-white backgrounds are not allowed).")
+
+    # --- 2. Glasses Detection ---
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.equalizeHist(gray) # Improve contrast for better detection
+    
+    # Load cascades from cv2 data
+    face_cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+    eye_with_glasses_cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_eye_tree_eyeglasses.xml")
+    
+    face_cascade = cv2.CascadeClassifier(face_cascade_path)
+    eye_glasses_cascade = cv2.CascadeClassifier(eye_with_glasses_cascade_path)
+
+    # Detect faces
+    faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(100, 100))
+    
+    glasses_detected = False
+    for (x, y, w_face, h_face) in faces:
+        # Eye region is typically in the upper half of the face
+        roi_gray = gray[y + int(h_face * 0.2) : y + int(h_face * 0.5), x : x + w_face]
+        
+        # Detect eyes specifically for eyeglasses
+        # minNeighbors=12 is much more conservative than 5 to reduce false positives
+        eyes = eye_glasses_cascade.detectMultiScale(
+            roi_gray, 
+            scaleFactor=1.1, 
+            minNeighbors=12, 
+            minSize=(20, 20)
+        )
+        
+        if len(eyes) > 0:
+            glasses_detected = True
+            break
+            
+    if glasses_detected:
+        errors.append("Photos with glasses are not allowed. Please take a photo without glasses.")
 
     if errors:
         return {"status": "error", "errors": errors}
