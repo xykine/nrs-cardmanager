@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Employee } from "../types";
 import { employeeService, printingService } from "../services/api";
 import {
@@ -7,7 +6,6 @@ import {
   Printer,
   LogOut,
   RefreshCw,
-  List,
   Plus,
   Trash,
   Download,
@@ -30,7 +28,6 @@ export default function EmployeeList({
   onLogout,
   userRole,
 }: EmployeeListProps) {
-  const navigate = useNavigate();
   const { addNotification, updateNotification } = useNotification();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -57,7 +54,7 @@ export default function EmployeeList({
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(200);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [selectAllPages, setSelectAllPages] = useState(false);
 
