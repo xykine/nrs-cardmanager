@@ -30,7 +30,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 from sqlalchemy.orm import Session
-from sqlalchemy import delete
+from sqlalchemy import delete, not_
 from sqlalchemy.exc import IntegrityError
 
 
@@ -1114,6 +1114,9 @@ def list_employees(
         photo_status=photo_status,
         department=department,
     )
+
+    # Exempt employees with ID starting with 900
+    query = query.filter(not_(Employee.employee_id.like("90%")))
 
     total = query.count()
     offset = (page - 1) * page_size
