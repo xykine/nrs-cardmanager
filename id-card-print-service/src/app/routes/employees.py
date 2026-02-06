@@ -1590,7 +1590,7 @@ def validate_id_photo(image_path: str) -> Dict:
         eyes = eye_glasses_cascade.detectMultiScale(
             roi_gray, 
             scaleFactor=1.1, 
-            minNeighbors=12, 
+            minNeighbors=5, 
             minSize=(20, 20)
         )
         
