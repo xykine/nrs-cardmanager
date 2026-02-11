@@ -291,6 +291,29 @@ export const printingService = {
     return response.json();
   },
 
+  async getPrintReports(page: number = 1, pageSize: number = 20, startDate?: string, endDate?: string): Promise<{ items: any[], total: number, page: number, page_size: number }> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      page_size: pageSize.toString(),
+    });
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    const response = await fetch(`${API_BASE_URL}/print-reports?${params.toString()}`);
+    if (!response.ok) throw new Error("Failed to fetch print reports");
+    return response.json();
+  },
+
+  async exportPrintReports(startDate?: string, endDate?: string): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    const response = await fetch(`${API_BASE_URL}/print-reports/export?${params.toString()}`);
+    if (!response.ok) throw new Error("Failed to export print reports");
+    return response.blob();
+  },
+
   async getBatchDetails(id: string): Promise<PrintBatch> {
     const response = await fetch(`${API_BASE_URL}/printing/batches/${id}`);
     if (!response.ok) throw new Error("Failed to fetch batch details");

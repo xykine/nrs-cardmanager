@@ -4,7 +4,7 @@ import EmployeeList from "./components/EmployeeList";
 import CardPage from "./components/Card/CardPage";
 import EmployeeDetail from "./components/EmployeeDetail";
 import Login from "./components/Login";
-import PrintingTasksPage from "./components/PrintingTasksPage";
+import PrintingReportPage from "./components/PrintingReportPage";
 import PrintBatchDetail from "./components/PrintBatchDetail";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
@@ -98,7 +98,7 @@ function App() {
                 element={
                   <ProtectedRoute isAuthenticated={isAuthenticated}>
                     <AdminProtectedRoute>
-                      <PrintingTasksPage />
+                      <PrintingReportPage />
                     </AdminProtectedRoute>
                   </ProtectedRoute>
                 }

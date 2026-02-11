@@ -1,19 +1,20 @@
 import base64
 import io
 import shutil
+import csv
 from typing import Dict
 from datetime import datetime, timedelta
 from typing import List, Optional
 
 from PIL import Image
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from ..db import get_db
 from ..db import get_db
-from ..models import Employee, PrintJob, JobStatus, Card
+from ..models import Employee, PrintJob, JobStatus, Card, PrintReport
 from ..renderer import render_front, render_back
 from ..schemas import (
     ClaimIn,
@@ -22,6 +23,8 @@ from ..schemas import (
     CreateJobsIn,
     JobOut,
     ReportIn,
+    PrintReportOut,
+    PrintReportListOut,
 )
 from ..storage import ASSETS_DIR, job_dir
 from .employees import _apply_employee_filters, _filters_are_empty
@@ -272,6 +275,36 @@ def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
     # Generate PDF bytes in memory
     pdf_bytes = create_id_card_pdf(card_images)
     
+    # Record PrintReport for each job (Upsert logic)
+    emp_ids_needed = [job.employee_id for job in jobs]
+    employees = db.query(Employee).filter(Employee.employee_id.in_(emp_ids_needed)).all()
+    employees_map = {e.employee_id: e.id for e in employees}
+    
+    # Fetch existing reports for these employees
+    existing_reports = {
+        r.employee_id: r 
+        for r in db.query(PrintReport).filter(PrintReport.employee_id.in_(employees_map.values())).all()
+    }
+
+    now = _now()
+    for job in jobs:
+        eid = employees_map.get(job.employee_id)
+        if eid:
+            if eid in existing_reports:
+                report = existing_reports[eid]
+                report.card_count += 1
+                report.print_date = now
+            else:
+                report = PrintReport(
+                    employee_id=eid,
+                    card_count=1,
+                    print_date=now
+                )
+                db.add(report)
+                # Cache the new report object in case the same employee is in the batch multiple times
+                existing_reports[eid] = report
+    db.commit()
+
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
@@ -454,3 +487,72 @@ def delete_bulk_batches(
         
     db.commit()
     return {"ok": True, "deleted": len(jobs)}
+@router.get("/print-reports", response_model=PrintReportListOut)
+def list_reports(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+    start_date: Optional[datetime] = Query(None, alias="startDate"),
+    end_date: Optional[datetime] = Query(None, alias="endDate"),
+    db: Session = Depends(get_db),
+):
+    query = db.query(PrintReport).options(joinedload(PrintReport.employee))
+    
+    if start_date:
+        query = query.filter(PrintReport.print_date >= start_date)
+    if end_date:
+        query = query.filter(PrintReport.print_date <= end_date)
+
+    total = query.count()
+    offset = (page - 1) * page_size
+    reports = (
+        query
+        .order_by(PrintReport.print_date.desc())
+        .offset(offset)
+        .limit(page_size)
+        .all()
+    )
+    
+    return PrintReportListOut(
+        items=reports,
+        total=total,
+        page=page,
+        page_size=page_size
+    )
+
+
+@router.get("/print-reports/export")
+def export_reports(
+    start_date: Optional[datetime] = Query(None, alias="startDate"),
+    end_date: Optional[datetime] = Query(None, alias="endDate"),
+    db: Session = Depends(get_db),
+):
+    query = db.query(PrintReport).options(joinedload(PrintReport.employee))
+    
+    if start_date:
+        query = query.filter(PrintReport.print_date >= start_date)
+    if end_date:
+        query = query.filter(PrintReport.print_date <= end_date)
+
+    reports = query.order_by(PrintReport.print_date.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow(["Employee Name", "Employee ID", "Email", "Card Count", "Print Date"])
+    
+    for r in reports:
+        writer.writerow([
+            r.employee.name if r.employee else "N/A",
+            r.employee.employee_id if r.employee else "N/A",
+            r.employee.email if r.employee else "N/A",
+            r.card_count,
+            r.print_date.strftime("%Y-%m-%d %H:%M:%S")
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode("utf-8")),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=print_report_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"}
+    )

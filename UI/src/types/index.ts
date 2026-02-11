@@ -67,3 +67,17 @@ export interface PrintJob {
   updated_at: string;
   employees?: Employee;
 }
+export interface PrintReport {
+  id: string;
+  employeeId: string;
+  cardCount: number;
+  printDate: string;
+  employee?: Employee;
+}
+
+export interface PrintReportResponse {
+  items: PrintReport[];
+  total: number;
+  page: number;
+  page_size: number;
+}
