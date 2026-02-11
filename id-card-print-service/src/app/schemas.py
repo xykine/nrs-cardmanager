@@ -61,7 +61,8 @@ class APIModel(BaseModel):
 
 
 class EmployeeCreate(APIModel):
-    name: str
+    first_name: str = Field(alias="firstName")
+    last_name: str = Field(alias="lastName")
     employee_id: str = Field(alias="employeeId")
     email: str
     department: Optional[str] = None
@@ -124,7 +125,7 @@ class EmployeeOut(EmployeePublic):
 
 
 class EmployeeListOut(APIModel):
-    items: list[EmployeeOut]
+    items: list[EmployeePublic]
     total: int
     page: int
     page_size: int

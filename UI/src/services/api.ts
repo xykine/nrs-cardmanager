@@ -34,7 +34,7 @@ export const employeeService = {
 
   async getAll(
     page: number = 1,
-    pageSize: number = 20,
+    pageSize: number = 200,
     filters?: Record<string, any>,
   ): Promise<PaginatedResponse<Employee>> {
     const params = new URLSearchParams({
@@ -71,7 +71,8 @@ export const employeeService = {
   },
 
   async create(data: {
-    name: string;
+    firstName: string;
+    lastName: string;
     employeeId: string;
     email: string;
     department?: string;
@@ -108,7 +109,7 @@ export const employeeService = {
     return response.json();
   },
 
-  async update(id: string, data: { name: string }): Promise<Employee> {
+  async update(id: string, data: { name?: string }): Promise<Employee> {
     const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

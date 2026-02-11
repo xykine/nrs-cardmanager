@@ -66,7 +66,8 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
   };
 
   const handleCreateEmployee = async (data: {
-    name: string;
+    firstName: string;
+    lastName: string;
     employeeId: string;
     email: string;
     department?: string;

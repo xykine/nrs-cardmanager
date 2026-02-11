@@ -11,6 +11,7 @@ import {
   Download,
 } from "lucide-react";
 import { useNotification } from "../contexts/NotificationContext";
+import { useEmployees } from "../contexts/EmployeeContext";
 import EmailDialog from "./EmailDialog";
 import PrintingStationModal from "./PrintingStationModal";
 import CreateEmployeeModal from "./CreateEmployeeModal";
@@ -28,10 +29,24 @@ export default function EmployeeList({
   onLogout,
   userRole,
 }: EmployeeListProps) {
+  const {
+    employees,
+    setEmployees,
+    totalRecords,
+    setTotalRecords,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    filters,
+    setFilters,
+    clearCache,
+  } = useEmployees();
+
   const { addNotification, updateNotification } = useNotification();
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailDialog, setEmailDialog] = useState<{
     isOpen: boolean;
@@ -46,16 +61,8 @@ export default function EmployeeList({
   const [createEmployeeModal, setCreateEmployeeModal] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [filters, setFilters] = useState<EmployeeFilters>({
-    name: "",
-    employeeId: "",
-    photoStatus: "all",
-    department: "all",
-  });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [pageSize, setPageSize] = useState(200);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  const [isInitialLoad, setIsInitialLoad] = useState(employees.length === 0);
   const [selectAllPages, setSelectAllPages] = useState(false);
 
   const [debouncedFilters, setDebouncedFilters] =
@@ -63,12 +70,16 @@ export default function EmployeeList({
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedFilters(filters);
-      setSelectAllPages(false); // Reset when filters change
+      if (JSON.stringify(filters) !== JSON.stringify(debouncedFilters)) {
+        setDebouncedFilters(filters);
+        setSelectAllPages(false);
+        clearCache();
+        setIsInitialLoad(true);
+      }
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [filters]);
+  }, [filters, debouncedFilters, clearCache]);
 
   useEffect(() => {
     if (userRole === "manager") loadEmployees();
@@ -91,6 +102,7 @@ export default function EmployeeList({
         pageSize,
         debouncedFilters,
       );
+
       setEmployees(response.items);
       setTotalRecords(response.total);
       setError(null);
@@ -243,7 +255,8 @@ export default function EmployeeList({
   };
 
   const handleCreateEmployee = async (data: {
-    name: string;
+    firstName: string;
+    lastName: string;
     employeeId: string;
     email: string;
     department?: string;
@@ -258,7 +271,8 @@ export default function EmployeeList({
 
     try {
       await employeeService.create({
-        name: data.name,
+        firstName: data.firstName,
+        lastName: data.lastName,
         employeeId: data.employeeId,
         email: data.email,
       });
@@ -266,7 +280,7 @@ export default function EmployeeList({
       updateNotification(notificationId, {
         type: "success",
         title: "Employee Created",
-        message: `${data.name} has been created successfully`,
+        message: `Employee has been created successfully`,
         autoClose: true,
       });
 
@@ -431,7 +445,7 @@ export default function EmployeeList({
     setEmailDialog({
       isOpen: true,
       employeeId: id,
-      employeeName: employee?.name,
+      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : undefined,
       isBulk: false,
     });
   };
@@ -733,8 +747,7 @@ export default function EmployeeList({
             }}
           />
 
-
-          {employees.length > 0 && (
+          {totalRecords > 0 && (
             <Pagination
               currentPage={currentPage}
               totalItems={totalRecords}
@@ -779,6 +792,6 @@ export default function EmployeeList({
         hasSelection={selectedIds.size > 0}
         hasFilters={!!(debouncedFilters.name || debouncedFilters.employeeId || debouncedFilters.department !== "all" || debouncedFilters.photoStatus !== "all")}
       />
-    </div>
+    </div >
   );
 }

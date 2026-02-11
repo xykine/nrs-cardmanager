@@ -864,6 +864,8 @@ def upsert_employees_in_db(
 
                 first = (e.get("firstName") or "").strip()
                 last = (e.get("lastName") or "").strip()
+                first = (e.get("firstName") or "").strip()
+                last = (e.get("lastName") or "").strip()
                 if first or last:
                     name = _full_name(first, last)
                     if name != existing.name:
@@ -1106,7 +1108,7 @@ def list_employees(
     department: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Employee).options(joinedload(Employee.card))
+    query = db.query(Employee)
     query = _apply_employee_filters(
         query,
         name=name,
@@ -1166,7 +1168,7 @@ def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Employee with this Email already exists")
 
     employee = Employee(
-        name=payload.name,
+        name=f"{payload.first_name} {payload.last_name}".strip(),
         employee_id=payload.employee_id,
         email=payload.email,
         department=payload.department,
