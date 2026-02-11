@@ -125,7 +125,7 @@ class EmployeeOut(EmployeePublic):
 
 
 class EmployeeListOut(APIModel):
-    items: list[EmployeeOut]
+    items: list[EmployeePublic]
     total: int
     page: int
     page_size: int

@@ -1108,7 +1108,7 @@ def list_employees(
     department: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Employee).options(joinedload(Employee.card))
+    query = db.query(Employee)
     query = _apply_employee_filters(
         query,
         name=name,

@@ -34,7 +34,7 @@ export const employeeService = {
 
   async getAll(
     page: number = 1,
-    pageSize: number = 20,
+    pageSize: number = 200,
     filters?: Record<string, any>,
   ): Promise<PaginatedResponse<Employee>> {
     const params = new URLSearchParams({

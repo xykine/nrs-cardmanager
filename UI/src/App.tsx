@@ -9,6 +9,9 @@ import PrintBatchDetail from "./components/PrintBatchDetail";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { useAdminAuth } from "./contexts/AdminAuthContext";
+import { EmployeeProvider } from "./contexts/EmployeeContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
+import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -35,80 +38,87 @@ function App() {
   };
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/login"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/" replace />
-            ) : (
-              <Login
-                setIsAuthenticated={setIsAuthenticated}
-                setUserRole={setUserRole}
+    <AdminAuthProvider>
+      <NotificationProvider>
+        <EmployeeProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* ... routes ... */}
+              <Route
+                path="/login"
+                element={
+                  isAuthenticated ? (
+                    <Navigate to="/" replace />
+                  ) : (
+                    <Login
+                      setIsAuthenticated={setIsAuthenticated}
+                      setUserRole={setUserRole}
+                    />
+                  )
+                }
               />
-            )
-          }
-        />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <AdminProtectedRoute>
-                <EmployeeList onLogout={handleLogout} userRole={userRole} />
-              </AdminProtectedRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/card/:employeeId"
-          element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <CardPage onLogout={handleLogout} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/card-upload/invitation"
-          element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <CardPage onLogout={handleLogout} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/detail/:employeeId"
-          element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <AdminProtectedRoute>
-                <EmployeeDetail />
-              </AdminProtectedRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/printing"
-          element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <AdminProtectedRoute>
-                <PrintingTasksPage />
-              </AdminProtectedRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/printing/:id"
-          element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <AdminProtectedRoute>
-                <PrintBatchDetail />
-              </AdminProtectedRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <AdminProtectedRoute>
+                      <EmployeeList onLogout={handleLogout} userRole={userRole} />
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/card/:employeeId"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <CardPage onLogout={handleLogout} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/card-upload/invitation"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <CardPage onLogout={handleLogout} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/detail/:employeeId"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <AdminProtectedRoute>
+                      <EmployeeDetail />
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/printing"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <AdminProtectedRoute>
+                      <PrintingTasksPage />
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/printing/:id"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <AdminProtectedRoute>
+                      <PrintBatchDetail />
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </EmployeeProvider>
+      </NotificationProvider>
+    </AdminAuthProvider>
   );
 }
 
