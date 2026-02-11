@@ -5,7 +5,8 @@ interface CreateEmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: {
-    name: string;
+    firstName: string;
+    lastName: string;
     employeeId: string;
     email: string;
     department?: string;
@@ -22,7 +23,8 @@ export default function CreateEmployeeModal({
   isLoading = false,
 }: CreateEmployeeModalProps) {
   const [formData, setFormData] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     employeeId: "",
     email: "",
     department: "",
@@ -33,8 +35,12 @@ export default function CreateEmployeeModal({
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = "Full name is required";
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "First name is required";
+    }
+
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Last name is required";
     }
 
     if (!formData.employeeId.trim()) {
@@ -63,7 +69,8 @@ export default function CreateEmployeeModal({
     setSubmitting(true);
     try {
       await onSubmit({
-        name: formData.name.trim(),
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
         employeeId: formData.employeeId.trim(),
         email: formData.email.trim(),
         department: formData.department.trim() || undefined,
@@ -71,7 +78,8 @@ export default function CreateEmployeeModal({
 
       // Reset form on successful submission
       setFormData({
-        name: "",
+        firstName: "",
+        lastName: "",
         employeeId: "",
         email: "",
         department: "",
@@ -136,26 +144,50 @@ export default function CreateEmployeeModal({
               {errors.root}
             </div>
           )}
-          {/* Full Name */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              disabled={submitting || isLoading}
-              placeholder="Enter employee's full name"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.name
-                ? "border-red-500 focus:ring-red-500"
-                : "border-slate-300 focus:ring-blue-500"
-                } disabled:bg-slate-100 disabled:cursor-not-allowed`}
-            />
-            {errors.name && (
-              <p className="text-red-600 text-sm mt-1">{errors.name}</p>
-            )}
+          <div className="grid grid-cols-2 gap-4">
+            {/* First Name */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                First Name *
+              </label>
+              <input
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleInputChange}
+                disabled={submitting || isLoading}
+                placeholder="Enter first name"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.firstName
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-slate-300 focus:ring-blue-500"
+                  } disabled:bg-slate-100 disabled:cursor-not-allowed`}
+              />
+              {errors.firstName && (
+                <p className="text-red-600 text-sm mt-1">{errors.firstName}</p>
+              )}
+            </div>
+
+            {/* Last Name */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Last Name *
+              </label>
+              <input
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleInputChange}
+                disabled={submitting || isLoading}
+                placeholder="Enter last name"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.lastName
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-slate-300 focus:ring-blue-500"
+                  } disabled:bg-slate-100 disabled:cursor-not-allowed`}
+              />
+              {errors.lastName && (
+                <p className="text-red-600 text-sm mt-1">{errors.lastName}</p>
+              )}
+            </div>
           </div>
 
           {/* Employee ID */}

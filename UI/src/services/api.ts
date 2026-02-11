@@ -71,7 +71,8 @@ export const employeeService = {
   },
 
   async create(data: {
-    name: string;
+    firstName: string;
+    lastName: string;
     employeeId: string;
     email: string;
     department?: string;
@@ -108,7 +109,7 @@ export const employeeService = {
     return response.json();
   },
 
-  async update(id: string, data: { name: string }): Promise<Employee> {
+  async update(id: string, data: { name?: string }): Promise<Employee> {
     const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

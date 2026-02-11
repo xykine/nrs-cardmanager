@@ -243,7 +243,8 @@ export default function EmployeeList({
   };
 
   const handleCreateEmployee = async (data: {
-    name: string;
+    firstName: string;
+    lastName: string;
     employeeId: string;
     email: string;
     department?: string;
@@ -258,7 +259,8 @@ export default function EmployeeList({
 
     try {
       await employeeService.create({
-        name: data.name,
+        firstName: data.firstName,
+        lastName: data.lastName,
         employeeId: data.employeeId,
         email: data.email,
       });
@@ -266,7 +268,7 @@ export default function EmployeeList({
       updateNotification(notificationId, {
         type: "success",
         title: "Employee Created",
-        message: `${data.name} has been created successfully`,
+        message: `Employee has been created successfully`,
         autoClose: true,
       });
 
@@ -431,7 +433,7 @@ export default function EmployeeList({
     setEmailDialog({
       isOpen: true,
       employeeId: id,
-      employeeName: employee?.name,
+      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : undefined,
       isBulk: false,
     });
   };
