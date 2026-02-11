@@ -152,3 +152,18 @@ class AdminOut(APIModel):
     ir_number: str = Field(alias="irNumber")
     name: str
     created_at: datetime = Field(alias="createdAt")
+
+
+class PrintReportOut(APIModel):
+    id: str
+    employee_id: str = Field(alias="employeeId")
+    card_count: int = Field(alias="cardCount")
+    print_date: datetime = Field(alias="printDate")
+    employee: Optional[EmployeePublic] = None
+
+
+class PrintReportListOut(APIModel):
+    items: list[PrintReportOut]
+    total: int
+    page: int
+    page_size: int

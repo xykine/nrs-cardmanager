@@ -108,3 +108,14 @@ class Admin(Base):
     password = Column(String, nullable=False)
     created_at = Column("createdAt", DateTime(timezone=True), server_default=func.now(), nullable=False)
 
+
+class PrintReport(Base):
+    __tablename__ = "print_reports"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    employee_id = Column("employeeId", String, ForeignKey("employees.id"), nullable=False)
+    card_count = Column("cardCount", Integer, nullable=False, default=1)
+    print_date = Column("printDate", DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    employee = relationship("Employee")
+

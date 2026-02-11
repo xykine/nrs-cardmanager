@@ -9,6 +9,7 @@ import {
   Plus,
   Trash,
   Download,
+  List,
 } from "lucide-react";
 import { useNotification } from "../contexts/NotificationContext";
 import { useEmployees } from "../contexts/EmployeeContext";
@@ -19,6 +20,7 @@ import EmployeeTable from "./EmployeeTable";
 import EmployeeFilterPanel, { EmployeeFilters } from "./FilterEmployee";
 import Pagination from "./Pagination";
 import DownloadEmployeeModal from "./DownloadEmployeeModal";
+import { useNavigate } from "react-router-dom";
 
 interface EmployeeListProps {
   onLogout: () => void;
@@ -42,6 +44,8 @@ export default function EmployeeList({
     setFilters,
     clearCache,
   } = useEmployees();
+
+  const navigate = useNavigate();
 
   const { addNotification, updateNotification } = useNotification();
   const [departments, setDepartments] = useState<string[]>([]);
@@ -655,13 +659,13 @@ export default function EmployeeList({
               />
               Sync Data
             </button>
-            {/* <button
+            <button
               onClick={() => navigate("/printing")}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-md"
             >
               <List className="w-4 h-4" />
-              Printing Tasks
-            </button> */}
+              Print Report
+            </button>
             <button
               onClick={onLogout}
               className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium shadow-md"
