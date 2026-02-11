@@ -1114,8 +1114,6 @@ def list_employees(
         photo_status=photo_status,
         department=department,
     )
-
-    # Exempt employees with ID starting with 900
     query = query.filter(not_(Employee.employee_id.like("90%")))
 
     total = query.count()
