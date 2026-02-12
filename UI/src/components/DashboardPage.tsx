@@ -78,6 +78,8 @@ export default function DashboardPage() {
         }).replace(/ /g, ", ");
     };
 
+
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -200,6 +202,7 @@ export default function DashboardPage() {
                                 />
                                 <Tooltip
                                     labelFormatter={formatDateForChart}
+                                    cursor={false}
                                     contentStyle={{
                                         borderRadius: "12px",
                                         border: "none",
