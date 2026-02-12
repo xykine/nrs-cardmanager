@@ -632,11 +632,23 @@ def _build_photo_upload_html(
                                     <strong>Quality:</strong> High-resolution, full color, no shadows.
                                   </td>
                                 </tr>
+                                <tr>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">8.</td>
+                                  <td style="font-size:14px; line-height:1.6;">
+                                    <strong>Glasses:</strong> No glasses allowed (even clear ones).
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">9.</td>
+                                  <td style="font-size:14px; line-height:1.6;">
+                                    <strong>Hijab:</strong> Should not cover both ears; ears must be visible.
+                                  </td>
+                                </tr>
 
                                 <tr>
-                                  <td style="vertical-align:top; width:26px; font-size:14px;">7.</td>
+                                  <td style="vertical-align:top; width:26px; font-size:14px;">10.</td>
                                   <td style="font-size:14px; line-height:1.6;">
-                                    <strong>Deadline:</strong> Submission of ID card is 30th of January 2026.
+                                    <strong>Deadline:</strong> Submission of ID card is 30th of February 2026.
                                   </td>
                                 </tr>
 
