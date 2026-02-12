@@ -137,7 +137,7 @@ export default function DashboardPage() {
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm shadow-sm"
                         >
                             <FileText className="w-4 h-4" />
-                            Generate Summary Report
+                            Generate Report
                         </button>
                     </div>
                 </div>
@@ -230,7 +230,7 @@ export default function DashboardPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
                         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                            <h3 className="text-xl font-bold text-slate-900">Generate Summary Report</h3>
+                            <h3 className="text-xl font-bold text-slate-900">Generate Report</h3>
                             <button
                                 onClick={() => setReportModalOpen(false)}
                                 className="text-slate-400 hover:text-slate-600 transition-colors"
