@@ -20,7 +20,7 @@ export default function Navbar({ onLogout, userRole }: NavbarProps) {
     const navItems = [
         { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
         { label: "Employees", path: "/employees", icon: Users },
-        { label: "Print Reports", path: "/printing", icon: Printer },
+        { label: "Print History", path: "/printing", icon: Printer },
     ];
 
     const isActive = (path: string) => {
@@ -51,8 +51,8 @@ export default function Navbar({ onLogout, userRole }: NavbarProps) {
                                         key={item.path}
                                         to={item.path}
                                         className={`inline-flex items-center px-3 py-2 mt-2 border-b-2 text-sm font-medium transition-colors ${active
-                                                ? "border-blue-600 text-blue-600"
-                                                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                                            ? "border-blue-600 text-blue-600"
+                                            : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
                                             }`}
                                     >
                                         <Icon className="w-4 h-4 mr-2" />

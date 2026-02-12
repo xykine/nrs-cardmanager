@@ -103,7 +103,7 @@ export default function PrintingReportPage() {
                   <FileText className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">Print Report</h1>
+                  <h1 className="text-2xl font-bold text-slate-900">Print History</h1>
                   <p className="text-sm text-slate-600">Track all card printing activities</p>
                 </div>
               </div>
