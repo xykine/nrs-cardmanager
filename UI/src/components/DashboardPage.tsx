@@ -142,7 +142,7 @@ export default function DashboardPage() {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Printing Analytics</h1>
+                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Printing Analytics</h1>
                         <p className="text-slate-500 mt-1">Overview of ID card production performance</p>
                     </div>
 

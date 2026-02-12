@@ -3,9 +3,9 @@ import {
     LayoutDashboard,
     Users,
     Printer,
-    LogOut,
-    CreditCard
+    LogOut
 } from "lucide-react";
+import nrsLogo from "../assets/nrs_img.jpeg";
 
 interface NavbarProps {
     onLogout: () => void;
@@ -33,12 +33,14 @@ export default function Navbar({ onLogout, userRole }: NavbarProps) {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16">
                     <div className="flex">
-                        <div className="flex-shrink-0 flex items-center gap-2 mr-8">
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <CreditCard className="w-5 h-5 text-white" />
-                            </div>
+                        <div className="flex-shrink-0 flex items-center gap-3 mr-8">
+                            <img
+                                src={nrsLogo}
+                                alt="NRS Logo"
+                                className="w-14 h-14 object-contain rounded-lg"
+                            />
                             <span className="font-bold text-slate-900 text-lg hidden md:block">
-                                NRS Manager
+                                NRS ID Card Manager
                             </span>
                         </div>
 
