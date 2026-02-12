@@ -1,6 +1,6 @@
 import enum, uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, DateTime, Enum, Text, JSON
+from sqlalchemy import Column, String, Integer, DateTime, Enum, Text, JSON, Date
 from sqlalchemy.orm import declarative_base, DeclarativeBase
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
@@ -118,4 +118,13 @@ class PrintReport(Base):
     print_date = Column("printDate", DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     employee = relationship("Employee")
+
+
+class PrintingAnalytic(Base):
+    __tablename__ = "printing_analytics"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    print_date = Column("printDate", Date, unique=True, nullable=False, index=True)
+    total_prints = Column("totalPrints", Integer, nullable=False, default=0)
+    updated_at = Column("updatedAt", DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

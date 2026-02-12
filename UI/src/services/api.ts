@@ -314,6 +314,30 @@ export const printingService = {
     return response.blob();
   },
 
+  async getDashboardStats(): Promise<{ totalPrints: number, totalEmployees: number, employeesWithPhotos: number }> {
+    const response = await fetch(`${API_BASE_URL}/dashboard/stats`);
+    if (!response.ok) throw new Error("Failed to fetch dashboard stats");
+    return response.json();
+  },
+
+  async getDailyAnalytics(days: number = 30, localDate?: string): Promise<{ date: string, count: number }[]> {
+    const params = new URLSearchParams({ days: days.toString() });
+    if (localDate) params.append("localDate", localDate);
+    const response = await fetch(`${API_BASE_URL}/dashboard/analytics?${params.toString()}`);
+    if (!response.ok) throw new Error("Failed to fetch daily analytics");
+    return response.json();
+  },
+
+  async generateSummaryReport(startDate: string, endDate: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/dashboard/summary-report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startDate, endDate })
+    });
+    if (!response.ok) throw new Error("Failed to generate summary report");
+    return response.blob();
+  },
+
   async getBatchDetails(id: string): Promise<PrintBatch> {
     const response = await fetch(`${API_BASE_URL}/printing/batches/${id}`);
     if (!response.ok) throw new Error("Failed to fetch batch details");
@@ -354,11 +378,11 @@ export const printingService = {
     return response.json();
   },
 
-  async downloadBatchPdf(jobIds: string[]): Promise<Blob> {
+  async downloadBatchPdf(jobIds: string[], localDate?: string): Promise<Blob> {
     const response = await fetch(`${API_BASE_URL}/print-jobs/batch-pdf`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobIds }),
+      body: JSON.stringify({ jobIds, localDate }),
     });
     if (!response.ok) throw new Error("Failed to generate PDF");
     return response.blob();

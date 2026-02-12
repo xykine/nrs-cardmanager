@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Printer, FileText, Download, Calendar, Search, RefreshCw } from 'lucide-react';
+import { Printer, FileText, Download, Calendar, Search, RefreshCw } from 'lucide-react';
 import { PrintReport } from '../types';
 import { printingService } from '../services/api';
 import Pagination from './Pagination';
 
 export default function PrintingReportPage() {
-  const navigate = useNavigate();
   const [reports, setReports] = useState<PrintReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -85,9 +83,9 @@ export default function PrintingReportPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
@@ -97,15 +95,7 @@ export default function PrintingReportPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <button
-          onClick={() => navigate(-1)}
-          className="mb-6 flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="font-medium">Back</span>
-        </button>
-
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="max-w-7xl mx-auto">
           <div className="px-6 py-5 border-b border-slate-200 bg-white">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">

@@ -6,6 +6,8 @@ import EmployeeDetail from "./components/EmployeeDetail";
 import Login from "./components/Login";
 import PrintingReportPage from "./components/PrintingReportPage";
 import PrintBatchDetail from "./components/PrintBatchDetail";
+import DashboardPage from "./components/DashboardPage";
+import MainLayout from "./components/MainLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { useAdminAuth } from "./contexts/AdminAuthContext";
@@ -37,18 +39,23 @@ function App() {
     setUserRole("staff");
   };
 
+  const savedEmployeeId = sessionStorage.getItem("nrs_employee_id");
+
   return (
     <AdminAuthProvider>
       <NotificationProvider>
         <EmployeeProvider>
           <BrowserRouter>
             <Routes>
-              {/* ... routes ... */}
               <Route
                 path="/login"
                 element={
                   isAuthenticated ? (
-                    <Navigate to="/" replace />
+                    userRole === "manager" ? (
+                      <Navigate to="/dashboard" replace />
+                    ) : (
+                      <Navigate to={`/card/${savedEmployeeId}`} replace />
+                    )
                   ) : (
                     <Login
                       setIsAuthenticated={setIsAuthenticated}
@@ -61,8 +68,22 @@ function App() {
                 path="/"
                 element={
                   <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    {userRole === "manager" ? (
+                      <Navigate to="/dashboard" replace />
+                    ) : (
+                      <Navigate to={`/card/${savedEmployeeId}`} replace />
+                    )}
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/employees"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
                     <AdminProtectedRoute>
-                      <EmployeeList onLogout={handleLogout} userRole={userRole} />
+                      <MainLayout userRole={userRole} onLogout={handleLogout}>
+                        <EmployeeList userRole={userRole} />
+                      </MainLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>
                 }
@@ -71,7 +92,10 @@ function App() {
                 path="/card/:employeeId"
                 element={
                   <ProtectedRoute isAuthenticated={isAuthenticated}>
-                    <CardPage onLogout={handleLogout} />
+                    <MainLayout userRole={userRole} onLogout={handleLogout}>
+                      <CardPage onLogout={handleLogout} />
+                    </MainLayout>
+
                   </ProtectedRoute>
                 }
               />
@@ -88,7 +112,9 @@ function App() {
                 element={
                   <ProtectedRoute isAuthenticated={isAuthenticated}>
                     <AdminProtectedRoute>
-                      <EmployeeDetail />
+                      <MainLayout userRole={userRole} onLogout={handleLogout}>
+                        <EmployeeDetail />
+                      </MainLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>
                 }
@@ -98,7 +124,9 @@ function App() {
                 element={
                   <ProtectedRoute isAuthenticated={isAuthenticated}>
                     <AdminProtectedRoute>
-                      <PrintingReportPage />
+                      <MainLayout userRole={userRole} onLogout={handleLogout}>
+                        <PrintingReportPage />
+                      </MainLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>
                 }
@@ -108,7 +136,21 @@ function App() {
                 element={
                   <ProtectedRoute isAuthenticated={isAuthenticated}>
                     <AdminProtectedRoute>
-                      <PrintBatchDetail />
+                      <MainLayout userRole={userRole} onLogout={handleLogout}>
+                        <PrintBatchDetail />
+                      </MainLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <AdminProtectedRoute>
+                      <MainLayout userRole={userRole} onLogout={handleLogout}>
+                        <DashboardPage />
+                      </MainLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>
                 }

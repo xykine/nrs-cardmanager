@@ -304,7 +304,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
               <div>
                 {currentUserRole && currentUserRole === "manager" ? (
                   <button
-                    onClick={() => navigate("/")}
+                    onClick={() => navigate(-1)}
                     className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-6 transition-colors print:hidden"
                   >
                     <ArrowLeft className="w-5 h-5" />

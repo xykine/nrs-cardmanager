@@ -92,11 +92,10 @@ export default function EmployeeDetail() {
                 <p className="text-sm text-slate-600 mb-1">Photo Status</p>
                 <p className="text-lg font-semibold">
                   <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      employee.photoPresent
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${employee.photoPresent
                         ? 'bg-green-100 text-green-800'
                         : 'bg-amber-100 text-amber-800'
-                    }`}
+                      }`}
                   >
                     {employee.photoPresent ? 'Photo Uploaded' : 'No Photo'}
                   </span>
@@ -122,10 +121,10 @@ export default function EmployeeDetail() {
               <div>
                 <p className="text-sm text-slate-600 mb-1">Request date</p>
                 <p className="text-lg font-semibold text-slate-800">
-                  {employee?.invitationSentAt ? new Date(employee?.invitationSentAt).toLocaleDateString('en-US', {
+                  {employee?.invitationSentAt ? new Date(employee?.invitationSentAt).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: '2-digit',
                     year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
                   }) : 'N/A'}
                 </p>
               </div>
@@ -137,10 +136,10 @@ export default function EmployeeDetail() {
                 <div>
                   <p className="text-sm text-blue-600 mb-1">Last Invitation Sent</p>
                   <p className="text-lg font-semibold text-blue-800">
-                    {new Date(employee.invitationSentAt).toLocaleDateString('en-US', {
+                    {new Date(employee.invitationSentAt).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: '2-digit',
                       year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit',
                     })}

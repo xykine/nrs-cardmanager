@@ -2,19 +2,19 @@ import base64
 import io
 import shutil
 import csv
-from typing import Dict
-from datetime import datetime, timedelta
+from typing import Dict, Any
+from datetime import datetime, timedelta, date
 from typing import List, Optional
 
 from PIL import Image
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session, joinedload
 
 from ..db import get_db
 from ..db import get_db
-from ..models import Employee, PrintJob, JobStatus, Card, PrintReport
+from ..models import Employee, PrintJob, JobStatus, Card, PrintReport, PrintingAnalytic
 from ..renderer import render_front, render_back
 from ..schemas import (
     ClaimIn,
@@ -25,6 +25,9 @@ from ..schemas import (
     ReportIn,
     PrintReportOut,
     PrintReportListOut,
+    DashboardStatsOut,
+    DailyPrintStatsOut,
+    SummaryReportIn
 )
 from ..storage import ASSETS_DIR, job_dir
 from .employees import _apply_employee_filters, _filters_are_empty
@@ -200,7 +203,7 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
 
 
 @router.post("/print-jobs/batch-pdf")
-def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
+def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
     job_ids = payload.get("jobIds", [])
     if not job_ids:
         raise HTTPException(400, "No jobIds provided")
@@ -287,9 +290,28 @@ def get_batch_pdf(payload: Dict[str, List[str]], db: Session = Depends(get_db)):
     }
 
     now = _now()
+    # Try to get local date from client, fallback to UTC date
+    local_date_str = payload.get("localDate")
+    if local_date_str:
+        try:
+            today = date.fromisoformat(local_date_str)
+        except ValueError:
+            today = now.date()
+    else:
+        today = now.date()
+    
+    # Update PrintingAnalytic for today
+    analytic = db.query(PrintingAnalytic).filter(PrintingAnalytic.print_date == today).first()
+    if not analytic:
+        analytic = PrintingAnalytic(print_date=today, total_prints=0)
+        db.add(analytic)
+    
     for job in jobs:
         eid = employees_map.get(job.employee_id)
         if eid:
+            # Increment daily analytic
+            analytic.total_prints += 1
+            
             if eid in existing_reports:
                 report = existing_reports[eid]
                 report.card_count += 1
@@ -555,4 +577,106 @@ def export_reports(
         io.BytesIO(output.getvalue().encode("utf-8")),
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=print_report_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"}
+    )
+
+
+@router.get("/dashboard/stats", response_model=DashboardStatsOut)
+def get_dashboard_stats(db: Session = Depends(get_db)):
+    total_prints = db.query(func.sum(PrintingAnalytic.total_prints)).scalar() or 0
+    total_employees = db.query(Employee).count()
+    employees_with_photos = db.query(Employee).filter(Employee.photo_present == True).count()
+    
+    return DashboardStatsOut(
+        totalPrints=total_prints,
+        totalEmployees=total_employees,
+        employeesWithPhotos=employees_with_photos
+    )
+
+
+@router.get("/dashboard/analytics", response_model=List[DailyPrintStatsOut])
+def get_daily_analytics(
+    days: int = Query(30, ge=1, le=365),
+    localDate: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    if localDate:
+        try:
+            today_ref = date.fromisoformat(localDate)
+        except ValueError:
+            today_ref = date.today()
+    else:
+        today_ref = date.today()
+        
+    start_date = today_ref - timedelta(days=days-1)
+    
+    analytics = (
+        db.query(PrintingAnalytic)
+        .filter(PrintingAnalytic.print_date >= start_date)
+        .order_by(PrintingAnalytic.print_date.asc())
+        .all()
+    )
+    
+    # Fill in gaps with zero prints
+    analytics_map = {a.print_date: a.total_prints for a in analytics}
+    result = []
+    for i in range(days):
+        d = start_date + timedelta(days=i)
+        result.append(DailyPrintStatsOut(
+            date=d.strftime("%Y-%m-%d"),
+            count=analytics_map.get(d, 0)
+        ))
+    
+    return result
+
+
+@router.post("/dashboard/summary-report")
+def generate_summary_report(
+    payload: SummaryReportIn,
+    db: Session = Depends(get_db)
+):
+    from fpdf import FPDF
+    
+    start_date = payload.start_date.date()
+    end_date = payload.end_date.date()
+    
+    analytics = (
+        db.query(PrintingAnalytic)
+        .filter(PrintingAnalytic.print_date >= start_date)
+        .filter(PrintingAnalytic.print_date <= end_date)
+        .order_by(PrintingAnalytic.print_date.asc())
+        .all()
+    )
+    
+    total_all = sum(a.total_prints for a in analytics)
+    
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "Printing Activity Summary Report", ln=True, align="C")
+    pdf.set_font("Arial", "", 12)
+    pdf.cell(0, 10, f"Range: {start_date.strftime('%d/%m/%Y')} to {end_date.strftime('%d/%m/%Y')}", ln=True, align="C")
+    pdf.ln(10)
+    
+    # Table Header
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(100, 10, "Date", border=1)
+    pdf.cell(90, 10, "Cards Printed", border=1, ln=True)
+    
+    # Table Body
+    pdf.set_font("Arial", "", 12)
+    for a in analytics:
+        d_str = a.print_date.strftime("%d/%m/%Y")
+        pdf.cell(100, 10, d_str, border=1)
+        pdf.cell(90, 10, str(a.total_prints), border=1, ln=True)
+    
+    # Total
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(100, 10, "TOTAL", border=1)
+    pdf.cell(90, 10, str(total_all), border=1, ln=True)
+    
+    pdf_output = pdf.output()
+    return StreamingResponse(
+        io.BytesIO(pdf_output),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=summary_report_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"}
     )

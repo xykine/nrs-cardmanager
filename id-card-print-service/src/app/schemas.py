@@ -167,3 +167,19 @@ class PrintReportListOut(APIModel):
     total: int
     page: int
     page_size: int
+
+
+class DashboardStatsOut(APIModel):
+    total_prints: int = Field(alias="totalPrints")
+    total_employees: int = Field(alias="totalEmployees")
+    employees_with_photos: int = Field(alias="employeesWithPhotos")
+
+
+class DailyPrintStatsOut(APIModel):
+    date: str
+    count: int
+
+
+class SummaryReportIn(APIModel):
+    start_date: datetime = Field(alias="startDate")
+    end_date: datetime = Field(alias="endDate")

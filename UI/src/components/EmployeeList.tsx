@@ -4,12 +4,10 @@ import { employeeService, printingService } from "../services/api";
 import {
   Mail,
   Printer,
-  LogOut,
   RefreshCw,
   Plus,
   Trash,
   Download,
-  List,
 } from "lucide-react";
 import { useNotification } from "../contexts/NotificationContext";
 import { useEmployees } from "../contexts/EmployeeContext";
@@ -20,15 +18,13 @@ import EmployeeTable from "./EmployeeTable";
 import EmployeeFilterPanel, { EmployeeFilters } from "./FilterEmployee";
 import Pagination from "./Pagination";
 import DownloadEmployeeModal from "./DownloadEmployeeModal";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 interface EmployeeListProps {
-  onLogout: () => void;
   userRole: "manager" | "staff";
 }
 
 export default function EmployeeList({
-  onLogout,
   userRole,
 }: EmployeeListProps) {
   const {
@@ -45,7 +41,7 @@ export default function EmployeeList({
     clearCache,
   } = useEmployees();
 
-  const navigate = useNavigate();
+
 
   const { addNotification, updateNotification } = useNotification();
   const [departments, setDepartments] = useState<string[]>([]);
@@ -477,7 +473,7 @@ export default function EmployeeList({
     setEmailDialog({
       isOpen: true,
       employeeId: id,
-      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : undefined,
+      employeeName: employee ? `${employee.name}` : undefined,
       isBulk: false,
     });
   };
@@ -559,7 +555,8 @@ export default function EmployeeList({
       const jobIds = jobs.map((j: any) => j.jobId);
 
       // 3. Download PDF
-      const blob = await printingService.downloadBatchPdf(jobIds);
+      const localDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+      const blob = await printingService.downloadBatchPdf(jobIds, localDate);
       const url = window.URL.createObjectURL(blob);
 
       // 4. Open PDF
@@ -653,12 +650,8 @@ export default function EmployeeList({
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8 flex items-start justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-slate-800 mb-2">
-              NRS Card Manager
-            </h1>
-            <p className="text-slate-600">
-              Manage employee cards and photo uploads
-            </p>
+            <h1 className="text-3xl font-bold text-slate-900">Employee List</h1>
+            <p className="text-slate-600">Manage employee cards and photo uploads</p>
           </div>
           <div className="flex gap-3">
             <button
@@ -687,20 +680,7 @@ export default function EmployeeList({
               />
               Sync Data
             </button>
-            <button
-              onClick={() => navigate("/printing")}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-md"
-            >
-              <List className="w-4 h-4" />
-              Print Report
-            </button>
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium shadow-md"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
+
           </div>
         </div>
 
