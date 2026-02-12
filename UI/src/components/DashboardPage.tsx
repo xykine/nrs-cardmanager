@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import {
-    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    AreaChart,
+    Area
 } from "recharts";
 import {
     Printer, Users, FileText,
@@ -13,6 +19,7 @@ import { printingService } from "../services/api";
 export default function DashboardPage() {
     const [stats, setStats] = useState({ totalPrints: 0, totalEmployees: 0, employeesWithPhotos: 0 });
     const [analytics, setAnalytics] = useState<{ date: string, count: number }[]>([]);
+    const [recentReports, setRecentReports] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [dateRange, setDateRange] = useState({ startDate: "", endDate: "" });
@@ -26,12 +33,14 @@ export default function DashboardPage() {
         try {
             setLoading(true);
             const localDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
-            const [statsData, analyticsData] = await Promise.all([
+            const [statsData, analyticsData, recentData] = await Promise.all([
                 printingService.getDashboardStats(),
-                printingService.getDailyAnalytics(5, localDate) // Last 5 days
+                printingService.getDailyAnalytics(7, localDate), // Last 7 days
+                printingService.getPrintReports(1, 5) // Last 5 reports
             ]);
             setStats(statsData);
             setAnalytics(analyticsData);
+            setRecentReports(recentData.items || []);
         } catch (error) {
             console.error("Error loading dashboard data:", error);
         } finally {
@@ -74,11 +83,8 @@ export default function DashboardPage() {
         return date.toLocaleDateString("en-GB", {
             day: "2-digit",
             month: "short",
-            year: "numeric"
-        }).replace(/ /g, ", ");
+        });
     };
-
-
 
     if (loading) {
         return (
@@ -93,10 +99,21 @@ export default function DashboardPage() {
 
     const statCards = [
         {
+            label: "Today's Prints",
+            value: analytics.find(a => a.date === new Date().toLocaleDateString("en-CA"))?.count.toLocaleString() || "0",
+            icon: Printer,
+            color: "indigo",
+            bg: "bg-indigo-500",
+            text: "text-indigo-600",
+            description: "Printed today"
+        },
+        {
             label: "Total Prints",
             value: stats.totalPrints.toLocaleString(),
-            icon: Printer,
+            icon: FileText,
             color: "blue",
+            bg: "bg-blue-500",
+            text: "text-blue-600",
             description: "Lifetime printing volume"
         },
         {
@@ -104,6 +121,8 @@ export default function DashboardPage() {
             value: stats.totalEmployees.toLocaleString(),
             icon: Users,
             color: "emerald",
+            bg: "bg-emerald-500",
+            text: "text-emerald-600",
             description: "Total registered workforce"
         },
         {
@@ -111,30 +130,33 @@ export default function DashboardPage() {
             value: stats.employeesWithPhotos.toLocaleString(),
             icon: UserCheck,
             color: "purple",
+            bg: "bg-purple-500",
+            text: "text-purple-600",
             description: "Ready for ID generation"
         }
     ];
 
     return (
-        <div className="min-h-screen bg-slate-50 p-4 md:p-8">
-            <div className="max-w-7xl mx-auto">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="min-h-screen bg-slate-50/50 p-4 md:p-8">
+            <div className="max-w-7xl mx-auto space-y-8">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-slate-900">Printing Analytics</h1>
-                        <p className="text-slate-600">Overview of ID card production performance</p>
+                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Printing Analytics</h1>
+                        <p className="text-slate-500 mt-1">Overview of ID card production performance</p>
                     </div>
 
                     <div className="flex gap-3">
                         <button
                             onClick={loadDashboardData}
-                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium text-sm shadow-sm"
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-all duration-200 font-medium text-sm shadow-sm hover:shadow"
                         >
                             <RefreshCw className="w-4 h-4" />
                             Refresh
                         </button>
                         <button
                             onClick={() => setReportModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm shadow-sm"
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-sm shadow-sm hover:shadow-md hover:shadow-blue-200"
                         >
                             <FileText className="w-4 h-4" />
                             Generate Report
@@ -143,84 +165,134 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {statCards.map((stat, i) => (
-                        <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden">
-                            <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 bg-${stat.color}-50 rounded-full opacity-50`} />
-                            <div className="relative flex items-center gap-4">
-                                <div className={`p-3 bg-${stat.color}-100 rounded-xl`}>
-                                    <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
-                                </div>
+                        <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 relative group">
+                            <div className="flex items-start justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                                    <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+                                    <p className="text-sm font-medium text-slate-500 mb-1">{stat.label}</p>
+                                    <h3 className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</h3>
+                                </div>
+                                <div className={`p-3 rounded-xl bg-opacity-10 ${stat.bg.replace('500', '100')}`}>
+                                    <stat.icon className={`w-6 h-6 ${stat.text}`} />
                                 </div>
                             </div>
-                            <p className="mt-4 text-xs text-slate-400 font-medium uppercase tracking-wider">{stat.description}</p>
+                            <div className="mt-4 pt-4 border-t border-slate-50">
+                                <p className="text-xs text-slate-400 font-medium uppercase tracking-wider flex items-center gap-2">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${stat.bg}`} />
+                                    {stat.description}
+                                </p>
+                            </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Graph Section */}
-                <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <h2 className="text-xl font-bold text-slate-900">Printing Trend</h2>
-                            <p className="text-sm text-slate-500">Daily card output volume (Last 5 days)</p>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Graph Section */}
+                    <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-2xl border border-slate-100 shadow-sm">
+                        <div className="flex items-center justify-between mb-8">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-900">Production Trend</h2>
+                                <p className="text-sm text-slate-500">Daily card output volume (Last 7 days)</p>
+                            </div>
+                            <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 text-xs font-semibold uppercase tracking-wide">
+                                <TrendingUp className="w-3 h-3" />
+                                Live
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 shadow-sm">
-                            <TrendingUp className="w-4 h-4" />
-                            <span className="text-sm font-bold">Live Tracking</span>
+
+                        <div className="h-[350px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={analytics} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis
+                                        dataKey="date"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: "#64748b", fontSize: 12 }}
+                                        dy={10}
+                                        tickFormatter={formatDateForChart}
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: "#64748b", fontSize: 12 }}
+                                    />
+                                    <Tooltip
+                                        cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                        contentStyle={{
+                                            borderRadius: "12px",
+                                            border: "none",
+                                            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                                            fontSize: "14px",
+                                            fontWeight: "500",
+                                            padding: "12px 16px"
+                                        }}
+                                        labelStyle={{ color: "#64748b", marginBottom: "4px", fontSize: "12px" }}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="count"
+                                        name="Cards Printed"
+                                        stroke="#3b82f6"
+                                        strokeWidth={3}
+                                        fillOpacity={1}
+                                        fill="url(#colorCount)"
+                                        activeDot={{ r: 6, strokeWidth: 0, fill: "#2563eb" }}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
 
-                    <div className="h-[400px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={analytics}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis
-                                    dataKey="date"
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: "#64748b", fontSize: 12 }}
-                                    dy={10}
-                                    tickFormatter={(val) => {
-                                        const [year, month, day] = val.split("-");
-                                        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-                                        return date.toLocaleDateString("en-GB", {
-                                            day: "2-digit",
-                                            month: "short",
-                                            year: "numeric"
-                                        }).replace(/ /g, ", ");
-                                    }}
-                                />
-                                <YAxis
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: "#64748b", fontSize: 12 }}
-                                    dx={-10}
-                                />
-                                <Tooltip
-                                    labelFormatter={formatDateForChart}
-                                    cursor={false}
-                                    contentStyle={{
-                                        borderRadius: "12px",
-                                        border: "none",
-                                        boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-                                        fontSize: "14px",
-                                        fontWeight: "500"
-                                    }}
-                                    labelStyle={{ color: "#1e293b", marginBottom: "4px" }}
-                                />
-                                <Bar
-                                    dataKey="count"
-                                    name="Cards Printed"
-                                    fill="#2563eb"
-                                    radius={[4, 4, 0, 0]}
-                                    barSize={32}
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
+                    {/* Recent Activity */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+                        <h2 className="text-lg font-bold text-slate-900 mb-6">Recent Print Jobs</h2>
+                        <div className="flex-1 overflow-auto">
+                            {recentReports.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-400 py-8">
+                                    <Printer className="w-8 h-8 mb-2 opacity-50" />
+                                    <p className="text-sm">No recent jobs found</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {recentReports.map((report) => (
+                                        <div key={report.id} className="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
+                                            <div className="w-10 h-10 rounded-full bg-blue-100/50 flex items-center justify-center flex-shrink-0 text-blue-600 font-bold text-sm">
+                                                {report.employee?.name?.charAt(0) || "?"}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-slate-900 truncate">
+                                                    {report.employee?.name || "Unknown"}
+                                                </p>
+                                                <p className="text-xs text-slate-500 truncate">
+                                                    {report.employee?.department || "N/A"}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wide rounded-full">
+                                                    Printed
+                                                </span>
+                                                <p className="text-[10px] text-slate-400 mt-1">
+                                                    {new Date(report.printDate).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-6 pt-4 border-t border-slate-50">
+                            <Link to="/reports" className="text-sm text-blue-600 font-medium hover:text-blue-700 flex items-center gap-1 justify-center">
+                                View Full Report <TrendingUp className="w-3 h-3" />
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </div>

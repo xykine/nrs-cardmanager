@@ -132,6 +132,18 @@ function App() {
                 }
               />
               <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <AdminProtectedRoute>
+                      <MainLayout userRole={userRole} onLogout={handleLogout}>
+                        <PrintingHistoryPage />
+                      </MainLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/printing/:id"
                 element={
                   <ProtectedRoute isAuthenticated={isAuthenticated}>
