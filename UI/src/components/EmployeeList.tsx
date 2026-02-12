@@ -65,6 +65,7 @@ export default function EmployeeList({
   const [createEmployeeModal, setCreateEmployeeModal] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [shouldRestoreScroll, setShouldRestoreScroll] = useState(true);
 
   const [isInitialLoad, setIsInitialLoad] = useState(employees.length === 0);
   const [selectAllPages, setSelectAllPages] = useState(false);
@@ -98,6 +99,29 @@ export default function EmployeeList({
     loadDepartments();
   }, []);
 
+  // Track scroll position
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!loading && employees.length > 0) {
+        sessionStorage.setItem("employee_list_scroll", window.scrollY.toString());
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [loading, employees.length]);
+
+  // Restore scroll position
+  useEffect(() => {
+    if (!loading && employees.length > 0 && shouldRestoreScroll) {
+      const savedScroll = sessionStorage.getItem("employee_list_scroll");
+      if (savedScroll) {
+        window.scrollTo(0, parseInt(savedScroll));
+      }
+      setShouldRestoreScroll(false);
+    }
+  }, [loading, employees.length, shouldRestoreScroll]);
+
   const loadEmployees = async () => {
     try {
       setLoading(true);
@@ -122,12 +146,16 @@ export default function EmployeeList({
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     setSelectedIds(new Set());
+    sessionStorage.removeItem("employee_list_scroll");
+    window.scrollTo(0, 0);
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setCurrentPage(1);
     setSelectedIds(new Set());
+    sessionStorage.removeItem("employee_list_scroll");
+    window.scrollTo(0, 0);
   };
 
   const handleSyncData = async () => {

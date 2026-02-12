@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from "react";
 import { Employee } from "../types";
 import { EmployeeFilters } from "../components/FilterEmployee";
 
@@ -30,10 +30,17 @@ const EmployeeContext = createContext<EmployeeContextType | undefined>(undefined
 export function EmployeeProvider({ children }: { children: ReactNode }) {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [totalRecords, setTotalRecords] = useState(0);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState(() => {
+        const saved = localStorage.getItem("employee_list_page");
+        return saved ? parseInt(saved) : 1;
+    });
     const [pageSize, setPageSize] = useState(200);
     const [filters, setFilters] = useState<EmployeeFilters>(defaultFilters);
     const [hasMore, setHasMore] = useState(true);
+
+    useEffect(() => {
+        localStorage.setItem("employee_list_page", currentPage.toString());
+    }, [currentPage]);
 
     const clearCache = useCallback(() => {
         setEmployees([]);

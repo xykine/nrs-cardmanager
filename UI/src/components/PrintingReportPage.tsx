@@ -11,7 +11,10 @@ export default function PrintingReportPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [total, setTotal] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => {
+    const saved = localStorage.getItem('printing_report_page');
+    return saved ? parseInt(saved) : 1;
+  });
   const [pageSize, setPageSize] = useState(200);
 
   // Filters
@@ -19,6 +22,7 @@ export default function PrintingReportPage() {
   const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
+    localStorage.setItem('printing_report_page', currentPage.toString());
     loadReports();
   }, [currentPage, pageSize]);
 
