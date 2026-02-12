@@ -151,7 +151,9 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
     for idx, employee_id in enumerate(employee_ids, start=1):
         employee = employees_by_id[employee_id]
         if not employee.card or not employee.card.photo_data:
-            raise HTTPException(400, f"Missing card photo data for employeeId: {employee_id}")
+            print(f"Skipping employee {employee_id} ({employee.name}): Missing card or photo data")
+            continue
+            # raise HTTPException(400, f"Missing card photo data for employeeId: {employee_id}")
 
         job_id = _new_job_id(idx)
 

@@ -382,8 +382,50 @@ export default function EmployeeList({
     let employeeCount: number;
 
     if (selectAllPages) {
-      console.log("-----------ALL + FILTER ---------")
-      ids = []
+      console.log("-----------ALL + FILTER ---------");
+      // Fetch all IDs if selecting all pages
+      try {
+        setLoading(true);
+        const response = await employeeService.getAll(
+          1,
+          totalRecords,
+          debouncedFilters,
+        );
+        ids = response.items
+          .filter((e) => e.photoPresent)
+          .map((e) => e.id);
+        employeeCount = response.items.length; // Total attempt
+
+        if (ids.length === 0) {
+          addNotification({
+            type: "error",
+            title: "Print Failed",
+            message: "None of the selected employees have photos uploaded",
+            autoClose: true,
+          });
+          setLoading(false);
+          return;
+        }
+
+        if (ids.length < employeeCount) {
+          const withoutPhoto = employeeCount - ids.length;
+          if (!confirm(`${withoutPhoto} employee(s) don't have photos - they will be skipped. Continue printing for the ${ids.length} valid employee(s)?`)) {
+            setLoading(false);
+            return;
+          }
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error("Failed to fetch all IDs for print", err);
+        addNotification({
+          type: "error",
+          title: "Print Failed",
+          message: "Failed to prepare print job. Please try again.",
+          autoClose: true,
+        });
+        setLoading(false);
+        return;
+      }
     } else {
       const selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
       const employeesWithPhoto = selectedEmployees.filter((e) => e.photoPresent);
@@ -530,7 +572,12 @@ export default function EmployeeList({
   };
 
   const handlePrintingSubmit = async (/* stationId ignored */) => {
-    const employeeCount = selectAllPages ? "All pages" : printingModal.employeeIds.length;
+    // We now always have explicit IDs in printingModal.employeeIds
+    const employeeCount = printingModal.employeeIds.length;
+
+    // Copy locally to avoid state closure issues if needed, though state is fine here
+    const idsToPrint = [...printingModal.employeeIds];
+
     setPrintingModal({ isOpen: false, employeeIds: [] });
 
     const notificationId = addNotification({
@@ -543,12 +590,13 @@ export default function EmployeeList({
 
     try {
       // 1. Create Jobs (Backend will generate images)
-      // Pass "PDF_GENERATION" as stationId since backend expects a string, though it won't be used for `lp` anymore.
+      // Pass "PDF_GENERATION" as stationId since backend expects a string.
+      // We pass explicit IDs, so isAll is false.
       const jobs = await printingService.createBatch(
         "PDF_GENERATION",
-        printingModal.employeeIds,
+        idsToPrint,
         filters,
-        selectAllPages
+        false
       );
 
       // 2. Get Job IDs
