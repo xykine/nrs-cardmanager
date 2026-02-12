@@ -1610,8 +1610,8 @@ def validate_id_photo(image_path: str) -> Dict:
             glasses_detected = True
             break
             
-    if glasses_detected:
-        errors.append("Photos with glasses are not allowed. Please take a photo without glasses.")
+    # if glasses_detected:
+    #     errors.append("Photos with glasses are not allowed. Please take a photo without glasses.")
 
     if errors:
         return {"status": "error", "errors": errors}

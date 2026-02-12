@@ -563,12 +563,13 @@ def export_reports(
     writer = csv.writer(output)
     
     # Header
-    writer.writerow(["Employee Name", "Employee ID", "Email", "Card Count", "Print Date"])
+    writer.writerow(["Employee Name", "Employee ID", "Department", "Email", "Card Count", "Print Date"])
     
     for r in reports:
         writer.writerow([
             r.employee.name if r.employee else "N/A",
             r.employee.employee_id if r.employee else "N/A",
+            r.employee.department if r.employee else "N/A",
             r.employee.email if r.employee else "N/A",
             r.card_count,
             r.print_date.strftime("%Y-%m-%d %H:%M:%S")

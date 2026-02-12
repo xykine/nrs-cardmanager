@@ -4,7 +4,7 @@ import { PrintReport } from '../types';
 import { printingService } from '../services/api';
 import Pagination from './Pagination';
 
-export default function PrintingReportPage() {
+export default function PrintingHistoryPage() {
   const [reports, setReports] = useState<PrintReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -171,6 +171,7 @@ export default function PrintingReportPage() {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-6 py-4 text-sm font-semibold text-slate-700 uppercase tracking-wider">Name</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-700 uppercase tracking-wider">IR number</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-700 uppercase tracking-wider">Department</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-700 uppercase tracking-wider">Email</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-700 uppercase tracking-wider">Card Count</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-700 uppercase tracking-wider">Print Date</th>
@@ -202,6 +203,7 @@ export default function PrintingReportPage() {
                         <div className="font-medium text-slate-900">{report.employee?.name || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 text-slate-600">{report.employee?.employeeId || report.employeeId}</td>
+                      <td className="px-6 py-4 text-slate-600">{report.employee?.department || 'N/A'}</td>
                       <td className="px-6 py-4 text-slate-600">{report.employee?.email || 'N/A'}</td>
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">

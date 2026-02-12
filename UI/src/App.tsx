@@ -4,7 +4,7 @@ import EmployeeList from "./components/EmployeeList";
 import CardPage from "./components/Card/CardPage";
 import EmployeeDetail from "./components/EmployeeDetail";
 import Login from "./components/Login";
-import PrintingReportPage from "./components/PrintingReportPage";
+import PrintingHistoryPage from "./components/PrintingHistoryPage";
 import PrintBatchDetail from "./components/PrintBatchDetail";
 import DashboardPage from "./components/DashboardPage";
 import MainLayout from "./components/MainLayout";
@@ -125,7 +125,7 @@ function App() {
                   <ProtectedRoute isAuthenticated={isAuthenticated}>
                     <AdminProtectedRoute>
                       <MainLayout userRole={userRole} onLogout={handleLogout}>
-                        <PrintingReportPage />
+                        <PrintingHistoryPage />
                       </MainLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>

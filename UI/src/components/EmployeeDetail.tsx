@@ -49,11 +49,11 @@ export default function EmployeeDetail() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-6 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
-          Back to Employee List
+          Back
         </button>
 
         <div className="bg-white rounded-xl shadow-lg p-8">
@@ -93,8 +93,8 @@ export default function EmployeeDetail() {
                 <p className="text-lg font-semibold">
                   <span
                     className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${employee.photoPresent
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-amber-100 text-amber-800'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-amber-100 text-amber-800'
                       }`}
                   >
                     {employee.photoPresent ? 'Photo Uploaded' : 'No Photo'}
