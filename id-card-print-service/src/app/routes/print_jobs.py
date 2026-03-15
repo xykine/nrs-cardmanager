@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, joinedload
 from ..db import get_db
 from ..db import get_db
 from ..models import Employee, PrintJob, JobStatus, Card, PrintReport, PrintingAnalytic
-from ..renderer import render_front, render_back
+from ..renderer import render_front, render_back, render_front_landscape, render_back_landscape
 from ..schemas import (
     ClaimIn,
     ClaimedJob,
@@ -218,9 +218,15 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
     logo = ASSETS_DIR / "nrs_logo.png"
     bottom = ASSETS_DIR / "bottom_icon.png"
     back = ASSETS_DIR / "BackPageImage.png"
+    contractor_front = ASSETS_DIR / "ContractorFrontPageImage.jpg"
+    contractor_back = ASSETS_DIR / "ContractorBackPageImage.jpg"
     
-    if not all(a.exists() for a in [logo, bottom, back]):
+    if not all(a.exists() for a in [logo, bottom, back, contractor_front, contractor_back]):
         raise HTTPException(500, "Server assets missing (logo/accent/back template)")
+
+    emp_ids_needed = [job.employee_id for job in jobs]
+    employees = db.query(Employee).filter(Employee.employee_id.in_(emp_ids_needed)).all()
+    employees_map = {e.employee_id: e for e in employees}
 
     card_images = []
     
@@ -253,22 +259,40 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
                     print(f"Skipping job {job.job_id}: Card or photo data not found for employee {job.employee_id}")
                     continue
 
-            # Render Front
-            front_img = render_front(
-                job.full_name, 
-                job.employee_id, 
-                photo_url_to_use,
-                logo,
-                bottom,
-                photo_x=job.photo_x,
-                photo_y=job.photo_y,
-                photo_scale=float(job.photo_scale or 1.0)
-            )
+            is_contractor = False
+            try:
+                if job.employee_id and len(job.employee_id.strip()) > 5:
+                    is_contractor = True
+            except Exception:
+                pass
             
-            # Render Back
-            back_img = render_back(job.employee_id, back)
-            
-            card_images.append((front_img, back_img))
+            employee = employees_map.get(job.employee_id)
+            if is_contractor:
+                front_img = render_front_landscape(
+                    job.full_name,
+                    job.employee_id,
+                    employee.role if employee else "CONTRACTOR",
+                    photo_url_to_use,
+                    contractor_front
+                )
+                back_img = render_back_landscape(job.employee_id, contractor_back)
+                card_images.append((front_img, back_img, "L"))
+            else:
+                # Render Front
+                front_img = render_front(
+                    job.full_name, 
+                    job.employee_id, 
+                    photo_url_to_use,
+                    logo,
+                    bottom,
+                    photo_x=job.photo_x,
+                    photo_y=job.photo_y,
+                    photo_scale=float(job.photo_scale or 1.0)
+                )
+                
+                # Render Back
+                back_img = render_back(job.employee_id, back)
+                card_images.append((front_img, back_img, "P"))
             
         except Exception as e:
             print(f"Failed to render job {job.job_id}: {e}")
@@ -281,14 +305,12 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
     pdf_bytes = create_id_card_pdf(card_images)
     
     # Record PrintReport for each job (Upsert logic)
-    emp_ids_needed = [job.employee_id for job in jobs]
-    employees = db.query(Employee).filter(Employee.employee_id.in_(emp_ids_needed)).all()
-    employees_map = {e.employee_id: e.id for e in employees}
+    employee_db_ids = [e.id for e in employees]
     
     # Fetch existing reports for these employees
     existing_reports = {
         r.employee_id: r 
-        for r in db.query(PrintReport).filter(PrintReport.employee_id.in_(employees_map.values())).all()
+        for r in db.query(PrintReport).filter(PrintReport.employee_id.in_(employee_db_ids)).all()
     }
 
     now = _now()
@@ -309,7 +331,8 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
         db.add(analytic)
     
     for job in jobs:
-        eid = employees_map.get(job.employee_id)
+        employee = employees_map.get(job.employee_id)
+        eid = employee.id if employee else None
         if eid:
             # Increment daily analytic
             analytic.total_prints += 1
