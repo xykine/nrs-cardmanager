@@ -214,7 +214,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
       {employee.employeeId.length > 5 && (
 
         <div
-          className="relative w-full max-w-[860px] aspect-[1.5/1] overflow-hidden border border-gray-300 bg-white shadow-xl"
+          className="relative max-w-[560px] aspect-[1.5/1] overflow-hidden border border-gray-300 bg-white shadow-xl"
           style={
             currentUserRole.toLowerCase() === "manager"
               ? {

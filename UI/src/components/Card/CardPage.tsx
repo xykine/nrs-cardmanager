@@ -439,7 +439,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
             )}
 
             {employee.employeeId.length > 5 && (
-              <div className="col-span-2 space-y-4 py-10">
+              <div className="col-span-2 space-y-4 py-10 max-h-[100vh] overflow-y-auto">
                 <FrontPage
                   showTitle={false}
                   employee={employee}

@@ -49,7 +49,7 @@ const BackPage: React.FC<BackPageProps> = ({
 
 
       {employee.employeeId.length > 5 &&
-        <div className="bg-white shadow-xl w-full overflow-hidden border border-gray-200 relative">
+        <div className="bg-white shadow-xl max-w-[560px] overflow-hidden border border-gray-200 relative">
           <img
             src={ContractorBackPageImage}
             alt="ID Card Back"
