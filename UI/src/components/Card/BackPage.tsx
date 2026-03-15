@@ -56,11 +56,11 @@ const BackPage: React.FC<BackPageProps> = ({
             className="w-full h-full object-cover"
           />
           {/* QR Code Overlay */}
-          <div className="absolute top-[38.5%] left-[16%] -translate-x-1/2">
+          <div className="absolute top-[38.5%] left-[15.5%] -translate-x-1/2">
             <img
               src={`${API_BASE_URL}/cards/employee/${employee.employeeId}/qr`}
               alt="Employee QR Code"
-              style={{ width: '120px', height: '120px' }}
+              style={{ width: '85.5px', height: '85.5px' }}
             />
           </div>
         </div>
