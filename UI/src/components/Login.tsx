@@ -52,6 +52,8 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
       ) {
         sessionStorage.setItem("nrs_employee_id", employee.id);
         sessionStorage.setItem("nrs_user_role", employee.role);
+        const name = employee.name || `${employee.firstName} ${employee.lastName}`;
+        sessionStorage.setItem("nrs_user_name", name);
         setUserRole(employee.role as "manager" | "staff");
         setIsAuthenticated(true);
       } else {
@@ -78,6 +80,8 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
       // Auto-login the new employee
       sessionStorage.setItem("nrs_employee_id", newEmployee.id);
       sessionStorage.setItem("nrs_user_role", "staff");
+      const name = newEmployee.name || `${newEmployee.firstName} ${newEmployee.lastName}`;
+      sessionStorage.setItem("nrs_user_name", name);
       setUserRole("staff");
       setIsAuthenticated(true);
       // The App routing will automatically redirect to /card/:id for staff role

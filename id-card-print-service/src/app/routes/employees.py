@@ -648,7 +648,7 @@ def _build_photo_upload_html(
                                 <tr>
                                   <td style="vertical-align:top; width:26px; font-size:14px;">10.</td>
                                   <td style="font-size:14px; line-height:1.6;">
-                                    <strong>Deadline:</strong> Submission of ID card is 30th of February 2026.
+                                    <strong>Deadline:</strong> Submission of ID card Photo is 28th of February 2026.
                                   </td>
                                 </tr>
 
@@ -1699,11 +1699,13 @@ def export_employees_csv(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["S/N", "Employee Name", "Employee ID"])
+    writer.writerow(["S/N", "Name", "IR Number", "Department", "Email"])
 
     for i, emp in enumerate(employees, start=1):
         name = emp.name.title() if emp.name else ""
-        writer.writerow([i, name, emp.employee_id])
+        department = emp.department if emp.department else ""
+        email = emp.email if emp.email else ""
+        writer.writerow([i, name, emp.employee_id, department, email])
 
     output.seek(0)
     

@@ -10,9 +10,10 @@ import nrsLogo from "../assets/nrs_img.jpeg";
 interface NavbarProps {
     onLogout: () => void;
     userRole: "manager" | "staff";
+    userName?: string;
 }
 
-export default function Navbar({ onLogout, userRole }: NavbarProps) {
+export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
     const location = useLocation();
 
     if (userRole !== "manager") return null;
@@ -67,7 +68,7 @@ export default function Navbar({ onLogout, userRole }: NavbarProps) {
 
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col items-end mr-2 hidden md:flex">
-                            <span className="text-sm font-bold text-slate-900 capitalize">{userRole}</span>
+                            <span className="text-sm font-bold text-slate-900 capitalize">{userName || userRole}</span>
                             <span className="text-xs text-slate-500">Administrator</span>
                         </div>
                         <button
