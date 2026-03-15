@@ -405,34 +405,74 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
               </div>
             </div>
 
-            <FrontPage
-              showTitle={false}
-              employee={employee}
-              nrsLogoSrc={nrsLogo2}
-              nrsLogoBottomBarSrc={nrsLogoBottomBar}
-              photoData={photoData}
-              validating={validating}
-              fileInputRef={fileInputRef}
-              photoX={photoX}
-              photoY={photoY}
-              photoScale={photoScale}
-              onPositionChange={(x, y, s) => {
-                setPhotoX(x);
-                setPhotoY(y);
-                setPhotoScale(s);
-                setHasUnsavedChanges(true);
-              }}
-              isEditable={true}
-              currentUserRole={currentUserRole}
-            />
+            {employee.employeeId.length <= 5 && (
+              <>
+                <FrontPage
+                  showTitle={false}
+                  employee={employee}
+                  nrsLogoSrc={nrsLogo2}
+                  nrsLogoBottomBarSrc={nrsLogoBottomBar}
+                  photoData={photoData}
+                  validating={validating}
+                  fileInputRef={fileInputRef}
+                  photoX={photoX}
+                  photoY={photoY}
+                  photoScale={photoScale}
+                  onPositionChange={(x, y, s) => {
+                    setPhotoX(x);
+                    setPhotoY(y);
+                    setPhotoScale(s);
+                    setHasUnsavedChanges(true);
+                  }}
+                  isEditable={true}
+                  currentUserRole={currentUserRole}
+                />
 
 
-            {currentUserRole === "manager" && (
-              <BackPage
-                showTitle={false}
-                employee={employee}
-              />
+                {currentUserRole === "manager" && (
+                  <BackPage
+                    showTitle={false}
+                    employee={employee}
+                  />
+                )}
+              </>
             )}
+
+            {employee.employeeId.length > 5 && (
+              <div className="col-span-2 space-y-4 py-10 max-h-[100vh] overflow-y-auto">
+                <FrontPage
+                  showTitle={false}
+                  employee={employee}
+                  nrsLogoSrc={nrsLogo2}
+                  nrsLogoBottomBarSrc={nrsLogoBottomBar}
+                  photoData={photoData}
+                  validating={validating}
+                  fileInputRef={fileInputRef}
+                  photoX={photoX}
+                  photoY={photoY}
+                  photoScale={photoScale}
+                  onPositionChange={(x, y, s) => {
+                    setPhotoX(x);
+                    setPhotoY(y);
+                    setPhotoScale(s);
+                    setHasUnsavedChanges(true);
+                  }}
+                  isEditable={true}
+                  currentUserRole={currentUserRole}
+                />
+
+
+                {currentUserRole === "manager" && (
+                  <BackPage
+                    showTitle={false}
+                    employee={employee}
+                  />
+                )}
+              </div>
+            )}
+
+
+
 
           </div>
         </div>

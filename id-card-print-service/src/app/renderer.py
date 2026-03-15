@@ -331,3 +331,124 @@ def render_back(
     card.paste(qr_img, (qx, qy), qr_img)
 
     return card
+
+CARD_L_W, CARD_L_H = CARD_H, CARD_W
+
+def render_front_landscape(
+    full_name: str,
+    employee_id: str,
+    role: str,
+    photo_url: str,
+    front_template_path: Path,
+) -> Image.Image:
+    if not front_template_path.exists():
+        card = Image.new("RGB", (CARD_L_W, CARD_L_H), BG_COLOR)
+    else:
+        card = Image.open(front_template_path).convert("RGB")
+        card = card.resize((CARD_L_W, CARD_L_H), Image.LANCZOS)
+    
+    draw = ImageDraw.Draw(card)
+
+    name_font = _load_font(int(CARD_L_H * 0.08), bold=True)
+    id_font = _load_font(int(CARD_L_H * 0.06), bold=False)
+    role_font = _load_font(int(CARD_L_H * 0.05), bold=False)
+
+    # Photo container
+    pw = int(CARD_L_H * 0.60) 
+    ph = int(CARD_L_H * 0.65)
+    px = int(CARD_L_W * 0.08) # from left
+    py = int(CARD_L_H * 0.15)
+    
+    radius = int(pw * 0.05)
+    
+    photo = _load_image_from_url_or_path(photo_url).convert("RGB")
+    photo = ImageOps.exif_transpose(photo)
+
+    w, h = photo.size
+    aspect_photo = w / h
+    aspect_frame = pw / ph
+
+    if aspect_photo > aspect_frame:
+        base_scale = ph / h
+    else:
+        base_scale = pw / w
+
+    current_scale = base_scale * 1.0 # default scale
+    new_w = int(w * current_scale)
+    new_h = int(h * current_scale)
+    photo = photo.resize((new_w, new_h), Image.LANCZOS)
+    
+    paste_x = px + (pw - new_w) // 2
+    paste_y = py + (ph - new_h) // 2
+
+    photo_layer = Image.new("RGBA", (CARD_L_W, CARD_L_H), (0, 0, 0, 0))
+    photo_rgba = photo.convert("RGBA")
+    photo_layer.paste(photo_rgba, (paste_x, paste_y))
+
+    container_mask = Image.new("L", (CARD_L_W, CARD_L_H), 0)
+    container_mask_draw = ImageDraw.Draw(container_mask)
+    container_mask_draw.rounded_rectangle(
+        (px, py, px + pw, py + ph),
+        radius=radius,
+        fill=255
+    )
+
+    photo_alpha = photo_layer.split()[3]
+    final_mask = Image.new("L", (CARD_L_W, CARD_L_H), 0)
+    final_mask.paste(photo_alpha, (0, 0), container_mask)
+    card.paste(photo_layer, (0, 0), final_mask)
+    
+    # Name + ID + Role
+    text_x = int(CARD_L_W * 0.44) 
+    text_y = int(CARD_L_H * 0.35)
+    
+    draw.text((text_x, text_y), (full_name or "").upper(), font=name_font, fill="#000000")
+    
+    id_y = text_y + name_font.size + int(CARD_L_H * 0.08)
+    e_id = (employee_id or '').strip()
+    id_text = e_id if e_id.startswith("IRCONS") else f"IRCONS {e_id}"
+    draw.text((text_x, id_y), id_text, font=id_font, fill="#000000")
+    
+    role_y = id_y + id_font.size + int(CARD_L_H * 0.08)
+    draw.text((text_x, role_y), (role or "CONTRACTOR").upper(), font=role_font, fill="#000000")
+
+    return card
+
+def render_back_landscape(
+    employee_id: str,
+    back_template_path: Path,
+) -> Image.Image:
+    if not back_template_path.exists():
+        card = Image.new("RGB", (CARD_L_W, CARD_L_H), BG_COLOR)
+    else:
+        card = Image.open(back_template_path).convert("RGB")
+        card = card.resize((CARD_L_W, CARD_L_H), Image.LANCZOS)
+        
+    secret_key = os.getenv("QR_SECRET_KEY", "default-secret-key-for-qr")
+    key = hashlib.sha256(secret_key.encode()).digest()
+    fernet_key = base64.urlsafe_b64encode(key)
+    f = Fernet(fernet_key)
+    token = f.encrypt(employee_id.encode()).decode()
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=0,
+    )
+    qr.add_data(token)
+    qr.make(fit=True)
+
+    qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
+    
+    qw = int(CARD_L_H * 0.29)
+    qh = qw
+    qr_img = qr_img.resize((qw, qh), Image.LANCZOS)
+    
+    qx = int(CARD_L_W * 0.09)     
+    qy = int(CARD_L_H * 0.38)     
+    
+    card.paste(qr_img, (qx, qy), qr_img)
+
+    return card
+
