@@ -66,25 +66,11 @@ export default function EmployeeList({
   const [isInitialLoad, setIsInitialLoad] = useState(employees.length === 0);
   const [selectAllPages, setSelectAllPages] = useState(false);
 
-  const [debouncedFilters, setDebouncedFilters] =
-    useState<EmployeeFilters>(filters);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (JSON.stringify(filters) !== JSON.stringify(debouncedFilters)) {
-        setDebouncedFilters(filters);
-        setSelectAllPages(false);
-        clearCache();
-        setIsInitialLoad(true);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [filters, debouncedFilters, clearCache]);
+  const [activeFilters, setActiveFilters] = useState<EmployeeFilters>(filters);
 
   useEffect(() => {
     if (userRole === "manager") loadEmployees();
-  }, [currentPage, pageSize, userRole, debouncedFilters]);
+  }, [currentPage, pageSize, userRole, activeFilters]);
 
   const loadDepartments = async () => {
     const response = await employeeService.getDepartments();
@@ -124,7 +110,7 @@ export default function EmployeeList({
       const response = await employeeService.getAll(
         currentPage,
         pageSize,
-        debouncedFilters,
+        activeFilters,
       );
 
       setEmployees(response.items);
@@ -137,6 +123,14 @@ export default function EmployeeList({
       setLoading(false);
       setIsInitialLoad(false);
     }
+  };
+
+  const handleSearch = () => {
+    setActiveFilters(filters);
+    setCurrentPage(1);
+    setSelectAllPages(false);
+    clearCache();
+    setIsInitialLoad(true);
   };
 
   const handlePageChange = (page: number) => {
@@ -232,7 +226,7 @@ export default function EmployeeList({
       if (ids.length === 0) return; // Should be disabled anyway
     } else if (option === "filtered") {
       isAll = true;
-      payloadFilters = debouncedFilters;
+      payloadFilters = activeFilters;
     } else if (option === "all") {
       isAll = true;
       payloadFilters = undefined; // Clear filters to get everyone
@@ -363,7 +357,7 @@ export default function EmployeeList({
     setEmailDialog({ isOpen: false, isBulk: false });
 
     try {
-      const result = await employeeService.sendBulkEmail(ids, message, filters, selectAllPages);
+      const result = await employeeService.sendBulkEmail(ids, message, activeFilters, selectAllPages);
 
       updateNotification(notificationId, {
         type: "success",
@@ -398,7 +392,7 @@ export default function EmployeeList({
         const response = await employeeService.getAll(
           1,
           totalRecords,
-          debouncedFilters,
+          activeFilters,
         );
         ids = response.items
           .filter((e) => e.photoPresent)
@@ -470,7 +464,7 @@ export default function EmployeeList({
       // Fetch all IDs if selecting all pages (potentially huge, but for MVP reasonable)
       // Alternatively, api supports just sending filters? No, api currently takes IDs.
       // We'll fetch all IDs for now as in bulk print/email.
-      const response = await employeeService.getAll(1, totalRecords, debouncedFilters);
+      const response = await employeeService.getAll(1, totalRecords, activeFilters);
       ids = response.items.map(e => e.id);
       count = response.total;
     } else {
@@ -544,7 +538,7 @@ export default function EmployeeList({
     setEmailDialog({ isOpen: false, isBulk: false });
 
     try {
-      await employeeService.sendBulkEmail([employeeId], message, filters, selectAllPages);
+      await employeeService.sendBulkEmail([employeeId], message, activeFilters, selectAllPages);
 
       updateNotification(notificationId, {
         type: "success",
@@ -604,7 +598,7 @@ export default function EmployeeList({
       const jobs = await printingService.createBatch(
         "PDF_GENERATION",
         idsToPrint,
-        filters,
+        activeFilters,
         false
       );
 
@@ -678,12 +672,23 @@ export default function EmployeeList({
   };
 
   const clearFilters = () => {
-    setFilters({
+    const cleared = {
       name: "",
       employeeId: "",
-      photoStatus: "all",
+      photoStatus: "all" as const,
       department: "all",
-    });
+      employeeType: "all" as const,
+      position: "all",
+      consultantPrefix: "",
+      role: "all",
+      startDate: "",
+      endDate: "",
+      requestStatus: "all",
+    };
+    setFilters(cleared);
+    setActiveFilters(cleared);
+    setCurrentPage(1);
+    clearCache();
   };
 
   if (isInitialLoad) {
@@ -796,7 +801,7 @@ export default function EmployeeList({
             setFilters={setFilters}
             clearFilters={clearFilters}
             departments={departments}
-          // hasActiveFilters={hasActiveFilters}
+            onSearch={handleSearch}
           />
 
           <EmployeeTable
@@ -859,8 +864,8 @@ export default function EmployeeList({
         onClose={() => setDownloadModalOpen(false)}
         onSubmit={handleDownloadSubmit}
         hasSelection={selectedIds.size > 0}
-        hasFilters={!!(debouncedFilters.name || debouncedFilters.employeeId || debouncedFilters.department !== "all" || debouncedFilters.photoStatus !== "all")}
+        hasFilters={!!(activeFilters.name || activeFilters.employeeId || activeFilters.department !== "all" || activeFilters.photoStatus !== "all" || activeFilters.employeeType !== "all" || activeFilters.position !== "all" || activeFilters.requestStatus !== "all")}
       />
-    </div >
+    </div>
   );
 }

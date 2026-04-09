@@ -79,6 +79,7 @@ class Employee(Base):
     )
 
     card = relationship("Card", back_populates="employee", uselist=False, cascade="all, delete-orphan")
+    requests = relationship("EmployeeRequest", back_populates="employee", cascade="all, delete-orphan")
 
 
 class Card(Base):
@@ -156,5 +157,5 @@ class EmployeeRequest(Base):
         nullable=False,
     )
 
-    employee = relationship("Employee")
+    employee = relationship("Employee", back_populates="requests")
 

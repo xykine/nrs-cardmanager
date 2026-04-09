@@ -23,6 +23,13 @@ const defaultFilters: EmployeeFilters = {
     employeeId: "",
     photoStatus: "all",
     department: "all",
+    employeeType: "all",
+    position: "all",
+    consultantPrefix: "",
+    role: "all",
+    startDate: "",
+    endDate: "",
+    requestStatus: "all",
 };
 
 const EmployeeContext = createContext<EmployeeContextType | undefined>(undefined);

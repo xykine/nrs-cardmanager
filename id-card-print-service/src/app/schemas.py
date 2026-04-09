@@ -93,6 +93,13 @@ class EmployeeFilters(APIModel):
     employee_id: str = Field(default="", alias="employeeId")
     photo_status: str = Field(default="all", alias="photoStatus")
     department: str = "all"
+    employee_type: str = Field(default="all", alias="employeeType")
+    position: Optional[str] = None
+    consultant_prefix: Optional[str] = Field(default=None, alias="consultantPrefix")
+    role: Optional[str] = None
+    start_date: Optional[datetime] = Field(default=None, alias="startDate")
+    end_date: Optional[datetime] = Field(default=None, alias="endDate")
+    request_status: Optional[str] = Field(default=None, alias="requestStatus")
 
 
 class BulkEmailRequest(APIModel):

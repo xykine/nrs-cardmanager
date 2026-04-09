@@ -44,8 +44,14 @@ export const employeeService = {
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== "all") {
-          params.append(key, value.toString());
+        if (value !== null && value !== undefined && value !== "all" && value !== "") {
+          // Format dates as ISO strings if they are date objects or strings that can be converted
+          if ((key === "startDate" || key === "endDate") && value) {
+            const dateStr = value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+            params.append(key, dateStr);
+          } else {
+            params.append(key, value.toString());
+          }
         }
       });
     }

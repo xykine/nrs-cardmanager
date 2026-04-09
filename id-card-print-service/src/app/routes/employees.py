@@ -25,13 +25,9 @@ from typing import Dict, List
 import csv
 import io
 import requests
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session, joinedload
-
-from sqlalchemy.orm import Session
-from sqlalchemy import delete, not_
+from sqlalchemy import delete, not_, func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, joinedload
 
 
 from ..models import Employee
@@ -1041,10 +1037,18 @@ def get_employee_byid_or_404(db: Session, employee_id: str) -> Employee:
 def _apply_employee_filters(
     query,
     *,
-    name: Optional[str],
-    employee_id: Optional[str],
-    photo_status: Optional[str],
-    department: Optional[str],
+    name: Optional[str] = None,
+    employee_id: Optional[str] = None,
+    photo_status: Optional[str] = None,
+    department: Optional[str] = None,
+    employee_type: Optional[str] = None,
+    position: Optional[str] = None,
+    consultant_prefix: Optional[str] = None,
+    role: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    request_status: Optional[str] = None,
+    db: Optional[Session] = None,
 ):
     name = (name or "").strip()
     if name:
@@ -1064,11 +1068,36 @@ def _apply_employee_filters(
             query = query.filter(Employee.photo_present.is_(True))
         elif photo_status in ("no", "false", "0"):
             query = query.filter(Employee.photo_present.is_(False))
+
+    # New Filters
+    employee_type = (employee_type or "all").lower()
+    if employee_type == "staff":
+        query = query.filter(func.length(Employee.employee_id) == 5)
+    elif employee_type == "non-staff":
+        query = query.filter(func.length(Employee.employee_id) > 5)
+
+    if position and position.lower() != "all":
+        if position.lower() == "missing":
+            query = query.filter(Employee.position.is_(None))
         else:
-            raise HTTPException(
-                status_code=400,
-                detail='photoStatus must be "yes" or "no"',
-            )
+            query = query.filter(Employee.position.ilike(position))
+
+    if consultant_prefix:
+        query = query.filter(Employee.consultant_prefix.ilike(f"{consultant_prefix}%"))
+
+    if role and role.lower() != "all":
+        query = query.filter(Employee.role == role.lower())
+
+    if start_date:
+        query = query.filter(Employee.employment_start_date >= start_date)
+    
+    if end_date:
+        query = query.filter(Employee.employment_end_date <= end_date)
+
+    if request_status and request_status.lower() != "all":
+        from ..models import EmployeeRequest
+        # Filter employees who have at least one request with the matching status
+        query = query.join(Employee.requests).filter(EmployeeRequest.status == request_status.lower())
 
     return query
 
@@ -1127,6 +1156,13 @@ def list_employees(
     employee_id: Optional[str] = Query(None, alias="employeeId"),
     photo_status: Optional[str] = Query(None, alias="photoStatus"),
     department: Optional[str] = Query(None),
+    employee_type: Optional[str] = Query(None, alias="employeeType"),
+    position: Optional[str] = Query(None),
+    consultant_prefix: Optional[str] = Query(None, alias="consultantPrefix"),
+    role: Optional[str] = Query(None),
+    start_date: Optional[datetime] = Query(None, alias="startDate"),
+    end_date: Optional[datetime] = Query(None, alias="endDate"),
+    request_status: Optional[str] = Query(None, alias="requestStatus"),
     db: Session = Depends(get_db),
 ):
     query = db.query(Employee)
@@ -1136,6 +1172,14 @@ def list_employees(
         employee_id=employee_id,
         photo_status=photo_status,
         department=department,
+        employee_type=employee_type,
+        position=position,
+        consultant_prefix=consultant_prefix,
+        role=role,
+        start_date=start_date,
+        end_date=end_date,
+        request_status=request_status,
+        db=db
     )
     query = query.filter(not_(Employee.employee_id.like("90%")))
 
