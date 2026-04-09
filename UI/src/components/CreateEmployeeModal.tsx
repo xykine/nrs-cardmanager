@@ -10,6 +10,7 @@ interface CreateEmployeeModalProps {
     employeeId: string;
     email: string;
     department?: string;
+    position?: string;
   }) => Promise<void>;
   departments: string[];
   isLoading?: boolean;
@@ -28,6 +29,7 @@ export default function CreateEmployeeModal({
     employeeId: "",
     email: "",
     department: "",
+    position: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -74,6 +76,7 @@ export default function CreateEmployeeModal({
         employeeId: formData.employeeId.trim(),
         email: formData.email.trim(),
         department: formData.department.trim() || undefined,
+        position: formData.position.trim() || undefined,
       });
 
       // Reset form on successful submission
@@ -83,6 +86,7 @@ export default function CreateEmployeeModal({
         employeeId: "",
         email: "",
         department: "",
+        position: "",
       });
       setErrors({});
       onClose();
@@ -252,6 +256,25 @@ export default function CreateEmployeeModal({
                   {department}
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Position */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Position
+            </label>
+            <select
+              name="position"
+              value={formData.position}
+              onChange={handleInputChange}
+              disabled={submitting || isLoading}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+            >
+              <option value="">Select a position (optional)</option>
+              <option value="GD">GD</option>
+              <option value="Transport Assistant">Transport Assistant</option>
+              <option value="Consultant">Consultant</option>
             </select>
           </div>
 

@@ -148,6 +148,9 @@ export default function EmployeeTable({
             <th className="px-6 py-4 text-left text-sm font-semibold">
               Department
             </th>
+            <th className="px-6 py-4 text-left text-sm font-semibold">
+              Position
+            </th>
             {userRole === "manager" && (
               <th className="px-6 py-4 text-center text-sm font-semibold">
                 Role
@@ -226,6 +229,11 @@ export default function EmployeeTable({
                 <td className="px-6 py-4">
                   <span className="text-slate-700">
                     {employee.department || "N/A"}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="text-slate-700">
+                    {employee.position || "N/A"}
                   </span>
                 </td>
 

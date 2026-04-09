@@ -87,6 +87,14 @@ export default function EmployeeDetail() {
             </div>
 
             <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg">
+              <User className="w-6 h-6 text-slate-600 mt-1" />
+              <div>
+                <p className="text-sm text-slate-600 mb-1">Position</p>
+                <p className="text-lg font-semibold text-slate-800">{employee.position || "N/A"}</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg">
               <Image className="w-6 h-6 text-slate-600 mt-1" />
               <div>
                 <p className="text-sm text-slate-600 mb-1">Photo Status</p>

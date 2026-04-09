@@ -60,7 +60,8 @@ class Employee(Base):
     name = Column(String, nullable=False)
     employee_id = Column("employeeId", String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
-    department = Column(String, nullable=True)  # 
+    department = Column(String, nullable=True)
+    position = Column(String, nullable=True)
     role = Column(String, default="staff", nullable=False)
     photo_present = Column("photoPresent", Boolean, default=False, nullable=False)
     invitation_token = Column("invitationToken", String, nullable=True)

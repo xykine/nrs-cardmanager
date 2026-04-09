@@ -6,6 +6,7 @@ export interface Employee {
   employeeId: string;
   email: string;
   department?: string;
+  position?: string;
   role: 'manager' | 'staff';
   photoPresent: boolean;
   invitationToken?: string;

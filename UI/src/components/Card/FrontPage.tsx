@@ -1,10 +1,14 @@
 import React, { RefObject, useState, useRef, useEffect } from "react";
 import { RefreshCw, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import ContractorFrontPageImage from "../../assets/ContractorFrontPageImage.jpg";
+import ConsultantFrontPageImage from "../../assets/ConsultantFrontPage.jpg";
+import GDFrontPageImage from "../../assets/GDFrontPage.jpg";
+import TransportAssistantFrontPageImage from "../../assets/TransportAssistantFrontPage.jpg";
 
 export type FrontPageEmployee = {
   name: string;
   employeeId: string;
+  position: string;
 };
 
 export type FrontPageProps = {
@@ -92,6 +96,21 @@ const FrontPage: React.FC<FrontPageProps> = ({
   const [aspect, setAspect] = useState(1);
 
   console.log(employee.employeeId.length)
+
+  const getFrontPageImageByPosition = (position: string) => {
+    switch (position.toLowerCase()) {
+      case "contractor":
+        return ContractorFrontPageImage;
+      case "consultant":
+        return ConsultantFrontPageImage;
+      case "gd":
+        return GDFrontPageImage;
+      case "transport assistant":
+        return TransportAssistantFrontPageImage;
+      default:
+        return ContractorFrontPageImage;
+    }
+  }
 
   return (
     <div className={className}>
@@ -218,7 +237,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
           style={
             currentUserRole.toLowerCase() === "manager"
               ? {
-                backgroundImage: `url(${ContractorFrontPageImage})`,
+                backgroundImage: `url(${getFrontPageImageByPosition(employee.position)})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 backgroundRepeat: "no-repeat",

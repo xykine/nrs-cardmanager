@@ -787,7 +787,8 @@ def replace_all_employees_in_db(
 
                 "email": email_norm,
 
-                "department": (e.get("department") or None),  
+                "department": (e.get("department") or None),
+                "position": (e.get("position") or None),
 
 
                 "role": default_role,
@@ -929,6 +930,7 @@ def upsert_employees_in_db(
                 "employee_id": emp_id,
                 "email": email_norm,
                 "department": (e.get("department") or None),
+                "position": (e.get("position") or None),
                 "role": default_role,
                 "photo_present": False,
             })
@@ -1184,6 +1186,7 @@ def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
         employee_id=payload.employee_id,
         email=payload.email,
         department=payload.department,
+        position=payload.position,
         photo_present=False,
     )
     db.add(employee)

@@ -66,10 +66,12 @@ class EmployeeCreate(APIModel):
     employee_id: str = Field(alias="employeeId")
     email: str
     department: Optional[str] = None
+    position: Optional[str] = None
 
 
 class EmployeeUpdate(APIModel):
     name: Optional[str] = None
+    position: Optional[str] = None
 
 
 class EmployeeRoleUpdate(APIModel):
@@ -100,6 +102,7 @@ class EmployeePublic(APIModel):
     employee_id: str = Field(alias="employeeId")
     email: str
     department: Optional[str] = None
+    position: Optional[str] = None
     role: str
     photo_present: bool = Field(alias="photoPresent")
     invitation_token: Optional[str] = Field(default=None, alias="invitationToken")

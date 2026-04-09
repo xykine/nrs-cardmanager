@@ -76,6 +76,7 @@ export const employeeService = {
     employeeId: string;
     email: string;
     department?: string;
+    position?: string;
   }): Promise<Employee> {
     const response = await fetch(`${API_BASE_URL}/employees`, {
       method: "POST",
