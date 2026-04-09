@@ -90,9 +90,33 @@ export default function EmployeeDetail() {
               <User className="w-6 h-6 text-slate-600 mt-1" />
               <div>
                 <p className="text-sm text-slate-600 mb-1">Position</p>
-                <p className="text-lg font-semibold text-slate-800">{employee.position || "N/A"}</p>
+                <p className="text-lg font-semibold text-slate-800">
+                  {employee.position === 'Consultant' && employee.consultantPrefix
+                    ? `${employee.consultantPrefix} ${employee.position}`
+                    : employee.position || "N/A"}
+                </p>
               </div>
             </div>
+
+            {employee.employmentStartDate && (
+              <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg">
+                <Calendar className="w-6 h-6 text-slate-600 mt-1" />
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Employment Start Date</p>
+                  <p className="text-lg font-semibold text-slate-800">{new Date(employee.employmentStartDate).toLocaleDateString()}</p>
+                </div>
+              </div>
+            )}
+
+            {employee.employmentEndDate && (
+              <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg">
+                <Calendar className="w-6 h-6 text-slate-600 mt-1" />
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Employment End Date</p>
+                  <p className="text-lg font-semibold text-slate-800">{new Date(employee.employmentEndDate).toLocaleDateString()}</p>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg">
               <Image className="w-6 h-6 text-slate-600 mt-1" />

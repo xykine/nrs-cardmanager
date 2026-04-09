@@ -289,6 +289,9 @@ export default function EmployeeList({
     email: string;
     department?: string;
     position?: string;
+    consultantPrefix?: string;
+    employmentStartDate?: string;
+    employmentEndDate?: string;
   }) => {
     const notificationId = addNotification({
       type: "progress",
@@ -306,6 +309,9 @@ export default function EmployeeList({
         email: data.email,
         department: data.department,
         position: data.position,
+        consultantPrefix: data.consultantPrefix,
+        employmentStartDate: data.employmentStartDate,
+        employmentEndDate: data.employmentEndDate,
       });
 
       updateNotification(notificationId, {

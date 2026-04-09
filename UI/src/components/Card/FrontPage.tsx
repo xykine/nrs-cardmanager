@@ -9,6 +9,7 @@ export type FrontPageEmployee = {
   name: string;
   employeeId: string;
   position: string;
+  consultantPrefix?: string;
 };
 
 export type FrontPageProps = {
@@ -103,7 +104,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
         return ContractorFrontPageImage;
       case "consultant":
         return ConsultantFrontPageImage;
-      case "gd":
+      case "group director":
         return GDFrontPageImage;
       case "transport assistant":
         return TransportAssistantFrontPageImage;
@@ -119,7 +120,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
           Front Side
         </h2>
       )}
-      {employee.employeeId.length <= 5 && (
+      {!employee.position && (
         <div className="bg-white rounded-2xl shadow-xl aspect-[3/5] w-full max-w-sm overflow-hidden border border-gray-200">
           <div className="flex flex-col h-full items-center">
             {/* Logo */}
@@ -230,7 +231,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
         </div>
       )}
 
-      {employee.employeeId.length > 5 && (
+      {employee.position && (
 
         <div
           className="relative max-w-[560px] aspect-[1.5/1] overflow-hidden border border-gray-300 bg-white shadow-xl"
@@ -251,11 +252,11 @@ const FrontPage: React.FC<FrontPageProps> = ({
           {/* Content Layer */}
           <div className="absolute inset-0">
             {/* Photo block */}
-            <div className="absolute left-[7.5%] top-[22%]">
+            <div className="absolute left-[7%] top-[25%]">
               <div className="relative group">
                 <div
                   ref={containerRef}
-                  className={`w-52 h-52 rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? 'cursor-move' : ''}`}
+                  className={`w-[156px] h-[156px] rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? 'cursor-move' : ''}`}
                   onMouseDown={handleMouseDown}
                 >
                   {photoData && !validating ? (
@@ -335,8 +336,10 @@ const FrontPage: React.FC<FrontPageProps> = ({
                 IRCONS {employee.employeeId}
               </p>
 
-              <p className="mt-2 text-[1.8rem] font-medium uppercase tracking-wide text-gray-900">
-                {employee.position}
+              <p className="mt-2 text-[1.1rem] font-medium uppercase tracking-wide text-gray-900">
+                {employee.position === 'Consultant' && employee.consultantPrefix
+                  ? `${employee.consultantPrefix} ${employee.position}`
+                  : employee.position}
               </p>
             </div>
           </div>

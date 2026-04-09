@@ -67,11 +67,17 @@ class EmployeeCreate(APIModel):
     email: str
     department: Optional[str] = None
     position: Optional[str] = None
+    consultant_prefix: Optional[str] = Field(default=None, alias="consultantPrefix")
+    employment_start_date: Optional[datetime] = Field(default=None, alias="employmentStartDate")
+    employment_end_date: Optional[datetime] = Field(default=None, alias="employmentEndDate")
 
 
 class EmployeeUpdate(APIModel):
     name: Optional[str] = None
     position: Optional[str] = None
+    consultant_prefix: Optional[str] = Field(default=None, alias="consultantPrefix")
+    employment_start_date: Optional[datetime] = Field(default=None, alias="employmentStartDate")
+    employment_end_date: Optional[datetime] = Field(default=None, alias="employmentEndDate")
 
 
 class EmployeeRoleUpdate(APIModel):
@@ -103,6 +109,9 @@ class EmployeePublic(APIModel):
     email: str
     department: Optional[str] = None
     position: Optional[str] = None
+    consultant_prefix: Optional[str] = Field(default=None, alias="consultantPrefix")
+    employment_start_date: Optional[datetime] = Field(default=None, alias="employmentStartDate")
+    employment_end_date: Optional[datetime] = Field(default=None, alias="employmentEndDate")
     role: str
     photo_present: bool = Field(alias="photoPresent")
     invitation_token: Optional[str] = Field(default=None, alias="invitationToken")

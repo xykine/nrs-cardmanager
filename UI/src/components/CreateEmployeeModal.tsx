@@ -11,6 +11,9 @@ interface CreateEmployeeModalProps {
     email: string;
     department?: string;
     position?: string;
+    consultantPrefix?: string;
+    employmentStartDate?: string;
+    employmentEndDate?: string;
   }) => Promise<void>;
   departments: string[];
   isLoading?: boolean;
@@ -30,6 +33,9 @@ export default function CreateEmployeeModal({
     email: "",
     department: "",
     position: "",
+    consultantPrefix: "",
+    employmentStartDate: "",
+    employmentEndDate: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -77,6 +83,9 @@ export default function CreateEmployeeModal({
         email: formData.email.trim(),
         department: formData.department.trim() || undefined,
         position: formData.position.trim() || undefined,
+        consultantPrefix: formData.position === "Consultant" ? formData.consultantPrefix.trim() : undefined,
+        employmentStartDate: formData.position ? formData.employmentStartDate : undefined,
+        employmentEndDate: formData.position ? formData.employmentEndDate : undefined,
       });
 
       // Reset form on successful submission
@@ -87,6 +96,9 @@ export default function CreateEmployeeModal({
         email: "",
         department: "",
         position: "",
+        consultantPrefix: "",
+        employmentStartDate: "",
+        employmentEndDate: "",
       });
       setErrors({});
       onClose();
@@ -238,6 +250,77 @@ export default function CreateEmployeeModal({
             )}
           </div>
 
+
+          {/* Position */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Employee Type
+            </label>
+            <select
+              name="position"
+              value={formData.position}
+              onChange={handleInputChange}
+              disabled={submitting || isLoading}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+            >
+              <option value="">Select a position (optional)</option>
+              <option value="Group Director">Group Director</option>
+              <option value="Transport Assistant">Transport Assistant</option>
+              <option value="Consultant">Consultant</option>
+            </select>
+          </div>
+
+          {/* Consultant Prefix - Conditional */}
+          {formData.position === "Consultant" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Consultant Prefix
+              </label>
+              <input
+                type="text"
+                name="consultantPrefix"
+                value={formData.consultantPrefix}
+                onChange={handleInputChange}
+                disabled={submitting || isLoading}
+                placeholder="Enter prefix (e.g. SAP - HR)"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+              />
+            </div>
+          )}
+
+          {/* Employment Dates - Conditional */}
+          {formData.position && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Employment Start Date
+                </label>
+                <input
+                  type="date"
+                  name="employmentStartDate"
+                  value={formData.employmentStartDate}
+                  onChange={handleInputChange}
+                  disabled={submitting || isLoading}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Employment End Date
+                </label>
+                <input
+                  type="date"
+                  name="employmentEndDate"
+                  value={formData.employmentEndDate}
+                  onChange={handleInputChange}
+                  disabled={submitting || isLoading}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
+          )}
+
+
           {/* Department */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -256,25 +339,6 @@ export default function CreateEmployeeModal({
                   {department}
                 </option>
               ))}
-            </select>
-          </div>
-
-          {/* Position */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Position
-            </label>
-            <select
-              name="position"
-              value={formData.position}
-              onChange={handleInputChange}
-              disabled={submitting || isLoading}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
-            >
-              <option value="">Select a position (optional)</option>
-              <option value="GD">GD</option>
-              <option value="Transport Assistant">Transport Assistant</option>
-              <option value="Consultant">Consultant</option>
             </select>
           </div>
 

@@ -233,7 +233,9 @@ export default function EmployeeTable({
                 </td>
                 <td className="px-6 py-4">
                   <span className="text-slate-700">
-                    {employee.position || "N/A"}
+                    {employee.position === 'Consultant' && employee.consultantPrefix
+                      ? `${employee.consultantPrefix} ${employee.position}`
+                      : employee.position || "N/A"}
                   </span>
                 </td>
 

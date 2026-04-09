@@ -789,6 +789,9 @@ def replace_all_employees_in_db(
 
                 "department": (e.get("department") or None),
                 "position": (e.get("position") or None),
+                "consultant_prefix": (e.get("consultantPrefix") or None),
+                "employment_start_date": (e.get("employmentStartDate") or None),
+                "employment_end_date": (e.get("employmentEndDate") or None),
 
 
                 "role": default_role,
@@ -931,6 +934,9 @@ def upsert_employees_in_db(
                 "email": email_norm,
                 "department": (e.get("department") or None),
                 "position": (e.get("position") or None),
+                "consultant_prefix": (e.get("consultantPrefix") or None),
+                "employment_start_date": (e.get("employmentStartDate") or None),
+                "employment_end_date": (e.get("employmentEndDate") or None),
                 "role": default_role,
                 "photo_present": False,
             })
@@ -1187,6 +1193,9 @@ def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
         email=payload.email,
         department=payload.department,
         position=payload.position,
+        consultant_prefix=payload.consultant_prefix,
+        employment_start_date=payload.employment_start_date,
+        employment_end_date=payload.employment_end_date,
         photo_present=False,
     )
     db.add(employee)

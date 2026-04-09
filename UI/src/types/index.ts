@@ -7,6 +7,9 @@ export interface Employee {
   email: string;
   department?: string;
   position?: string;
+  consultantPrefix?: string;
+  employmentStartDate?: string;
+  employmentEndDate?: string;
   role: 'manager' | 'staff';
   photoPresent: boolean;
   invitationToken?: string;
