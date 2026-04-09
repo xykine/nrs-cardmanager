@@ -6,6 +6,8 @@ import httpx
 import qrcode
 import hashlib
 import base64
+from typing import Optional
+from datetime import date
 from cryptography.fernet import Fernet
 
 # CR80 (2.125" x 3.375") @ 300dpi, portrait
@@ -340,6 +342,10 @@ def render_front_landscape(
     role: str,
     photo_url: str,
     front_template_path: Path,
+    consultant_prefix: Optional[str] = None,
+    photo_x: int = 0,
+    photo_y: int = 0,
+    photo_scale: float = 1.0,
 ) -> Image.Image:
     if not front_template_path.exists():
         card = Image.new("RGB", (CARD_L_W, CARD_L_H), BG_COLOR)
@@ -353,11 +359,11 @@ def render_front_landscape(
     id_font = _load_font(int(CARD_L_H * 0.06), bold=False)
     role_font = _load_font(int(CARD_L_H * 0.05), bold=False)
 
-    # Photo container
-    pw = int(CARD_L_H * 0.60) 
-    ph = int(CARD_L_H * 0.65)
-    px = int(CARD_L_W * 0.08) # from left
-    py = int(CARD_L_H * 0.15)
+    # Photo container (matching UI 136x170)
+    pw = int(CARD_L_W * 0.24) 
+    ph = int(pw * 1.25)
+    px = int(CARD_L_W * 0.09) # from left
+    py = int(CARD_L_H * 0.25)
     
     radius = int(pw * 0.05)
     
@@ -373,13 +379,18 @@ def render_front_landscape(
     else:
         base_scale = pw / w
 
-    current_scale = base_scale * 1.0 # default scale
+    current_scale = base_scale * photo_scale
     new_w = int(w * current_scale)
     new_h = int(h * current_scale)
     photo = photo.resize((new_w, new_h), Image.LANCZOS)
     
-    paste_x = px + (pw - new_w) // 2
-    paste_y = py + (ph - new_h) // 2
+    # Calculate scale to DPI (container width in UI is 136px)
+    scale_to_dpi = pw / 136.0
+    offset_x = int(photo_x * scale_to_dpi)
+    offset_y = int(photo_y * scale_to_dpi)
+
+    paste_x = px + (pw - new_w) // 2 + offset_x
+    paste_y = py + (ph - new_h) // 2 + offset_y
 
     photo_layer = Image.new("RGBA", (CARD_L_W, CARD_L_H), (0, 0, 0, 0))
     photo_rgba = photo.convert("RGBA")
@@ -399,24 +410,33 @@ def render_front_landscape(
     card.paste(photo_layer, (0, 0), final_mask)
     
     # Name + ID + Role
-    text_x = int(CARD_L_W * 0.44) 
-    text_y = int(CARD_L_H * 0.35)
+    text_x = int(CARD_L_W * 0.42) 
+    text_y = int(CARD_L_H * 0.27)
     
     draw.text((text_x, text_y), (full_name or "").upper(), font=name_font, fill="#000000")
     
-    id_y = text_y + name_font.size + int(CARD_L_H * 0.08)
+    id_y = text_y + name_font.size + int(CARD_L_H * 0.05)
     e_id = (employee_id or '').strip()
-    id_text = e_id if e_id.startswith("IRCONS") else f"IRCONS {e_id}"
-    draw.text((text_x, id_y), id_text, font=id_font, fill="#000000")
+    id_text = f"IRCONS {e_id}"
+    draw.text((text_x, id_y), id_text.upper(), font=id_font, fill="#000000")
     
-    role_y = id_y + id_font.size + int(CARD_L_H * 0.08)
-    draw.text((text_x, role_y), (role or "CONTRACTOR").upper(), font=role_font, fill="#000000")
+    role_y = id_y + id_font.size + int(CARD_L_H * 0.03)
+    
+    final_role = (role or "CONTRACTOR").upper()
+    if final_role == "CONSULTANT" and consultant_prefix:
+        display_role = f"{consultant_prefix} {final_role}"
+    else:
+        display_role = final_role
+
+    draw.text((text_x, role_y), display_role.upper(), font=role_font, fill="#000000")
 
     return card
 
 def render_back_landscape(
     employee_id: str,
     back_template_path: Path,
+    employment_start_date: Optional[date] = None,
+    employment_end_date: Optional[date] = None,
 ) -> Image.Image:
     if not back_template_path.exists():
         card = Image.new("RGB", (CARD_L_W, CARD_L_H), BG_COLOR)
@@ -441,14 +461,31 @@ def render_back_landscape(
 
     qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
     
-    qw = int(CARD_L_H * 0.29)
+    qw = int(CARD_L_W * 0.13)
     qh = qw
     qr_img = qr_img.resize((qw, qh), Image.LANCZOS)
     
-    qx = int(CARD_L_W * 0.09)     
-    qy = int(CARD_L_H * 0.38)     
+    qx = int(CARD_L_W * 0.092)     
+    qy = int(CARD_L_H * 0.41)     
     
     card.paste(qr_img, (qx, qy), qr_img)
+    draw = ImageDraw.Draw(card)
+
+    # Employment Dates
+    if employment_start_date or employment_end_date:
+        date_font = _load_font(int(CARD_L_H * 0.045), bold=False)
+        date_x = int(CARD_L_W * 0.51)
+        date_y_start = int(CARD_L_H * 0.58)
+        
+        if employment_start_date:
+            start_str = employment_start_date.strftime("%d/%m/%Y")
+            draw.text((date_x, date_y_start), start_str, font=date_font, fill="#1f2937")
+        
+        if employment_end_date:
+            end_str = employment_end_date.strftime("%d/%m/%Y")
+            # Draw below start date with small gap
+            date_y_end = date_y_start + date_font.size + int(CARD_L_H * 0.01)
+            draw.text((date_x, date_y_end), end_str, font=date_font, fill="#1f2937")
 
     return card
 

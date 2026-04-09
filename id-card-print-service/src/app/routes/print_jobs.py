@@ -48,6 +48,25 @@ def _new_job_id(i: int) -> str:
     return f"JOB_{_now().strftime('%Y%m%d_%H%M%S')}_{i:06d}"
 
 
+def _get_background_assets_by_position(position: str) -> tuple:
+    """Returns (front_asset_name, back_asset_name) based on position."""
+    if not position:
+        return "FrontPageImage.png", "BackPageImage.png"
+        
+    pos = position.lower()
+    if "consultant" in pos:
+        return "ConsultantFrontPage.jpg", "ConsultantBackPage.jpg"
+    elif "group director" in pos:
+        return "GDFrontPage.jpg", "GDBackPage.jpg"
+    elif "transport assistant" in pos:
+        return "TransportAssistantFrontPage.jpg", "TransportAssistantBackPage.jpg"
+    elif "contractor" in pos:
+        return "ContractorFrontPageImage.jpg", "ContractorBackPageImage.jpg"
+    else:
+        # Default for any other position
+        return "ContractorFrontPageImage.jpg", "ContractorBackPageImage.jpg"
+
+
 def _decode_photo_data(photo_data: str) -> Image.Image:
     if not photo_data:
         raise HTTPException(400, "Missing photo data")
@@ -221,7 +240,7 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
     contractor_front = ASSETS_DIR / "ContractorFrontPageImage.jpg"
     contractor_back = ASSETS_DIR / "ContractorBackPageImage.jpg"
     
-    if not all(a.exists() for a in [logo, bottom, back, contractor_front, contractor_back]):
+    if not all(a.exists() for a in [logo, bottom, back]):
         raise HTTPException(500, "Server assets missing (logo/accent/back template)")
 
     emp_ids_needed = [job.employee_id for job in jobs]
@@ -259,26 +278,45 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
                     print(f"Skipping job {job.job_id}: Card or photo data not found for employee {job.employee_id}")
                     continue
 
-            is_contractor = False
-            try:
-                if job.employee_id and len(job.employee_id.strip()) > 5:
-                    is_contractor = True
-            except Exception:
-                pass
-            
             employee = employees_map.get(job.employee_id)
-            if is_contractor:
+            
+            # Layout Detection based on Position (matching UI)
+            use_landscape = False
+            if employee and employee.position:
+                use_landscape = True
+            
+            if use_landscape:
+                # Dynamic Asset Mapping
+                front_asset, back_asset = _get_background_assets_by_position(employee.position)
+                front_path = ASSETS_DIR / front_asset
+                back_path = ASSETS_DIR / back_asset
+                
+                if not front_path.exists() or not back_path.exists():
+                    print(f"Missing position assets for {employee.position}: {front_asset}/{back_asset}")
+                    # Fallback to defaults or skip
+                    front_path = ASSETS_DIR / "ContractorFrontPageImage.jpg"
+                    back_path = ASSETS_DIR / "ContractorBackPageImage.jpg"
+
                 front_img = render_front_landscape(
                     job.full_name,
                     job.employee_id,
-                    employee.role if employee else "CONTRACTOR",
+                    employee.position, # use position as the role display
                     photo_url_to_use,
-                    contractor_front
+                    front_path,
+                    consultant_prefix=employee.consultant_prefix,
+                    photo_x=job.photo_x,
+                    photo_y=job.photo_y,
+                    photo_scale=float(job.photo_scale or 1.0)
                 )
-                back_img = render_back_landscape(job.employee_id, contractor_back)
+                back_img = render_back_landscape(
+                    job.employee_id, 
+                    back_path,
+                    employment_start_date=employee.employment_start_date,
+                    employment_end_date=employee.employment_end_date
+                )
                 card_images.append((front_img, back_img, "L"))
             else:
-                # Render Front
+                # Render Front (Portrait)
                 front_img = render_front(
                     job.full_name, 
                     job.employee_id, 
@@ -290,7 +328,7 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
                     photo_scale=float(job.photo_scale or 1.0)
                 )
                 
-                # Render Back
+                # Render Back (Portrait)
                 back_img = render_back(job.employee_id, back)
                 card_images.append((front_img, back_img, "P"))
             

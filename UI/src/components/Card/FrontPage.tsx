@@ -252,11 +252,11 @@ const FrontPage: React.FC<FrontPageProps> = ({
           {/* Content Layer */}
           <div className="absolute inset-0">
             {/* Photo block */}
-            <div className="absolute left-[7%] top-[25%]">
+            <div className="absolute left-[9%] top-[25%]">
               <div className="relative group">
                 <div
                   ref={containerRef}
-                  className={`w-[156px] h-[156px] rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? 'cursor-move' : ''}`}
+                  className={`w-[136px] h-[170px] rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? 'cursor-move' : ''}`}
                   onMouseDown={handleMouseDown}
                 >
                   {photoData && !validating ? (
