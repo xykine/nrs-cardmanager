@@ -40,15 +40,16 @@ from dotenv import load_dotenv
 
 
 from ..db import get_db
-from ..models import Employee, Admin
+from ..models import Employee, Admin, EmployeeRequest
 from ..schemas import (
     BulkEmailRequest,
     EmployeeCreate,
     EmployeeListOut,
     EmployeeOut,
-    EmployeePhotoStatusUpdate,
-    EmployeeRoleUpdate,
     EmployeeUpdate,
+    EmployeeRequestCreate,
+    EmployeeRequestPublic,
+    SingleEmailRequest,
 )
 
 router = APIRouter(prefix="/employees", tags=["employees"])
@@ -1340,6 +1341,15 @@ def send_bulk_email(
                     msg.set_content(text_body)
                     msg.add_alternative(html_body, subtype="html")
                     smtp.send_message(msg)
+                
+                # Record the request in the database
+                if payload and payload.message:
+                    req_record = EmployeeRequest(
+                        employee_id=employee.id,
+                        message=payload.message,
+                    )
+                    db.add(req_record)
+                
                 success += 1
             except Exception:
                 failed += 1
@@ -1726,3 +1736,110 @@ def export_employees_csv(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=employees.csv"}
     )
+
+
+@router.post("/{employee_id}/request", response_model=EmployeeRequestPublic)
+def create_employee_request(
+    employee_id: str,
+    payload: EmployeeRequestCreate,
+    db: Session = Depends(get_db)
+):
+    # Check if employee exists by numeric ID or employee_id string
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        employee = db.query(Employee).filter(Employee.employee_id == employee_id).first()
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+
+    request = EmployeeRequest(
+        employee_id=employee.id,
+        message=payload.message,
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return request
+
+
+@router.post("/{employee_id}/send-email")
+def send_single_email(
+    employee_id: str,
+    payload: SingleEmailRequest,
+    db: Session = Depends(get_db)
+):
+    employee = get_employee_byid_or_404(db, employee_id)
+    
+    base_ui_url = _get_base_ui_url()
+    subject = (os.getenv("PHOTO_UPLOAD_EMAIL_SUBJECT", "Upload your photo") or "Upload your photo").strip()
+    
+    to_email = _normalize_email(employee.email)
+    if not to_email:
+        raise HTTPException(status_code=400, detail="Employee has no valid email address")
+
+    upload_link = f"{base_ui_url}/card-upload/invitation"
+    login_code = employee.employee_id
+    text_body = _build_photo_upload_message(
+        employee.name,
+        upload_link,
+        login_code,
+        payload.message,
+    )
+    html_body = _build_photo_upload_html(
+        employee.name,
+        upload_link,
+        login_code,
+        payload.message,
+        support_email=(os.getenv("PHOTO_UPLOAD_SUPPORT_EMAIL") or "HR Department").strip(),
+        organization_name=(
+            os.getenv("PHOTO_UPLOAD_ORGANIZATION_NAME") or "Your Organization Name"
+        ).strip(),
+        hr_team=(os.getenv("PHOTO_UPLOAD_HR_TEAM") or "HR / Administration Team").strip(),
+        support_contact=(os.getenv("PHOTO_UPLOAD_SUPPORT_CONTACT") or "").strip(),
+        sample_image_url=(os.getenv("PHOTO_UPLOAD_SAMPLE_IMAGE_URL") or "").strip() or None,
+    )
+
+    mailgun_configured = any(
+        (os.getenv("MAILGUN_API_KEY"), os.getenv("MAILGUN_DOMAIN"), os.getenv("MAILGUN_FROM"))
+    )
+    
+    try:
+        if mailgun_configured:
+            _send_mailgun_message(
+                _get_mailgun_settings(),
+                to_email=to_email,
+                subject=subject,
+                text=text_body,
+                html_body=html_body,
+            )
+        else:
+            settings = _get_smtp_settings()
+            smtp = _open_smtp_connection(settings)
+            try:
+                msg = EmailMessage()
+                msg["From"] = settings["sender"]
+                msg["To"] = to_email
+                msg["Subject"] = subject
+                msg.set_content(text_body)
+                msg.add_alternative(html_body, subtype="html")
+                smtp.send_message(msg)
+            finally:
+                try:
+                    smtp.quit()
+                except Exception:
+                    smtp.close()
+        
+        # Record the request in the database
+        req_record = EmployeeRequest(
+            employee_id=employee.id,
+            message=payload.message,
+        )
+        db.add(req_record)
+
+        employee.invitation_sent_at = datetime.now(timezone.utc)
+        db.commit()
+    except Exception as exc:
+        logger.exception("Failed to send email to %s", to_email)
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(exc)}")
+
+    return {"success": True, "message": "Email sent successfully"}
+

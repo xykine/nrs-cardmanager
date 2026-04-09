@@ -132,3 +132,29 @@ class PrintingAnalytic(Base):
     total_prints = Column("totalPrints", Integer, nullable=False, default=0)
     updated_at = Column("updatedAt", DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
+
+class RequestStatus(str, enum.Enum):
+    PENDING = "pending"
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class EmployeeRequest(Base):
+    __tablename__ = "employee_requests"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    employee_id = Column("employeeId", String, ForeignKey("employees.id"), nullable=False)
+    message = Column(Text, nullable=False)
+    status = Column(Enum(RequestStatus), nullable=False, default=RequestStatus.PENDING)
+    created_at = Column("createdAt", DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        "updatedAt",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    employee = relationship("Employee")
+

@@ -102,6 +102,10 @@ class BulkEmailRequest(APIModel):
     message: Optional[str] = None
 
 
+class SingleEmailRequest(APIModel):
+    message: str
+
+
 class EmployeePublic(APIModel):
     id: str
     name: str
@@ -195,3 +199,16 @@ class DailyPrintStatsOut(APIModel):
 class SummaryReportIn(APIModel):
     start_date: datetime = Field(alias="startDate")
     end_date: datetime = Field(alias="endDate")
+
+
+class EmployeeRequestCreate(APIModel):
+    message: str
+
+
+class EmployeeRequestPublic(APIModel):
+    id: str
+    employee_id: str = Field(alias="employeeId")
+    message: str
+    status: str
+    created_at: datetime = Field(alias="createdAt")
+    updated_at: datetime = Field(alias="updatedAt")

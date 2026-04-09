@@ -204,6 +204,19 @@ export const employeeService = {
     if (!response.ok) throw new Error("Failed to delete employees");
     return response.json();
   },
+
+  async createEmployeeRequest(
+    id: string,
+    message: string,
+  ): Promise<{ id: string; status: string }> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    if (!response.ok) throw new Error("Failed to create employee request");
+    return response.json();
+  },
 };
 
 export const cardService = {

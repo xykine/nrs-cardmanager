@@ -210,7 +210,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
     setEmailDialogOpen(true);
   };
 
-  const handleSendEmail = async (message: string) => {
+  const handleSendEmail = async (message: string, requests: string[]) => {
     if (!employeeId) return;
 
     const notificationId = addNotification({
@@ -224,19 +224,23 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
     setEmailDialogOpen(false);
 
     try {
+      // 1. Send the email (existing logic)
+      // The backend now automatically records requests in the employee_requests table
       await employeeService.sendEmail(employeeId, message);
 
       updateNotification(notificationId, {
         type: "success",
         title: "Email Sent",
-        message: `Email successfully sent to ${employee?.name}`,
+        message: requests.length > 0 
+          ? `Email sent and ${requests.length} request(s) recorded.` 
+          : `Email successfully sent to ${employee?.name}`,
         autoClose: true,
       });
     } catch (err) {
       updateNotification(notificationId, {
         type: "error",
         title: "Email Failed",
-        message: `Failed to send email. Please try again.`,
+        message: `Failed to send email/record requests. Please try again.`,
         autoClose: true,
       });
       console.error(err);
@@ -362,6 +366,16 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                   >
                     <Mail className="w-4 h-4" />
                     Resend Link
+                  </button>
+                )}
+
+                {currentUserRole && currentUserRole === "manager" && (
+                  <button
+                    onClick={handleResendLink}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-semibold text-l shadow-md"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Send  Email
                   </button>
                 )}
 
