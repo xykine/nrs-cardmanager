@@ -1,4 +1,4 @@
-import { X, Upload } from "lucide-react";
+import { Download, Upload, X } from "lucide-react";
 
 interface UploadToCreateModalProps {
   isOpen: boolean;
@@ -9,6 +9,20 @@ export default function UploadToCreateModal({
   isOpen,
   onClose,
 }: UploadToCreateModalProps) {
+  const handleDownloadTemplate = () => {
+    const templateUrl = new URL(
+      "../assets/Template Upload Create.xlsx",
+      import.meta.url
+    ).href;
+    const link = document.createElement("a");
+
+    link.href = templateUrl;
+    link.download = "Template Upload Create.xlsx";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -21,7 +35,9 @@ export default function UploadToCreateModal({
               <Upload className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800">Upload To Create</h2>
+              <h2 className="text-xl font-bold text-slate-800">
+                Upload To Create
+              </h2>
               <p className="text-sm text-slate-500 mt-0.5">
                 Bulk-create employees from a file
               </p>
@@ -41,8 +57,17 @@ export default function UploadToCreateModal({
             <Upload className="w-8 h-8 text-green-400" />
           </div>
           <p className="text-slate-500 text-sm max-w-sm">
-            Upload functionality will be configured here. Functionality description coming soon.
+            Upload functionality will be configured here. Functionality
+            description coming soon.
           </p>
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+          >
+            <Download className="w-4 h-4" />
+            Download Template
+          </button>
         </div>
 
         {/* Footer */}
