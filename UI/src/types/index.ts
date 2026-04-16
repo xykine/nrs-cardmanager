@@ -86,3 +86,29 @@ export interface PrintReportResponse {
   page: number;
   page_size: number;
 }
+
+export interface EmployeeUploadRowResult {
+  rowNumber: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  employeeId?: string;
+  employeeDbId?: string;
+  action: "created" | "updated" | "skipped" | "error";
+  message: string;
+  photoPresent: boolean;
+}
+
+export interface EmployeeUploadSummary {
+  totalRows: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  missingPhoto: number;
+}
+
+export interface EmployeeUploadResult {
+  summary: EmployeeUploadSummary;
+  rows: EmployeeUploadRowResult[];
+}

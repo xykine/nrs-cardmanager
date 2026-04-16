@@ -988,6 +988,7 @@ export default function EmployeeList({
       <UploadToCreateModal
         isOpen={uploadToCreateOpen}
         onClose={() => setUploadToCreateOpen(false)}
+        onUploadComplete={loadEmployees}
       />
 
       <UploadToPrintModal

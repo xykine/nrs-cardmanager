@@ -2,10 +2,10 @@ import React from "react";
 
 interface AlertProps {
   errors: string[];
-  onClose: () => void;
+  onClose?: () => void;
 }
 
-const ErrorAlert: React.FC<AlertProps> = ({ errors, onClose }) => {
+const ErrorAlert: React.FC<AlertProps> = ({ errors }) => {
   if (!errors || errors.length === 0) return null;
 
   return (

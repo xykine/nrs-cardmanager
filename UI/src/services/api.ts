@@ -1,6 +1,7 @@
 import { EmployeeFilters } from "../components/FilterEmployee";
 import {
   Employee,
+  EmployeeUploadResult,
   Card,
   PrintingStation,
   PrintBatch,
@@ -231,6 +232,37 @@ export const employeeService = {
     });
     if (!response.ok) throw new Error("Failed to create employee request");
     return response.json();
+  },
+
+  async uploadCreateFile(file: File): Promise<EmployeeUploadResult> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${API_BASE_URL}/employees/upload-create`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to process upload file");
+    }
+
+    return response.json();
+  },
+
+  async downloadUploadCreateReport(report: EmployeeUploadResult): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/employees/upload-create/report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(report),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to download upload report");
+    }
+
+    return response.blob();
   },
 };
 

@@ -24,6 +24,8 @@ from typing import Dict, List
 
 import csv
 import io
+import zipfile
+import xml.etree.ElementTree as ET
 import requests
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
@@ -47,6 +49,7 @@ from ..schemas import (
     EmployeeUpdate,
     EmployeeRequestCreate,
     EmployeeRequestPublic,
+    EmployeeUploadResult,
     SingleEmailRequest,
 )
 
@@ -336,6 +339,200 @@ def _normalize_email(email: Optional[str]) -> Optional[str]:
 def _fallback_email(employee_id: str) -> str:
     # unique + non-null placeholder; safe for your schema
     return f"{employee_id}@noemail.local"
+
+
+EXPECTED_UPLOAD_TEMPLATE_HEADERS = [
+    "First Name",
+    "Last Name",
+    "IR-Prefix",
+    "IR",
+    "Rank",
+    "email",
+]
+
+
+def _normalize_template_header(value: Optional[str]) -> str:
+    return " ".join((value or "").strip().split()).casefold()
+
+
+def _excel_column_index(cell_reference: str) -> int:
+    letters = "".join(ch for ch in cell_reference if ch.isalpha()).upper()
+    index = 0
+    for char in letters:
+        index = index * 26 + (ord(char) - 64)
+    return max(index - 1, 0)
+
+
+def _parse_shared_strings(workbook: zipfile.ZipFile) -> list[str]:
+    try:
+        raw = workbook.read("xl/sharedStrings.xml")
+    except KeyError:
+        return []
+
+    root = ET.fromstring(raw)
+    namespace = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    values: list[str] = []
+    for item in root.findall("main:si", namespace):
+        text_parts = [node.text or "" for node in item.findall(".//main:t", namespace)]
+        values.append("".join(text_parts))
+    return values
+
+
+def _resolve_first_sheet_path(workbook: zipfile.ZipFile) -> str:
+    namespace = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    relationships_ns = {
+        "rel": "http://schemas.openxmlformats.org/package/2006/relationships"
+    }
+    workbook_root = ET.fromstring(workbook.read("xl/workbook.xml"))
+    first_sheet = workbook_root.find("main:sheets/main:sheet", namespace)
+    if first_sheet is None:
+        raise HTTPException(status_code=400, detail="The uploaded workbook does not contain any sheets")
+
+    relation_id = first_sheet.attrib.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")
+    if not relation_id:
+        raise HTTPException(status_code=400, detail="The uploaded workbook is missing sheet relationship data")
+
+    rels_root = ET.fromstring(workbook.read("xl/_rels/workbook.xml.rels"))
+    for relation in rels_root.findall("rel:Relationship", relationships_ns):
+        if relation.attrib.get("Id") == relation_id:
+            target = relation.attrib.get("Target", "")
+            if target.startswith("/"):
+                return target.lstrip("/")
+            if target.startswith("xl/"):
+                return target
+            return f"xl/{target}"
+
+    raise HTTPException(status_code=400, detail="The uploaded workbook could not be resolved")
+
+
+def _read_xlsx_rows(file_bytes: bytes) -> list[list[str]]:
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as workbook:
+            shared_strings = _parse_shared_strings(workbook)
+            sheet_path = _resolve_first_sheet_path(workbook)
+            root = ET.fromstring(workbook.read(sheet_path))
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(status_code=400, detail="Please upload a valid .xlsx file") from exc
+    except ET.ParseError as exc:
+        raise HTTPException(status_code=400, detail="The uploaded workbook could not be read") from exc
+
+    namespace = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    rows: list[list[str]] = []
+
+    for row in root.findall(".//main:sheetData/main:row", namespace):
+        values_by_index: dict[int, str] = {}
+        max_index = -1
+
+        for cell in row.findall("main:c", namespace):
+            reference = cell.attrib.get("r", "")
+            column_index = _excel_column_index(reference)
+            max_index = max(max_index, column_index)
+
+            cell_type = cell.attrib.get("t")
+            value = ""
+
+            if cell_type == "inlineStr":
+                text_nodes = cell.findall(".//main:t", namespace)
+                value = "".join(node.text or "" for node in text_nodes)
+            else:
+                raw_value = cell.findtext("main:v", default="", namespaces=namespace)
+                if cell_type == "s" and raw_value:
+                    try:
+                        value = shared_strings[int(raw_value)]
+                    except (IndexError, ValueError):
+                        value = ""
+                else:
+                    value = raw_value
+
+            values_by_index[column_index] = (value or "").strip()
+
+        if max_index < 0:
+            continue
+
+        rows.append([values_by_index.get(index, "").strip() for index in range(max_index + 1)])
+
+    return rows
+
+
+def _normalize_employee_id_for_upload(value: Optional[str]) -> Optional[str]:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+
+    if raw.endswith(".0"):
+        raw = raw[:-2]
+
+    digits_only = raw.replace(" ", "")
+    if not digits_only.isdigit():
+        raise ValueError("IR must contain digits only")
+
+    if len(digits_only) == 5:
+        return digits_only
+    if len(digits_only) < 8:
+        return digits_only.zfill(8)
+    return digits_only
+
+
+def _build_upload_result_excel(report: EmployeeUploadResult) -> str:
+    summary_items = [
+        ("Rows", report.summary.total_rows),
+        ("Created", report.summary.created),
+        ("Updated", report.summary.updated),
+        ("Skipped", report.summary.skipped),
+        ("Errors", report.summary.errors),
+        ("Missing Photo", report.summary.missing_photo),
+    ]
+
+    summary_rows = "".join(
+        f"<tr><td>{html.escape(label)}</td><td>{value}</td></tr>"
+        for label, value in summary_items
+    )
+
+    detail_rows = "".join(
+        (
+            "<tr>"
+            f"<td>{row.row_number}</td>"
+            f"<td>{html.escape((row.first_name or ''))}</td>"
+            f"<td>{html.escape((row.last_name or ''))}</td>"
+            f"<td>{html.escape((row.email or ''))}</td>"
+            f"<td>{html.escape((row.employee_id or ''))}</td>"
+            f"<td>{html.escape(row.action)}</td>"
+            f"<td>{html.escape(row.message)}</td>"
+            f"<td>{'Yes' if row.photo_present else 'No'}</td>"
+            "</tr>"
+        )
+        for row in report.rows
+    )
+
+    return f"""
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:x="urn:schemas-microsoft-com:office:excel"
+          xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+      </head>
+      <body>
+        <table>
+          <tr><th colspan="2">Upload Processing Summary</th></tr>
+          {summary_rows}
+        </table>
+        <br />
+        <table border="1">
+          <tr>
+            <th>Row</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Email</th>
+            <th>IR</th>
+            <th>Action</th>
+            <th>Message</th>
+            <th>Photo Present</th>
+          </tr>
+          {detail_rows}
+        </table>
+      </body>
+    </html>
+    """
 
 
 def _get_base_ui_url() -> str:
@@ -1266,6 +1463,177 @@ def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
     return employee
 
 
+@router.post("/upload-create", response_model=EmployeeUploadResult)
+async def upload_create_employee_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    filename = (file.filename or "").strip()
+    if not filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Please upload the provided .xlsx template")
+
+    file_bytes = await file.read()
+    workbook_rows = _read_xlsx_rows(file_bytes)
+    non_empty_rows = [row for row in workbook_rows if any((cell or "").strip() for cell in row)]
+
+    if not non_empty_rows:
+        raise HTTPException(status_code=400, detail="The uploaded workbook is empty")
+
+    headers = non_empty_rows[0][: len(EXPECTED_UPLOAD_TEMPLATE_HEADERS)]
+    normalized_headers = [_normalize_template_header(value) for value in headers]
+    expected_headers = [_normalize_template_header(value) for value in EXPECTED_UPLOAD_TEMPLATE_HEADERS]
+
+    print("Normalized Headers:", normalized_headers)
+    print("Expected Headers:", expected_headers)
+
+    if normalized_headers != expected_headers:
+        raise HTTPException(
+            status_code=400,
+            detail="The file does not conform with the expected template",
+        )
+
+    summary = {
+        "totalRows": 0,
+        "created": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": 0,
+        "missingPhoto": 0,
+    }
+    results: list[dict[str, Any]] = []
+
+    for row_number, row in enumerate(non_empty_rows[1:], start=2):
+        values = row[: len(EXPECTED_UPLOAD_TEMPLATE_HEADERS)] + [""] * max(
+            0, len(EXPECTED_UPLOAD_TEMPLATE_HEADERS) - len(row)
+        )
+        record = dict(zip(EXPECTED_UPLOAD_TEMPLATE_HEADERS, values))
+
+        first_name = (record.get("First Name") or "").strip()
+        last_name = (record.get("Last Name") or "").strip()
+        id_prefix = (record.get("IR-Prefix") or "IR").strip() or "IR"
+        rank = (record.get("Rank") or "").strip()
+        email = _normalize_email(record.get("email"))
+        raw_employee_id = record.get("IR")
+
+        if not any([first_name, last_name, id_prefix, raw_employee_id, rank, email]):
+            continue
+
+        summary["totalRows"] += 1
+        result: dict[str, Any] = {
+            "rowNumber": row_number,
+            "firstName": first_name or None,
+            "lastName": last_name or None,
+            "email": email,
+            "employeeId": None,
+            "employeeDbId": None,
+            "action": "error",
+            "message": "",
+            "photoPresent": False,
+        }
+
+        try:
+            normalized_employee_id = _normalize_employee_id_for_upload(raw_employee_id)
+            result["employeeId"] = normalized_employee_id
+
+            if not email:
+                raise ValueError("Email is required")
+
+            if not first_name or not last_name:
+                raise ValueError("First Name and Last Name are required")
+
+            existing_by_id = None
+            if normalized_employee_id:
+                existing_by_id = (
+                    db.query(Employee)
+                    .filter(Employee.employee_id == normalized_employee_id)
+                    .first()
+                )
+
+            existing_by_email = (
+                db.query(Employee).filter(func.lower(Employee.email) == email).first()
+            )
+
+            employee: Optional[Employee] = None
+            action = "error"
+            message = ""
+
+            if existing_by_id:
+                employee = existing_by_id
+                action = "skipped"
+                message = "Employee already exists for this IR"
+                summary["skipped"] += 1
+            elif existing_by_email and normalized_employee_id:
+                employee = existing_by_email
+                action = "skipped"
+                message = "Employee already exists for this email"
+                summary["skipped"] += 1
+            elif existing_by_email and not normalized_employee_id:
+                employee = existing_by_email
+                employee.name = _full_name(first_name, last_name)
+                employee.position = rank or employee.position
+                employee.id_prefix = id_prefix or employee.id_prefix
+                db.commit()
+                db.refresh(employee)
+                action = "updated"
+                message = "Employee updated using email match because IR was missing"
+                summary["updated"] += 1
+            elif not normalized_employee_id:
+                raise ValueError("IR is missing and no employee was found with this email")
+            else:
+                employee = Employee(
+                    name=_full_name(first_name, last_name),
+                    employee_id=normalized_employee_id,
+                    email=email,
+                    position=rank or None,
+                    id_prefix=id_prefix,
+                    photo_present=False,
+                )
+                db.add(employee)
+                db.commit()
+                db.refresh(employee)
+                action = "created"
+                message = "Employee created successfully"
+                summary["created"] += 1
+
+            if employee and not employee.photo_present:
+                summary["missingPhoto"] += 1
+                message = f"{message}. Missing photo."
+
+            result["action"] = action
+            result["message"] = message
+            result["employeeDbId"] = employee.id if employee else None
+            result["photoPresent"] = bool(employee.photo_present) if employee else False
+        except ValueError as exc:
+            db.rollback()
+            summary["errors"] += 1
+            result["message"] = str(exc)
+        except IntegrityError as exc:
+            db.rollback()
+            summary["errors"] += 1
+            logger.warning("Bulk upload integrity error on row %s: %s", row_number, exc)
+            result["message"] = "Employee could not be saved because a duplicate already exists"
+        except Exception as exc:
+            db.rollback()
+            summary["errors"] += 1
+            logger.exception("Bulk upload failed on row %s", row_number)
+            result["message"] = "Unexpected processing error"
+
+        results.append(result)
+
+    return {"summary": summary, "rows": results}
+
+
+@router.post("/upload-create/report")
+def download_upload_create_report(report: EmployeeUploadResult):
+    content = _build_upload_result_excel(report)
+    filename = f"upload_create_report_{datetime.now().strftime('%Y%m%d%H%M%S')}.xls"
+    return StreamingResponse(
+        io.BytesIO(content.encode("utf-8")),
+        media_type="application/vnd.ms-excel",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/{employee_id}/invitation")
 def send_invitation(employee_id: str, db: Session = Depends(get_db)):
     employee = db.query(Employee).filter(Employee.id == employee_id).first()
@@ -1901,4 +2269,3 @@ def send_single_email(
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(exc)}")
 
     return {"success": True, "message": "Email sent successfully"}
-

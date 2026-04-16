@@ -8,6 +8,7 @@ import PrintingHistoryPage from "./components/PrintingHistoryPage";
 import PrintBatchDetail from "./components/PrintBatchDetail";
 import DashboardPage from "./components/DashboardPage";
 import MainLayout from "./components/MainLayout";
+import UploadCreateSummaryPage from "./components/UploadCreateSummaryPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { useAdminAuth } from "./contexts/AdminAuthContext";
@@ -84,6 +85,18 @@ function App() {
                     <AdminProtectedRoute>
                       <MainLayout userRole={userRole} onLogout={handleLogout}>
                         <EmployeeList userRole={userRole} />
+                      </MainLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/employees/upload-create-summary"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <AdminProtectedRoute>
+                      <MainLayout userRole={userRole} onLogout={handleLogout}>
+                        <UploadCreateSummaryPage />
                       </MainLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>

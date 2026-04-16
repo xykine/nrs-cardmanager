@@ -232,6 +232,32 @@ class SummaryReportIn(APIModel):
     end_date: datetime = Field(alias="endDate")
 
 
+class EmployeeUploadRowResult(APIModel):
+    row_number: int = Field(alias="rowNumber")
+    first_name: Optional[str] = Field(default=None, alias="firstName")
+    last_name: Optional[str] = Field(default=None, alias="lastName")
+    email: Optional[str] = None
+    employee_id: Optional[str] = Field(default=None, alias="employeeId")
+    employee_db_id: Optional[str] = Field(default=None, alias="employeeDbId")
+    action: str
+    message: str
+    photo_present: bool = Field(alias="photoPresent")
+
+
+class EmployeeUploadSummary(APIModel):
+    total_rows: int = Field(alias="totalRows")
+    created: int
+    updated: int
+    skipped: int
+    errors: int
+    missing_photo: int = Field(alias="missingPhoto")
+
+
+class EmployeeUploadResult(APIModel):
+    summary: EmployeeUploadSummary
+    rows: list[EmployeeUploadRowResult]
+
+
 class EmployeeRequestCreate(APIModel):
     message: str
 
