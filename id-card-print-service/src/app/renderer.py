@@ -342,6 +342,7 @@ def render_front_landscape(
     role: str,
     photo_url: str,
     front_template_path: Path,
+    id_prefix: Optional[str] = None,
     consultant_prefix: Optional[str] = None,
     photo_x: int = 0,
     photo_y: int = 0,
@@ -453,12 +454,9 @@ def render_front_landscape(
     name_block_h = len(name_lines) * line_h
     id_y = text_y + name_block_h + int(CARD_L_H * 0.03)
     e_id = (employee_id or '').strip()
-
+    prefix_text = (id_prefix or "IR").strip() or "IR"
     final_role = (role or "CONTRACTOR").upper()
-    if final_role == "GROUP DIRECTOR":
-        id_text = f"IR {e_id}"
-    else:
-        id_text = f"IRCONS {e_id}"
+    id_text = f"{prefix_text} {e_id}"
 
     draw.text((text_x, id_y), id_text.upper(), font=id_font, fill="#000000")
 
@@ -529,4 +527,3 @@ def render_back_landscape(
             draw.text((date_x, date_y_end), end_str, font=date_font, fill="#1f2937")
 
     return card
-

@@ -57,21 +57,15 @@ def _new_job_id(i: int) -> str:
 
 
 def _get_background_assets_by_position(position: str) -> tuple:
-    """Returns (front_asset_name, back_asset_name) based on position."""
-    if not position:
-        return "FrontPageImage.png", "BackPageImage.png"
-        
-    pos = position.lower()
-    if "consultant" in pos:
+    """Mirror frontend card preview logic for landscape card backgrounds."""
+    pos = (position or "").strip().lower()
+    if pos in {"contractor", "contract staff"}:
+        return "ContractorFrontPageImage.jpg", "ContractorBackPageImage.jpg"
+    if pos == "consultant":
         return "ConsultantFrontPage.jpg", "ConsultantBackPage.jpg"
-    elif "group director" in pos:
-        return "GDFrontPage.jpg", "GDBackPage.jpg"
-    elif "transport assistant" in pos:
+    if pos == "transport assistant":
         return "TransportAssistantFrontPage.jpg", "TransportAssistantBackPage.jpg"
-    elif "contractor" in pos:
-        return "ContractorFrontPageImage.jpg", "ContractorBackPageImage.jpg"
-    else:
-        return "ContractorFrontPageImage.jpg", "ContractorBackPageImage.jpg"
+    return "ContractorFrontPageImage.jpg", "ContractorBackPageImage.jpg"
 
 
 def _create_print_job_record(
@@ -444,10 +438,9 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
 
             employee = employees_map.get(job.employee_id)
             
-            # Layout Detection based on Position (matching UI)
-            use_landscape = False
-            if employee and employee.position:
-                use_landscape = True
+            # Layout detection should match the frontend preview:
+            # employee IDs with length <= 5 use portrait, otherwise landscape.
+            use_landscape = bool(employee and len((employee.employee_id or "").strip()) > 5)
             
             if use_landscape:
                 # Dynamic Asset Mapping
@@ -467,6 +460,7 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
                     employee.position, # use position as the role display
                     photo_url_to_use,
                     front_path,
+                    id_prefix=employee.id_prefix,
                     consultant_prefix=employee.consultant_prefix,
                     photo_x=job.photo_x,
                     photo_y=job.photo_y,
