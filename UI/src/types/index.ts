@@ -112,3 +112,30 @@ export interface EmployeeUploadResult {
   summary: EmployeeUploadSummary;
   rows: EmployeeUploadRowResult[];
 }
+
+export interface PrintUploadRowResult {
+  rowNumber: number;
+  employeeId?: string;
+  name?: string;
+  position?: string;
+  status: "ready" | "missing-photo" | "missing-information" | "not-found" | "duplicate" | "error";
+  message: string;
+}
+
+export interface PrintUploadSummary {
+  totalRows: number;
+  ready: number;
+  missingPhoto: number;
+  missingInformation: number;
+  notFound: number;
+  duplicates: number;
+  errors: number;
+}
+
+export interface PrintUploadResult {
+  summary: PrintUploadSummary;
+  rows: PrintUploadRowResult[];
+  jobIds: string[];
+  pdfGenerated?: boolean;
+  pdfMessage?: string;
+}

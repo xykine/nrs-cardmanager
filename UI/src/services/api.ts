@@ -6,6 +6,7 @@ import {
   PrintingStation,
   PrintBatch,
   JobStatus,
+  PrintUploadResult,
 } from "../types";
 
 const API_BASE_URL =
@@ -450,5 +451,22 @@ export const printingService = {
     });
     if (!response.ok) throw new Error("Failed to generate PDF");
     return response.blob();
+  },
+
+  async uploadPrintFile(file: File): Promise<PrintUploadResult> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${API_BASE_URL}/print-jobs/upload-print`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to process print upload file");
+    }
+
+    return response.json();
   },
 };

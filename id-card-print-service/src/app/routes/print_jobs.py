@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, date
 from typing import List, Optional
 
 from PIL import Image
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session, joinedload
@@ -27,10 +27,17 @@ from ..schemas import (
     PrintReportListOut,
     DashboardStatsOut,
     DailyPrintStatsOut,
-    SummaryReportIn
+    SummaryReportIn,
+    PrintUploadResult,
 )
 from ..storage import ASSETS_DIR, job_dir
-from .employees import _apply_employee_filters, _filters_are_empty
+from .employees import (
+    _apply_employee_filters,
+    _filters_are_empty,
+    _normalize_employee_id_for_upload,
+    _normalize_template_header,
+    _read_xlsx_rows,
+)
 from ..pdf_generator import create_id_card_pdf
 
 import subprocess
@@ -38,6 +45,7 @@ import shutil
 
 router = APIRouter(prefix="/api")
 PRINT_JOBS_API_BASE = "/api/print-jobs"
+PRINT_UPLOAD_TEMPLATE_HEADERS = ["IR"]
 
 
 def _now() -> datetime:
@@ -63,8 +71,58 @@ def _get_background_assets_by_position(position: str) -> tuple:
     elif "contractor" in pos:
         return "ContractorFrontPageImage.jpg", "ContractorBackPageImage.jpg"
     else:
-        # Default for any other position
         return "ContractorFrontPageImage.jpg", "ContractorBackPageImage.jpg"
+
+
+def _create_print_job_record(
+    employee: Employee,
+    idx: int,
+    printer_id: str,
+    tenant_id: str = "nrs",
+    template_id: str = "NRS_MINIMAL_V1",
+    dpi: int = 300,
+) -> PrintJob:
+    return PrintJob(
+        job_id=_new_job_id(idx),
+        tenant_id=tenant_id,
+        printer_id=printer_id,
+        employee_id=employee.employee_id or "N/A",
+        full_name=employee.name or employee.employee_id,
+        photo_url="MEMORY",
+        photo_x=employee.card.photo_x if employee.card else 0,
+        photo_y=employee.card.photo_y if employee.card else 0,
+        photo_scale=(employee.card.photo_scale if employee.card else "1.0") or "1.0",
+        template_id=template_id,
+        dpi=dpi,
+        status=JobStatus.PENDING,
+        attempts=0,
+        max_attempts=3,
+        created_at=_now(),
+        updated_at=_now(),
+        front_png_path=None,
+        back_png_path=None,
+    )
+
+
+def _required_print_information(employee: Employee) -> list[str]:
+    missing: list[str] = []
+    if not (employee.name or "").strip():
+        missing.append("name")
+
+    employee_code = (employee.employee_id or "").strip()
+    if len(employee_code) == 5:
+        return missing
+
+    position = (employee.position or "").strip()
+    if position in {"Transport Assistant", "Consultant"}:
+        if not position:
+            missing.append("position")
+        if employee.employment_start_date is None:
+            missing.append("start date")
+        if employee.employment_end_date is None:
+            missing.append("end date")
+
+    return missing
 
 
 def _decode_photo_data(photo_data: str) -> Image.Image:
@@ -174,53 +232,159 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
             continue
             # raise HTTPException(400, f"Missing card photo data for employeeId: {employee_id}")
 
-        job_id = _new_job_id(idx)
-
-        # Create DB record
-        full_name = employee.name or employee.employee_id
-        empp_ID = employee.employee_id or "N/A"
-        
-        # Use MEMORY placeholder as requested
-        photo_data_uri = "MEMORY"
-
-        job = PrintJob(
-            job_id=job_id,
-            tenant_id=payload.tenantId,
+        job = _create_print_job_record(
+            employee,
+            idx=idx,
             printer_id=payload.printerId,
-            employee_id=empp_ID,
-            full_name=full_name,
-            photo_url=photo_data_uri,
-            photo_x=employee.card.photo_x or 0,
-            photo_y=employee.card.photo_y or 0,
-            photo_scale=employee.card.photo_scale or "1.0",
+            tenant_id=payload.tenantId,
             template_id=payload.templateId,
             dpi=payload.dpi,
-            status=JobStatus.PENDING,
-            attempts=0,
-            max_attempts=3,
-            created_at=_now(),
-            updated_at=_now(),
         )
-
-        # Optimization: Do NOT render front/back images to disk here.
-        # We will render them on-the-fly when PDF is requested.
-        # This saves disk space and inodes.
-        job.front_png_path = None
-        job.back_png_path = None
 
         db.add(job)
         out.append(JobOut(
-            jobId=job_id,
+            jobId=job.job_id,
             printerId=payload.printerId,
             status=job.status.value,
             attempts=0,
             # These URLs might 404 if accessed directly now, but frontend only needs jobId for PDF
-            frontPngUrl=f"{PRINT_JOBS_API_BASE}/{job_id}/front.png",
-            backPngUrl=f"{PRINT_JOBS_API_BASE}/{job_id}/back.png",
+            frontPngUrl=f"{PRINT_JOBS_API_BASE}/{job.job_id}/front.png",
+            backPngUrl=f"{PRINT_JOBS_API_BASE}/{job.job_id}/back.png",
         ))
 
     db.commit()
     return out
+
+
+@router.post("/print-jobs/upload-print", response_model=PrintUploadResult)
+async def upload_print_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    filename = (file.filename or "").strip()
+    if not filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Please upload the provided .xlsx template")
+
+    file_bytes = await file.read()
+    workbook_rows = _read_xlsx_rows(file_bytes)
+    non_empty_rows = [row for row in workbook_rows if any((cell or "").strip() for cell in row)]
+
+    if not non_empty_rows:
+        raise HTTPException(status_code=400, detail="The uploaded workbook is empty")
+
+    headers = non_empty_rows[0][: len(PRINT_UPLOAD_TEMPLATE_HEADERS)]
+    normalized_headers = [_normalize_template_header(value) for value in headers]
+    expected_headers = [_normalize_template_header(value) for value in PRINT_UPLOAD_TEMPLATE_HEADERS]
+    if normalized_headers != expected_headers:
+        raise HTTPException(
+            status_code=400,
+            detail="The file does not conform with the expected template",
+        )
+
+    summary = {
+        "totalRows": 0,
+        "ready": 0,
+        "missingPhoto": 0,
+        "missingInformation": 0,
+        "notFound": 0,
+        "duplicates": 0,
+        "errors": 0,
+    }
+    results: list[dict[str, Any]] = []
+    seen_employee_ids: set[str] = set()
+    job_ids: list[str] = []
+
+    for row_number, row in enumerate(non_empty_rows[1:], start=2):
+        values = row[: len(PRINT_UPLOAD_TEMPLATE_HEADERS)] + [""] * max(
+            0, len(PRINT_UPLOAD_TEMPLATE_HEADERS) - len(row)
+        )
+        raw_ir = (values[0] or "").strip()
+        if not raw_ir:
+            continue
+
+        summary["totalRows"] += 1
+        result: dict[str, Any] = {
+            "rowNumber": row_number,
+            "employeeId": None,
+            "name": None,
+            "position": None,
+            "status": "error",
+            "message": "",
+        }
+
+        try:
+            employee_code = _normalize_employee_id_for_upload(raw_ir)
+            result["employeeId"] = employee_code
+
+            if not employee_code:
+                raise ValueError("IR is required")
+
+            if employee_code in seen_employee_ids:
+                summary["duplicates"] += 1
+                result["status"] = "duplicate"
+                result["message"] = "Duplicate IR in upload file"
+                results.append(result)
+                continue
+
+            seen_employee_ids.add(employee_code)
+
+            employee = (
+                db.query(Employee)
+                .options(joinedload(Employee.card))
+                .filter(Employee.employee_id == employee_code)
+                .first()
+            )
+            if not employee:
+                summary["notFound"] += 1
+                result["status"] = "not-found"
+                result["message"] = "Employee not found"
+                results.append(result)
+                continue
+
+            result["name"] = employee.name
+            result["position"] = employee.position
+
+            if not employee.card or not employee.card.photo_data:
+                summary["missingPhoto"] += 1
+                result["status"] = "missing-photo"
+                result["message"] = "Missing photo"
+                results.append(result)
+                continue
+
+            missing_fields = _required_print_information(employee)
+            if missing_fields:
+                summary["missingInformation"] += 1
+                result["status"] = "missing-information"
+                result["message"] = f"Missing required information: {', '.join(missing_fields)}"
+                results.append(result)
+                continue
+
+            job = _create_print_job_record(
+                employee,
+                idx=len(job_ids) + 1,
+                printer_id="PDF_GENERATION",
+            )
+            db.add(job)
+            job_ids.append(job.job_id)
+            summary["ready"] += 1
+            result["status"] = "ready"
+            result["message"] = "Included for PDF generation"
+        except ValueError as exc:
+            summary["errors"] += 1
+            result["message"] = str(exc)
+        except Exception as exc:
+            summary["errors"] += 1
+            result["message"] = "Unexpected processing error"
+            print(f"Upload print failed on row {row_number}: {exc}")
+
+        results.append(result)
+
+    if job_ids:
+        db.commit()
+    else:
+        db.rollback()
+
+    return {"summary": summary, "rows": results, "jobIds": job_ids}
 
 
 @router.post("/print-jobs/batch-pdf")
