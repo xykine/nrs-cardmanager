@@ -24,15 +24,14 @@ export type BackPageProps = {
 const getBackPageImageByPosition = (position?: string) => {
   switch (position?.toLowerCase()) {
     case "contractor":
+    case "contract staff":
       return ContractorBackPageImage;
     case "consultant":
       return ConsultantBackPageImage;
-    case "contract staff":
-      return GDBackPageImage;
     case "transport assistant":
       return TransportAssistantBackPageImage;
     default:
-      return BackPageImage;
+      return ContractorBackPageImage;
   }
 }
 

@@ -95,11 +95,10 @@ const FrontPage: React.FC<FrontPageProps> = ({
   const getFrontPageImageByPosition = (position?: string) => {
     switch (position?.toLowerCase()) {
       case "contractor":
+      case "contract staff":
         return ContractorFrontPageImage;
       case "consultant":
         return ConsultantFrontPageImage;
-      case "contract staff":
-        return GDFrontPageImage;
       case "transport assistant":
         return TransportAssistantFrontPageImage;
       default:
@@ -114,7 +113,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
           Front Side
         </h2>
       )}
-      {employee.employeeId.length <= 5 && (
+      {employee.employeeId.length === 5 && (
         <div className="bg-white rounded-2xl shadow-xl aspect-[3/5] w-full max-w-sm overflow-hidden border border-gray-200">
           <div className="flex flex-col h-full items-center">
             {/* Logo */}
