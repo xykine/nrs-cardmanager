@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Copy, CreditCard, Eye, Mail, Printer, Trash } from "lucide-react";
+import { Check, Copy, CreditCard, Eye, Mail, Pencil, Printer, Trash } from "lucide-react";
 import { Employee } from "../types";
 
 type UserRole = "manager" | "staff";
@@ -17,6 +17,8 @@ export type EmployeeTableProps = {
   onRoleChange?: (id: string, role: EmployeeRole) => void | Promise<void>;
   /** (manager only) delete employee */
   onDelete?: (id: string) => void | Promise<void>;
+  /** (manager only) edit employee */
+  onEdit?: (employee: Employee) => void;
   selectedIds?: Set<string>;
   onToggleSelection?: (id: string) => void;
   onToggleSelectAll?: (ids: string[]) => void;
@@ -40,6 +42,7 @@ export default function EmployeeTable({
   selectedIds: propsSelectedIds,
   isAllSelected,
   routes,
+  onEdit,
 }: EmployeeTableProps) {
   const navigate = useNavigate();
 
@@ -308,6 +311,15 @@ export default function EmployeeTable({
                           disabled={!onDelete}
                         >
                           <Trash className="w-5 h-5" />
+                        </button>
+
+                        <button
+                          onClick={() => onEdit?.(employee)}
+                          className="p-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                          title="Edit Employee"
+                          type="button"
+                        >
+                          <Pencil className="w-4 h-4" />
                         </button>
                       </>
                     )}

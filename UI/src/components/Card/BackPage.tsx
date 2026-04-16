@@ -4,7 +4,7 @@ import ConsultantBackPageImage from "../../assets/ConsultantBackPage.jpg";
 import GDBackPageImage from "../../assets/GDBackPage.jpg";
 import TransportAssistantBackPageImage from "../../assets/TransportAssistantBackPage.jpg";
 import moment from "moment";
-import { FrontPageEmployee } from "./FrontPage";
+import { Employee } from "../../types";
 
 
 const API_BASE_URL =
@@ -18,11 +18,11 @@ export type BackPageProps = {
   className?: string;
 
   /** Optional: employee data */
-  employee: FrontPageEmployee;
+  employee: Employee;
 };
 
-const getBackPageImageByPosition = (position: string) => {
-  switch (position.toLowerCase()) {
+const getBackPageImageByPosition = (position?: string) => {
+  switch (position?.toLowerCase()) {
     case "contractor":
       return ContractorBackPageImage;
     case "consultant":
@@ -49,7 +49,7 @@ const BackPage: React.FC<BackPageProps> = ({
         </h2>
       )}
 
-      {!employee.position &&
+      {employee.employeeId.length <= 5 &&
         <div className="bg-white shadow-xl aspect-[3/5] w-full max-w-sm overflow-hidden border border-gray-200 relative">
           <img
             src={BackPageImage}
@@ -68,10 +68,10 @@ const BackPage: React.FC<BackPageProps> = ({
       }
 
 
-      {employee.position &&
+      {employee.employeeId.length > 5 &&
         <div className="bg-white shadow-xl max-w-[560px] overflow-hidden border border-gray-200 relative">
           <img
-            src={getBackPageImageByPosition(employee.position)}
+            src={getBackPageImageByPosition(employee?.position || '')}
             alt="ID Card Back"
             className="w-full h-full object-cover"
           />

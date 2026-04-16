@@ -63,6 +63,7 @@ class Employee(Base):
     department = Column(String, nullable=True)
     position = Column(String, nullable=True)
     consultant_prefix = Column(String, nullable=True)
+    id_prefix = Column(String, nullable=False, default="IR")
     employment_start_date = Column(Date, nullable=True)
     employment_end_date = Column(Date, nullable=True)
     role = Column(String, default="staff", nullable=False)

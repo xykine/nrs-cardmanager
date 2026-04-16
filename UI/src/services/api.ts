@@ -119,7 +119,15 @@ export const employeeService = {
     return response.json();
   },
 
-  async update(id: string, data: { name?: string }): Promise<Employee> {
+  async update(id: string, data: {
+    name?: string;
+    position?: string;
+    idPrefix?: string;
+    consultantPrefix?: string;
+    employmentStartDate?: string;
+    employmentEndDate?: string;
+    department?: string;
+  }): Promise<Employee> {
     const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -128,6 +136,7 @@ export const employeeService = {
     if (!response.ok) throw new Error("Failed to update employee");
     return response.json();
   },
+
 
   async syncData(): Promise<Employee[]> {
     const response = await fetch(`${API_BASE_URL}/employees/sync-employee`);

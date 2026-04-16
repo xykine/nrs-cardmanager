@@ -71,7 +71,12 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
     firstName: string;
     lastName: string;
     employeeId: string;
+    idPrefix?: string;
     email: string;
+    position?: string;
+    consultantPrefix?: string;
+    employmentStartDate?: string;
+    employmentEndDate?: string;
     department?: string;
   }) => {
     try {

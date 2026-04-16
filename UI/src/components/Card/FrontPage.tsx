@@ -4,18 +4,10 @@ import ContractorFrontPageImage from "../../assets/ContractorFrontPageImage.jpg"
 import ConsultantFrontPageImage from "../../assets/ConsultantFrontPage.jpg";
 import GDFrontPageImage from "../../assets/GDFrontPage.jpg";
 import TransportAssistantFrontPageImage from "../../assets/TransportAssistantFrontPage.jpg";
-
-export type FrontPageEmployee = {
-  name: string;
-  employeeId: string;
-  position: string;
-  consultantPrefix?: string;
-  employmentStartDate?: string;
-  employmentEndDate?: string;
-};
+import { Employee } from "../../types";
 
 export type FrontPageProps = {
-  employee: FrontPageEmployee;
+  employee: Employee;
 
   /** Base logos */
   nrsLogoSrc: string;
@@ -100,8 +92,8 @@ const FrontPage: React.FC<FrontPageProps> = ({
 
   console.log(employee.employeeId.length)
 
-  const getFrontPageImageByPosition = (position: string) => {
-    switch (position.toLowerCase()) {
+  const getFrontPageImageByPosition = (position?: string) => {
+    switch (position?.toLowerCase()) {
       case "contractor":
         return ContractorFrontPageImage;
       case "consultant":
@@ -122,7 +114,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
           Front Side
         </h2>
       )}
-      {!employee.position && (
+      {employee.employeeId.length <= 5 && (
         <div className="bg-white rounded-2xl shadow-xl aspect-[3/5] w-full max-w-sm overflow-hidden border border-gray-200">
           <div className="flex flex-col h-full items-center">
             {/* Logo */}
@@ -208,7 +200,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
             </div>
 
             <h3 className="text-3xl font-bold text-gray-600 tracking-wide text-center">
-              {employee.name.toUpperCase()}
+              {employee?.name?.toUpperCase()}
             </h3>
 
             {/* Employee ID */}
@@ -226,7 +218,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
                 />
               </div>
             ) : (
-                <div className="w-[80%] h-4 bg-red-600 mt-6 rounded-full opacity-80" />
+              <div className="w-[80%] h-4 bg-red-600 mt-6 rounded-full opacity-80" />
             )}
 
             {/* Spacer */}
@@ -235,7 +227,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
         </div>
       )}
 
-      {employee.position && (
+      {employee.employeeId.length > 5 && (
 
         <div
           className="relative max-w-[560px] aspect-[1.5/1] 
@@ -256,14 +248,14 @@ const FrontPage: React.FC<FrontPageProps> = ({
 
           {/* Content Layer */}
           <div className={
-            currentUserRole.toLowerCase() === "manager" 
-              ? "absolute inset-0" 
+            currentUserRole.toLowerCase() === "manager"
+              ? "absolute inset-0"
               : "flex h-full w-full items-center justify-center gap-10 p-8"
           }>
             {/* Photo block */}
             <div className={
-              currentUserRole.toLowerCase() === "manager" 
-                ? "absolute left-[9%] top-[25%]" 
+              currentUserRole.toLowerCase() === "manager"
+                ? "absolute left-[9%] top-[25%]"
                 : "flex-shrink-0"
             }>
               <div className="relative group">
@@ -350,12 +342,12 @@ const FrontPage: React.FC<FrontPageProps> = ({
               </h3>
 
               <p className="mt-3 text-[1.1rem] font-medium uppercase tracking-wide text-gray-800">
-                {employee.position.toLocaleLowerCase() === 'group director' ? 'IR' : ' IRCONS'} {employee.employeeId}
+                {employee.idPrefix} {employee.employeeId}
               </p>
               {
-                employee.position.toLocaleLowerCase() !== 'group director' && (
+                employee.position?.toLocaleLowerCase() !== 'group director' && (
                   <p className="mt-2 text-[1.1rem] font-medium uppercase tracking-wide text-gray-900">
-                    {employee.position.toLocaleLowerCase() === 'consultant' && employee.consultantPrefix
+                    {employee.consultantPrefix
                       ? `${employee.consultantPrefix} ${employee.position}`
                       : employee.position}
                   </p>

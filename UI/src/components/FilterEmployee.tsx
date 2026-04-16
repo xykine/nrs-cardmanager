@@ -78,11 +78,10 @@ export default function EmployeeFilterPanel({
           )}
           <button
             onClick={toggleAdvanced}
-            className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${
-              isAdvancedVisible 
-                ? 'bg-blue-50 text-blue-700' 
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
+            className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${isAdvancedVisible
+              ? 'bg-blue-50 text-blue-700'
+              : 'text-slate-600 hover:bg-slate-100'
+              }`}
           >
             {isAdvancedVisible ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             {isAdvancedVisible ? "Hide Advanced" : "Show Advanced Filter"}
@@ -162,11 +161,10 @@ export default function EmployeeFilterPanel({
                   <button
                     key={type}
                     onClick={() => handleInputChange("employeeType", type)}
-                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg capitalize transition-all ${
-                      filters.employeeType === type 
-                        ? 'bg-white text-blue-600 shadow-sm' 
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg capitalize transition-all ${filters.employeeType === type
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                      }`}
                   >
                     {type}
                   </button>

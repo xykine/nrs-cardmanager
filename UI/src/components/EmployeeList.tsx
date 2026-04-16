@@ -18,7 +18,7 @@ import EmployeeTable from "./EmployeeTable";
 import EmployeeFilterPanel, { EmployeeFilters } from "./FilterEmployee";
 import Pagination from "./Pagination";
 import DownloadEmployeeModal from "./DownloadEmployeeModal";
-import { useLocation } from "react-router-dom";
+import EditEmployeeModal from "./EditEmployeeModal";
 
 interface EmployeeListProps {
   userRole: "manager" | "staff";
@@ -60,6 +60,7 @@ export default function EmployeeList({
   }>({ isOpen: false, employeeIds: [] });
   const [createEmployeeModal, setCreateEmployeeModal] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [editModal, setEditModal] = useState<{ isOpen: boolean; employee: Employee | null }>({ isOpen: false, employee: null });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [shouldRestoreScroll, setShouldRestoreScroll] = useState(true);
 
@@ -280,6 +281,7 @@ export default function EmployeeList({
     firstName: string;
     lastName: string;
     employeeId: string;
+    idPrefix?: string;
     email: string;
     department?: string;
     position?: string;
@@ -323,6 +325,53 @@ export default function EmployeeList({
         type: "error",
         title: "Creation Failed",
         message: "Failed to create employee. Please try again.",
+        autoClose: true,
+      });
+      console.error(err);
+      throw err;
+    }
+  };
+
+  const handleOpenEdit = (employee: Employee) => {
+    setEditModal({ isOpen: true, employee });
+  };
+
+  const handleEditEmployee = async (
+    employeeId: string,
+    data: {
+      name?: string;
+      position?: string;
+      idPrefix?: string;
+      consultantPrefix?: string;
+      employmentStartDate?: string;
+      employmentEndDate?: string;
+      department?: string;
+    }
+  ) => {
+    const notificationId = addNotification({
+      type: "progress",
+      title: "Updating Employee",
+      message: "Saving changes...",
+      progress: 0,
+      autoClose: false,
+    });
+
+    try {
+      await employeeService.update(employeeId, data);
+
+      updateNotification(notificationId, {
+        type: "success",
+        title: "Employee Updated",
+        message: "Changes saved successfully",
+        autoClose: true,
+      });
+
+      await loadEmployees();
+    } catch (err) {
+      updateNotification(notificationId, {
+        type: "error",
+        title: "Update Failed",
+        message: "Failed to save changes. Please try again.",
         autoClose: true,
       });
       console.error(err);
@@ -815,6 +864,7 @@ export default function EmployeeList({
             onPrintCard={handlePrintCard}
             onRoleChange={handleRoleChange}
             onDelete={handleDelete}
+            onEdit={handleOpenEdit}
             routes={{
               card: (id: string) => `/card/${id}`,
               detail: (id: string) => `/detail/${id}`,
@@ -856,6 +906,14 @@ export default function EmployeeList({
         isOpen={createEmployeeModal}
         onClose={() => setCreateEmployeeModal(false)}
         onSubmit={handleCreateEmployee}
+        departments={departments}
+      />
+
+      <EditEmployeeModal
+        isOpen={editModal.isOpen}
+        employee={editModal.employee}
+        onClose={() => setEditModal({ isOpen: false, employee: null })}
+        onSubmit={handleEditEmployee}
         departments={departments}
       />
 

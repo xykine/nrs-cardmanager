@@ -8,6 +8,7 @@ interface CreateEmployeeModalProps {
     firstName: string;
     lastName: string;
     employeeId: string;
+    idPrefix?: string;
     email: string;
     department?: string;
     position?: string;
@@ -36,6 +37,7 @@ export default function CreateEmployeeModal({
     consultantPrefix: "",
     employmentStartDate: "",
     employmentEndDate: "",
+    idPrefix: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -83,9 +85,10 @@ export default function CreateEmployeeModal({
         email: formData.email.trim(),
         department: formData.department.trim() || undefined,
         position: formData.position.trim() || undefined,
-        consultantPrefix: formData.position === "Consultant" ? formData.consultantPrefix.trim() : undefined,
-        employmentStartDate: formData.position ? formData.employmentStartDate : undefined,
-        employmentEndDate: formData.position ? formData.employmentEndDate : undefined,
+        idPrefix: formData.idPrefix.trim() || undefined,
+        consultantPrefix: formData.consultantPrefix.trim() || undefined,
+        employmentStartDate: formData.employmentStartDate || undefined,
+        employmentEndDate: formData.employmentEndDate || undefined,
       });
 
       // Reset form on successful submission
@@ -96,6 +99,7 @@ export default function CreateEmployeeModal({
         email: "",
         department: "",
         position: "",
+        idPrefix: "",
         consultantPrefix: "",
         employmentStartDate: "",
         employmentEndDate: "",
@@ -206,27 +210,7 @@ export default function CreateEmployeeModal({
             </div>
           </div>
 
-          {/* Employee ID */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              IR Number *
-            </label>
-            <input
-              type="text"
-              name="employeeId"
-              value={formData.employeeId}
-              onChange={handleInputChange}
-              disabled={submitting || isLoading}
-              placeholder="Enter IR Number"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.employeeId
-                ? "border-red-500 focus:ring-red-500"
-                : "border-slate-300 focus:ring-blue-500"
-                } disabled:bg-slate-100 disabled:cursor-not-allowed`}
-            />
-            {errors.employeeId && (
-              <p className="text-red-600 text-sm mt-1">{errors.employeeId}</p>
-            )}
-          </div>
+
 
           {/* Email */}
           <div>
@@ -250,75 +234,127 @@ export default function CreateEmployeeModal({
             )}
           </div>
 
-
-          {/* Position */}
+          {/* Employee ID */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Employee Type
+              ID # *
             </label>
-            <select
-              name="position"
-              value={formData.position}
+            <input
+              type="text"
+              name="employeeId"
+              value={formData.employeeId}
               onChange={handleInputChange}
               disabled={submitting || isLoading}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
-            >
-              <option value="">Select a position (optional)</option>
-              <option value="Group Director">Group Director</option>
-              <option value="Transport Assistant">Transport Assistant</option>
-              <option value="Consultant">Consultant</option>
-            </select>
+              placeholder="Enter ID Number"
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.employeeId
+                ? "border-red-500 focus:ring-red-500"
+                : "border-slate-300 focus:ring-blue-500"
+                } disabled:bg-slate-100 disabled:cursor-not-allowed`}
+            />
+            {errors.employeeId && (
+              <p className="text-red-600 text-sm mt-1">{errors.employeeId}</p>
+            )}
           </div>
 
-          {/* Consultant Prefix - Conditional */}
-          {formData.position === "Consultant" && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Consultant Prefix
-              </label>
-              <input
-                type="text"
-                name="consultantPrefix"
-                value={formData.consultantPrefix}
-                onChange={handleInputChange}
-                disabled={submitting || isLoading}
-                placeholder="Enter prefix (e.g. SAP - HR)"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
-              />
-            </div>
-          )}
 
-          {/* Employment Dates - Conditional */}
-          {formData.position && (
-            <div className="grid grid-cols-2 gap-4">
+          {/* Consultant Prefix and Position - Conditional */}
+          {formData.employeeId.length > 5 &&
+            <>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Employment Start Date
+                  ID Prefix
                 </label>
                 <input
-                  type="date"
-                  name="employmentStartDate"
-                  value={formData.employmentStartDate}
+                  type="text"
+                  name="idPrefix"
+                  value={formData.idPrefix}
                   onChange={handleInputChange}
                   disabled={submitting || isLoading}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  placeholder="Enter ID  (Optional)"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.idPrefix
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-slate-300 focus:ring-blue-500"
+                    } disabled:bg-slate-100 disabled:cursor-not-allowed`}
                 />
+                {errors.idPrefix && (
+                  <p className="text-red-600 text-sm mt-1">{errors.idPrefix}</p>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Employment End Date
-                </label>
-                <input
-                  type="date"
-                  name="employmentEndDate"
-                  value={formData.employmentEndDate}
-                  onChange={handleInputChange}
-                  disabled={submitting || isLoading}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                {/* Consultant Prefix - Conditional */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Consultant Prefix
+                  </label>
+                  <input
+                    type="text"
+                    name="consultantPrefix"
+                    value={formData.consultantPrefix}
+                    onChange={handleInputChange}
+                    disabled={submitting || isLoading}
+                    placeholder="Enter prefix)"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Position  - Conditional */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Employee Type
+                  </label>
+                  <select
+                    name="position"
+                    value={formData.position}
+                    onChange={handleInputChange}
+                    disabled={submitting || isLoading}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select a position</option>
+                    {/* <option value="Staff">Staff</option> */}
+                    <option value="Consultant">Consultant</option>
+                    <option value="Contract Staff">Contract Staff</option>
+                    <option value="Group Director">Group Director</option>
+                    <option value="Transport Assistant">Transport Assistant</option>
+                  </select>
+                </div>
+
+
+
+
               </div>
-            </div>
-          )}
+
+              {/* Employment Dates */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Employment Start Date
+                  </label>
+                  <input
+                    type="date"
+                    name="employmentStartDate"
+                    value={formData.employmentStartDate}
+                    onChange={handleInputChange}
+                    disabled={submitting || isLoading}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Employment End Date
+                  </label>
+                  <input
+                    type="date"
+                    name="employmentEndDate"
+                    value={formData.employmentEndDate}
+                    onChange={handleInputChange}
+                    disabled={submitting || isLoading}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            </>
+          }
+
 
 
           {/* Department */}

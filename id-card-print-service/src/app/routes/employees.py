@@ -789,6 +789,7 @@ def replace_all_employees_in_db(
                 "department": (e.get("department") or None),
                 "position": (e.get("position") or None),
                 "consultant_prefix": (e.get("consultantPrefix") or None),
+                "id_prefix": (e.get("idPrefix") or None),
                 "employment_start_date": (e.get("employmentStartDate") or None),
                 "employment_end_date": (e.get("employmentEndDate") or None),
 
@@ -934,6 +935,7 @@ def upsert_employees_in_db(
                 "department": (e.get("department") or None),
                 "position": (e.get("position") or None),
                 "consultant_prefix": (e.get("consultantPrefix") or None),
+                "id_prefix": (e.get("idPrefix") or None),
                 "employment_start_date": (e.get("employmentStartDate") or None),
                 "employment_end_date": (e.get("employmentEndDate") or None),
                 "role": default_role,
@@ -1241,6 +1243,7 @@ def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
         department=payload.department,
         position=payload.position,
         consultant_prefix=payload.consultant_prefix,
+        id_prefix=payload.id_prefix,
         employment_start_date=payload.employment_start_date,
         employment_end_date=payload.employment_end_date,
         photo_present=False,
@@ -1580,6 +1583,16 @@ def update_employee(
 
     if payload.name is not None:
         employee.name = payload.name
+    if payload.position is not None:
+        employee.position = payload.position
+    if payload.consultant_prefix is not None:
+        employee.consultant_prefix = payload.consultant_prefix
+    if payload.id_prefix is not None:
+        employee.id_prefix = payload.id_prefix
+    if payload.employment_start_date is not None:
+        employee.employment_start_date = payload.employment_start_date
+    if payload.employment_end_date is not None:
+        employee.employment_end_date = payload.employment_end_date
 
     try:
         db.commit()

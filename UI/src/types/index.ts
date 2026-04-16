@@ -4,6 +4,7 @@ export interface Employee {
   lastName: string;
   name?: string;
   employeeId: string;
+  idPrefix?: string;
   email: string;
   department?: string;
   position?: string;

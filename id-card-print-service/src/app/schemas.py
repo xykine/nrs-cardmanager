@@ -68,6 +68,7 @@ class EmployeeCreate(APIModel):
     department: Optional[str] = None
     position: Optional[str] = None
     consultant_prefix: Optional[str] = Field(default=None, alias="consultantPrefix")
+    id_prefix: Optional[str] = Field(default="IR", alias="idPrefix")
     employment_start_date: Optional[datetime] = Field(default=None, alias="employmentStartDate")
     employment_end_date: Optional[datetime] = Field(default=None, alias="employmentEndDate")
 
@@ -83,6 +84,7 @@ class EmployeeUpdate(APIModel):
     name: Optional[str] = None
     position: Optional[str] = None
     consultant_prefix: Optional[str] = Field(default=None, alias="consultantPrefix")
+    id_prefix: Optional[str] = Field(default="IR", alias="idPrefix")
     employment_start_date: Optional[datetime] = Field(default=None, alias="employmentStartDate")
     employment_end_date: Optional[datetime] = Field(default=None, alias="employmentEndDate")
 
@@ -142,6 +144,7 @@ class EmployeePublic(APIModel):
     department: Optional[str] = None
     position: Optional[str] = None
     consultant_prefix: Optional[str] = Field(default=None, alias="consultantPrefix")
+    id_prefix: Optional[str] = Field(default="IR", alias="idPrefix")
     employment_start_date: Optional[datetime] = Field(default=None, alias="employmentStartDate")
     employment_end_date: Optional[datetime] = Field(default=None, alias="employmentEndDate")
     role: str
