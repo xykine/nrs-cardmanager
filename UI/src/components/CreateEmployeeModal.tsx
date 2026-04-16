@@ -313,7 +313,7 @@ export default function CreateEmployeeModal({
                     {/* <option value="Staff">Staff</option> */}
                     <option value="Consultant">Consultant</option>
                     <option value="Contract Staff">Contract Staff</option>
-                    <option value="Group Director">Group Director</option>
+                    {/* <option value="Group Director">Group Director</option> */}
                     <option value="Transport Assistant">Transport Assistant</option>
                   </select>
                 </div>

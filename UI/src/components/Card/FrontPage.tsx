@@ -98,7 +98,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
         return ContractorFrontPageImage;
       case "consultant":
         return ConsultantFrontPageImage;
-      case "group director":
+      case "contract staff":
         return GDFrontPageImage;
       case "transport assistant":
         return TransportAssistantFrontPageImage;
@@ -345,7 +345,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
                 {employee.idPrefix} {employee.employeeId}
               </p>
               {
-                employee.position?.toLocaleLowerCase() !== 'group director' && (
+                (employee.position?.toLocaleLowerCase() === 'consultant' || employee.position?.toLocaleLowerCase() === 'transport assistant') && (
                   <p className="mt-2 text-[1.1rem] font-medium uppercase tracking-wide text-gray-900">
                     {employee.consultantPrefix
                       ? `${employee.consultantPrefix} ${employee.position}`

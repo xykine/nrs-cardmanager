@@ -27,7 +27,7 @@ const getBackPageImageByPosition = (position?: string) => {
       return ContractorBackPageImage;
     case "consultant":
       return ConsultantBackPageImage;
-    case "group director":
+    case "contract staff":
       return GDBackPageImage;
     case "transport assistant":
       return TransportAssistantBackPageImage;

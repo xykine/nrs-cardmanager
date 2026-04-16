@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Employee } from "../types";
 import { employeeService, printingService } from "../services/api";
 import {
@@ -8,6 +8,8 @@ import {
   Plus,
   Trash,
   Download,
+  Upload,
+  ChevronDown,
 } from "lucide-react";
 import { useNotification } from "../contexts/NotificationContext";
 import { useEmployees } from "../contexts/EmployeeContext";
@@ -19,6 +21,8 @@ import EmployeeFilterPanel, { EmployeeFilters } from "./FilterEmployee";
 import Pagination from "./Pagination";
 import DownloadEmployeeModal from "./DownloadEmployeeModal";
 import EditEmployeeModal from "./EditEmployeeModal";
+import UploadToCreateModal from "./UploadToCreateModal";
+import UploadToPrintModal from "./UploadToPrintModal";
 
 interface EmployeeListProps {
   userRole: "manager" | "staff";
@@ -61,6 +65,10 @@ export default function EmployeeList({
   const [createEmployeeModal, setCreateEmployeeModal] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [editModal, setEditModal] = useState<{ isOpen: boolean; employee: Employee | null }>({ isOpen: false, employee: null });
+  const [uploadToCreateOpen, setUploadToCreateOpen] = useState(false);
+  const [uploadToPrintOpen, setUploadToPrintOpen] = useState(false);
+  const [uploadDropdownOpen, setUploadDropdownOpen] = useState(false);
+  const uploadDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [shouldRestoreScroll, setShouldRestoreScroll] = useState(true);
 
@@ -72,6 +80,17 @@ export default function EmployeeList({
   useEffect(() => {
     if (userRole === "manager") loadEmployees();
   }, [currentPage, pageSize, userRole, activeFilters]);
+
+  // Close upload dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (uploadDropdownRef.current && !uploadDropdownRef.current.contains(event.target as Node)) {
+        setUploadDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const loadDepartments = async () => {
     const response = await employeeService.getDepartments();
@@ -764,35 +783,76 @@ export default function EmployeeList({
             <h1 className="text-2xl font-bold text-slate-900">Employee List</h1>
             <p className="text-slate-600">Manage employee cards and photo uploads</p>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setCreateEmployeeModal(true)}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-md disabled:bg-slate-400 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              Create Employee
-            </button>
-            <button
-              onClick={() => setDownloadModalOpen(true)}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium shadow-md disabled:bg-slate-400 disabled:cursor-not-allowed"
-            >
-              <Download className="w-4 h-4" />
-              Download
-            </button>
-            <button
-              onClick={handleSyncData}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md disabled:bg-slate-400 disabled:cursor-not-allowed"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-              />
-              Sync Data
-            </button>
+
+          {/* Header actions */}
+          <div className="flex gap-3 items-center">
+
+
+            {/* Upload dropdown */}
+            <div className="relative" ref={uploadDropdownRef}>
+
+              <button
+                onClick={() => setUploadDropdownOpen((o) => !o)}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-md disabled:bg-slate-400 disabled:cursor-not-allowed"
+              >
+                <Upload className="w-4 h-4" />
+                Actions
+                <ChevronDown className={`w-4 h-4 transition-transform ${uploadDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {uploadDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 z-20 overflow-hidden">
+                  <button
+                    onClick={() => { setCreateEmployeeModal(true); setUploadDropdownOpen(false); }}
+                    disabled={loading}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-green-50 hover:text-green-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Employee
+                  </button>
+
+                  <button
+                    onClick={() => setDownloadModalOpen(true)}
+                    disabled={loading}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-green-50 hover:text-green-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </button>
+                  <button
+                    onClick={handleSyncData}
+                    disabled={loading}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-green-50 hover:text-green-700 transition-colors"
+                  >
+                    <RefreshCw
+                      className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                    />
+                    Sync Data
+                  </button>
+
+                  <button
+                    onClick={() => { setUploadToCreateOpen(true); setUploadDropdownOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-green-50 hover:text-green-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4 text-green-600" />
+                    Upload To Create
+                  </button>
+                  <div className="border-t border-slate-100" />
+                  <button
+                    onClick={() => { setUploadToPrintOpen(true); setUploadDropdownOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+                  >
+                    <Printer className="w-4 h-4 text-purple-600" />
+                    Upload To Print
+                  </button>
+                </div>
+              )}
+            </div>
+
 
           </div>
+
         </div>
 
         {(selectAllPages || selectedIds.size > 0) && userRole === "manager" && (
@@ -923,6 +983,16 @@ export default function EmployeeList({
         onSubmit={handleDownloadSubmit}
         hasSelection={selectedIds.size > 0}
         hasFilters={!!(activeFilters.name || activeFilters.employeeId || activeFilters.department !== "all" || activeFilters.photoStatus !== "all" || activeFilters.employeeType !== "all" || activeFilters.position !== "all" || activeFilters.requestStatus !== "all")}
+      />
+
+      <UploadToCreateModal
+        isOpen={uploadToCreateOpen}
+        onClose={() => setUploadToCreateOpen(false)}
+      />
+
+      <UploadToPrintModal
+        isOpen={uploadToPrintOpen}
+        onClose={() => setUploadToPrintOpen(false)}
       />
     </div>
   );
