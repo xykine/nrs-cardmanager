@@ -152,7 +152,7 @@ def render_front(
     card = Image.new("RGB", (CARD_W, CARD_H), BG_COLOR)
     draw = ImageDraw.Draw(card)
 
-    name_font = _load_font(int(CARD_W * 0.07), bold=True)
+    name_font = _load_font(int(CARD_W * 0.06), bold=True)
     id_font = _load_font(int(CARD_W * 0.052), bold=True)
 
     # Logo (top centered)
@@ -355,17 +355,33 @@ def render_front_landscape(
     
     draw = ImageDraw.Draw(card)
 
-    name_font = _load_font(int(CARD_L_H * 0.08), bold=True)
+    name_font = _load_font(int(CARD_L_H * 0.07), bold=True)
     id_font = _load_font(int(CARD_L_H * 0.06), bold=False)
     role_font = _load_font(int(CARD_L_H * 0.05), bold=False)
 
-    # Photo container (matching UI 136x170)
-    pw = int(CARD_L_W * 0.24) 
-    ph = int(pw * 1.25)
+    # Photo container (matching UI 170x170 in 560px container)
+    pw = int(CARD_L_W * (170.0 / 560.0)) 
+    ph = pw  # Square container
     px = int(CARD_L_W * 0.09) # from left
     py = int(CARD_L_H * 0.25)
     
-    radius = int(pw * 0.05)
+    # Border similar to UI: border-[8px]
+    border = int(CARD_L_W * (8.0 / 560.0))
+    radius = int(pw * 0.035)  # approximate rounded-md
+    
+    # Draw red border background block like render_front does
+    draw.rounded_rectangle(
+        (px - border, py - border, px + pw + border, py + ph + border),
+        radius=radius + border,
+        fill=RED
+    )
+    
+    # Fill inner container with white
+    draw.rounded_rectangle(
+        (px, py, px + pw, py + ph),
+        radius=radius,
+        fill="white"
+    )
     
     photo = _load_image_from_url_or_path(photo_url).convert("RGB")
     photo = ImageOps.exif_transpose(photo)
@@ -384,8 +400,8 @@ def render_front_landscape(
     new_h = int(h * current_scale)
     photo = photo.resize((new_w, new_h), Image.LANCZOS)
     
-    # Calculate scale to DPI (container width in UI is 136px)
-    scale_to_dpi = pw / 136.0
+    # Calculate scale to DPI (container width in UI is 170px)
+    scale_to_dpi = pw / 170.0
     offset_x = int(photo_x * scale_to_dpi)
     offset_y = int(photo_y * scale_to_dpi)
 
@@ -410,25 +426,49 @@ def render_front_landscape(
     card.paste(photo_layer, (0, 0), final_mask)
     
     # Name + ID + Role
-    text_x = int(CARD_L_W * 0.42) 
-    text_y = int(CARD_L_H * 0.27)
-    
-    draw.text((text_x, text_y), (full_name or "").upper(), font=name_font, fill="#000000")
-    
-    id_y = text_y + name_font.size + int(CARD_L_H * 0.05)
-    e_id = (employee_id or '').strip()
-    id_text = f"IRCONS {e_id}"
-    draw.text((text_x, id_y), id_text.upper(), font=id_font, fill="#000000")
-    
-    role_y = id_y + id_font.size + int(CARD_L_H * 0.03)
-    
-    final_role = (role or "CONTRACTOR").upper()
-    if final_role == "CONSULTANT" and consultant_prefix:
-        display_role = f"{consultant_prefix} {final_role}"
-    else:
-        display_role = final_role
+    text_x = int(CARD_L_W * 0.42)
+    text_y = int(CARD_L_H * 0.37)
+    max_text_w = CARD_L_W - text_x - int(CARD_L_W * 0.03)  # right margin
 
-    draw.text((text_x, role_y), display_role.upper(), font=role_font, fill="#000000")
+    # Word-wrap the name so long names spill onto a second line
+    name_upper = (full_name or "").upper()
+    name_words = name_upper.split()
+    name_lines = []
+    current_line: list[str] = []
+    for word in name_words:
+        test = " ".join(current_line + [word])
+        if draw.textlength(test, font=name_font) <= max_text_w:
+            current_line.append(word)
+        else:
+            if current_line:
+                name_lines.append(" ".join(current_line))
+            current_line = [word]
+    if current_line:
+        name_lines.append(" ".join(current_line))
+
+    line_h = int(name_font.size * 1.15)
+    for i, line in enumerate(name_lines):
+        draw.text((text_x, text_y + i * line_h), line, font=name_font, fill="#000000")
+
+    name_block_h = len(name_lines) * line_h
+    id_y = text_y + name_block_h + int(CARD_L_H * 0.03)
+    e_id = (employee_id or '').strip()
+
+    final_role = (role or "CONTRACTOR").upper()
+    if final_role == "GROUP DIRECTOR":
+        id_text = f"IR {e_id}"
+    else:
+        id_text = f"IRCONS {e_id}"
+
+    draw.text((text_x, id_y), id_text.upper(), font=id_font, fill="#000000")
+
+    if final_role != "GROUP DIRECTOR":
+        role_y = id_y + id_font.size + int(CARD_L_H * 0.02)
+        if final_role == "CONSULTANT" and consultant_prefix:
+            display_role = f"{consultant_prefix} {final_role}"
+        else:
+            display_role = final_role
+        draw.text((text_x, role_y), display_role.upper(), font=role_font, fill="#000000")
 
     return card
 
@@ -461,12 +501,13 @@ def render_back_landscape(
 
     qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
     
-    qw = int(CARD_L_W * 0.13)
+    qw = int(CARD_L_W * (85.5 / 560.0))
     qh = qw
     qr_img = qr_img.resize((qw, qh), Image.LANCZOS)
     
-    qx = int(CARD_L_W * 0.092)     
-    qy = int(CARD_L_H * 0.41)     
+    qx_center = int(CARD_L_W * 0.155)
+    qx = qx_center - (qw // 2)
+    qy = int(CARD_L_H * 0.385)
     
     card.paste(qr_img, (qx, qy), qr_img)
     draw = ImageDraw.Draw(card)
@@ -475,7 +516,7 @@ def render_back_landscape(
     if employment_start_date or employment_end_date:
         date_font = _load_font(int(CARD_L_H * 0.045), bold=False)
         date_x = int(CARD_L_W * 0.51)
-        date_y_start = int(CARD_L_H * 0.58)
+        date_y_start = int(CARD_L_H * 0.59)
         
         if employment_start_date:
             start_str = employment_start_date.strftime("%d/%m/%Y")

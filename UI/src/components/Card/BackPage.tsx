@@ -84,12 +84,12 @@ const BackPage: React.FC<BackPageProps> = ({
             />
           </div>
 
-          <div className="absolute left-[51%] top-[58%] text-left flex flex-col gap-0">
-            <p className="m-0 text-[0.9rem] leading-[1.2] text-gray-800">
+          <div className="absolute left-[51%] top-[59%] text-left flex flex-col gap-0">
+            <p className="m-0 text-[0.85rem] leading-[1.2] text-gray-800">
               {moment(employee.employmentStartDate).format("DD/MM/YYYY")}
             </p>
 
-            <p className="m-0 text-[0.9rem] leading-[1.2] text-gray-800">
+            <p className="m-0 text-[0.85rem] leading-[1.2] text-gray-800">
               {moment(employee.employmentEndDate).format("DD/MM/YYYY")}
             </p>
           </div>

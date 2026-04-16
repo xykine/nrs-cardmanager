@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .models import JobStatus
 
@@ -71,6 +71,13 @@ class EmployeeCreate(APIModel):
     employment_start_date: Optional[datetime] = Field(default=None, alias="employmentStartDate")
     employment_end_date: Optional[datetime] = Field(default=None, alias="employmentEndDate")
 
+    @field_validator("employment_start_date", "employment_end_date", mode="before")
+    @classmethod
+    def parse_empty_date(cls, v):
+        if v == "":
+            return None
+        return v
+
 
 class EmployeeUpdate(APIModel):
     name: Optional[str] = None
@@ -78,6 +85,13 @@ class EmployeeUpdate(APIModel):
     consultant_prefix: Optional[str] = Field(default=None, alias="consultantPrefix")
     employment_start_date: Optional[datetime] = Field(default=None, alias="employmentStartDate")
     employment_end_date: Optional[datetime] = Field(default=None, alias="employmentEndDate")
+
+    @field_validator("employment_start_date", "employment_end_date", mode="before")
+    @classmethod
+    def parse_empty_date(cls, v):
+        if v == "":
+            return None
+        return v
 
 
 class EmployeeRoleUpdate(APIModel):
@@ -100,6 +114,13 @@ class EmployeeFilters(APIModel):
     start_date: Optional[datetime] = Field(default=None, alias="startDate")
     end_date: Optional[datetime] = Field(default=None, alias="endDate")
     request_status: Optional[str] = Field(default=None, alias="requestStatus")
+
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def parse_empty_date(cls, v):
+        if v == "":
+            return None
+        return v
 
 
 class BulkEmailRequest(APIModel):

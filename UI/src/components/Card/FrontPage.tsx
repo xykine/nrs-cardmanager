@@ -10,6 +10,8 @@ export type FrontPageEmployee = {
   employeeId: string;
   position: string;
   consultantPrefix?: string;
+  employmentStartDate?: string;
+  employmentEndDate?: string;
 };
 
 export type FrontPageProps = {
@@ -215,7 +217,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
             </p>
 
             {/* Bottom accent */}
-            {currentUserRole === "manager" && (
+            {currentUserRole === "manager" ? (
               <div className="flex items-center gap-2 mx-20 mt-2">
                 <img
                   src={nrsLogoBottomBarSrc}
@@ -223,10 +225,12 @@ const FrontPage: React.FC<FrontPageProps> = ({
                   className="h-25"
                 />
               </div>
+            ) : (
+                <div className="w-[80%] h-4 bg-red-600 mt-6 rounded-full opacity-80" />
             )}
 
             {/* Spacer */}
-            <div className="w-full flex items-center gap-2 mt-10" />
+            <div className="w-full flex items-center gap-2 mt-4" />
           </div>
         </div>
       )}
@@ -234,7 +238,8 @@ const FrontPage: React.FC<FrontPageProps> = ({
       {employee.position && (
 
         <div
-          className="relative max-w-[560px] aspect-[1.5/1] overflow-hidden border border-gray-300 bg-white shadow-xl"
+          className="relative max-w-[560px] aspect-[1.5/1] 
+          overflow-hidden border border-gray-300 bg-white shadow-xl"
           style={
             currentUserRole.toLowerCase() === "manager"
               ? {
@@ -250,13 +255,21 @@ const FrontPage: React.FC<FrontPageProps> = ({
         >
 
           {/* Content Layer */}
-          <div className="absolute inset-0">
+          <div className={
+            currentUserRole.toLowerCase() === "manager" 
+              ? "absolute inset-0" 
+              : "flex h-full w-full items-center justify-center gap-10 p-8"
+          }>
             {/* Photo block */}
-            <div className="absolute left-[9%] top-[25%]">
+            <div className={
+              currentUserRole.toLowerCase() === "manager" 
+                ? "absolute left-[9%] top-[25%]" 
+                : "flex-shrink-0"
+            }>
               <div className="relative group">
                 <div
                   ref={containerRef}
-                  className={`w-[136px] h-[170px] rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? 'cursor-move' : ''}`}
+                  className={`w-[170px] h-[170px] border-[8px] border-red-600 rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? 'cursor-move' : ''}`}
                   onMouseDown={handleMouseDown}
                 >
                   {photoData && !validating ? (
@@ -327,20 +340,28 @@ const FrontPage: React.FC<FrontPageProps> = ({
             </div>
 
             {/* Text block */}
-            <div className="absolute left-[42%] top-[27%] text-left">
-              <h3 className="text-[2rem] font-extrabold uppercase leading-none tracking-wide text-black">
+            <div className={
+              currentUserRole.toLowerCase() === "manager"
+                ? "absolute left-[42%] top-[37%] text-left"
+                : "flex flex-col text-left justify-center"
+            }>
+              <h3 className="text-[1.25rem] font-bold uppercase leading-none tracking-wide text-black">
                 {employee.name}
               </h3>
 
               <p className="mt-3 text-[1.1rem] font-medium uppercase tracking-wide text-gray-800">
-                IRCONS {employee.employeeId}
+                {employee.position.toLocaleLowerCase() === 'group director' ? 'IR' : ' IRCONS'} {employee.employeeId}
               </p>
+              {
+                employee.position.toLocaleLowerCase() !== 'group director' && (
+                  <p className="mt-2 text-[1.1rem] font-medium uppercase tracking-wide text-gray-900">
+                    {employee.position.toLocaleLowerCase() === 'consultant' && employee.consultantPrefix
+                      ? `${employee.consultantPrefix} ${employee.position}`
+                      : employee.position}
+                  </p>
+                )
+              }
 
-              <p className="mt-2 text-[1.1rem] font-medium uppercase tracking-wide text-gray-900">
-                {employee.position === 'Consultant' && employee.consultantPrefix
-                  ? `${employee.consultantPrefix} ${employee.position}`
-                  : employee.position}
-              </p>
             </div>
           </div>
         </div>
