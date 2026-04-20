@@ -21,6 +21,8 @@ interface EmployeeContextType {
 const defaultFilters: EmployeeFilters = {
     name: "",
     employeeId: "",
+    email: "",
+    isBookmarked: false,
     photoStatus: "all",
     department: "all",
     employeeType: "all",

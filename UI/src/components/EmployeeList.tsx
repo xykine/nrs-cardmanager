@@ -28,9 +28,7 @@ interface EmployeeListProps {
   userRole: "manager" | "staff";
 }
 
-export default function EmployeeList({
-  userRole,
-}: EmployeeListProps) {
+export default function EmployeeList({ userRole }: EmployeeListProps) {
   const {
     employees,
     setEmployees,
@@ -44,8 +42,6 @@ export default function EmployeeList({
     setFilters,
     clearCache,
   } = useEmployees();
-
-
 
   const { addNotification, updateNotification } = useNotification();
   const [departments, setDepartments] = useState<string[]>([]);
@@ -64,7 +60,10 @@ export default function EmployeeList({
   }>({ isOpen: false, employeeIds: [] });
   const [createEmployeeModal, setCreateEmployeeModal] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
-  const [editModal, setEditModal] = useState<{ isOpen: boolean; employee: Employee | null }>({ isOpen: false, employee: null });
+  const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    employee: Employee | null;
+  }>({ isOpen: false, employee: null });
   const [uploadToCreateOpen, setUploadToCreateOpen] = useState(false);
   const [uploadToPrintOpen, setUploadToPrintOpen] = useState(false);
   const [uploadDropdownOpen, setUploadDropdownOpen] = useState(false);
@@ -84,7 +83,10 @@ export default function EmployeeList({
   // Close upload dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (uploadDropdownRef.current && !uploadDropdownRef.current.contains(event.target as Node)) {
+      if (
+        uploadDropdownRef.current &&
+        !uploadDropdownRef.current.contains(event.target as Node)
+      ) {
         setUploadDropdownOpen(false);
       }
     };
@@ -105,7 +107,10 @@ export default function EmployeeList({
   useEffect(() => {
     const handleScroll = () => {
       if (!loading && employees.length > 0) {
-        sessionStorage.setItem("employee_list_scroll", window.scrollY.toString());
+        sessionStorage.setItem(
+          "employee_list_scroll",
+          window.scrollY.toString(),
+        );
       }
     };
 
@@ -218,10 +223,12 @@ export default function EmployeeList({
     }
   };
 
-  const handleDownloadSubmit = async (option: "all" | "filtered" | "selected") => {
+  const handleDownloadSubmit = async (
+    option: "all" | "filtered" | "selected",
+  ) => {
     let ids: string[] | undefined = undefined;
     let isAll = false;
-    // We pass filters if "filtered" or default behavior for "all" 
+    // We pass filters if "filtered" or default behavior for "all"
     // Wait, backend logic for "all" relies on `isAll=true` and NO filters/ids?
     // Actually `export_employees_csv`:
     // if ids -> use ids
@@ -359,13 +366,15 @@ export default function EmployeeList({
     employeeId: string,
     data: {
       name?: string;
+      email?: string;
+      employeeId?: string;
       position?: string;
       idPrefix?: string;
       consultantPrefix?: string;
       employmentStartDate?: string;
       employmentEndDate?: string;
       department?: string;
-    }
+    },
   ) => {
     const notificationId = addNotification({
       type: "progress",
@@ -409,7 +418,7 @@ export default function EmployeeList({
     let ids: string[];
 
     if (selectAllPages) {
-      ids = []
+      ids = [];
     } else {
       ids = Array.from(selectedIds);
     }
@@ -425,13 +434,19 @@ export default function EmployeeList({
     setEmailDialog({ isOpen: false, isBulk: false });
 
     try {
-      const result = await employeeService.sendBulkEmail(ids, message, activeFilters, selectAllPages);
+      const result = await employeeService.sendBulkEmail(
+        ids,
+        message,
+        activeFilters,
+        selectAllPages,
+      );
 
       updateNotification(notificationId, {
         type: "success",
         title: "Emails Sent",
-        message: `Successfully sent ${result.success} email(s). ${result.failed > 0 ? `${result.failed} failed.` : ""
-          }`,
+        message: `Successfully sent ${result.success} email(s). ${
+          result.failed > 0 ? `${result.failed} failed.` : ""
+        }`,
         autoClose: true,
       });
 
@@ -453,7 +468,6 @@ export default function EmployeeList({
     let employeeCount: number;
 
     if (selectAllPages) {
-      console.log("-----------ALL + FILTER ---------");
       // Fetch all IDs if selecting all pages
       try {
         setLoading(true);
@@ -462,9 +476,7 @@ export default function EmployeeList({
           totalRecords,
           activeFilters,
         );
-        ids = response.items
-          .filter((e) => e.photoPresent)
-          .map((e) => e.id);
+        ids = response.items.filter((e) => e.photoPresent).map((e) => e.id);
         employeeCount = response.items.length; // Total attempt
 
         if (ids.length === 0) {
@@ -480,7 +492,11 @@ export default function EmployeeList({
 
         if (ids.length < employeeCount) {
           const withoutPhoto = employeeCount - ids.length;
-          if (!confirm(`${withoutPhoto} employee(s) don't have photos - they will be skipped. Continue printing for the ${ids.length} valid employee(s)?`)) {
+          if (
+            !confirm(
+              `${withoutPhoto} employee(s) don't have photos - they will be skipped. Continue printing for the ${ids.length} valid employee(s)?`,
+            )
+          ) {
             setLoading(false);
             return;
           }
@@ -499,7 +515,9 @@ export default function EmployeeList({
       }
     } else {
       const selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
-      const employeesWithPhoto = selectedEmployees.filter((e) => e.photoPresent);
+      const employeesWithPhoto = selectedEmployees.filter(
+        (e) => e.photoPresent,
+      );
       ids = employeesWithPhoto.map((e) => e.id);
       employeeCount = selectedEmployees.length;
 
@@ -515,7 +533,11 @@ export default function EmployeeList({
 
       if (ids.length < employeeCount) {
         const withoutPhoto = employeeCount - ids.length;
-        if (!confirm(`${withoutPhoto} employee(s) don't have photos. Continue printing for the rest?`)) {
+        if (
+          !confirm(
+            `${withoutPhoto} employee(s) don't have photos. Continue printing for the rest?`,
+          )
+        ) {
           return;
         }
       }
@@ -532,15 +554,23 @@ export default function EmployeeList({
       // Fetch all IDs if selecting all pages (potentially huge, but for MVP reasonable)
       // Alternatively, api supports just sending filters? No, api currently takes IDs.
       // We'll fetch all IDs for now as in bulk print/email.
-      const response = await employeeService.getAll(1, totalRecords, activeFilters);
-      ids = response.items.map(e => e.id);
+      const response = await employeeService.getAll(
+        1,
+        totalRecords,
+        activeFilters,
+      );
+      ids = response.items.map((e) => e.id);
       count = response.total;
     } else {
       ids = Array.from(selectedIds);
       count = ids.length;
     }
 
-    if (!confirm(`Are you sure you want to delete ${count} employee(s)? This action cannot be undone.`)) {
+    if (
+      !confirm(
+        `Are you sure you want to delete ${count} employee(s)? This action cannot be undone.`,
+      )
+    ) {
       return;
     }
 
@@ -566,7 +596,7 @@ export default function EmployeeList({
       setSelectAllPages(false);
       // Determine if we need to go back a page
       if (employees.length === ids.length && currentPage > 1) {
-        setCurrentPage(prev => prev - 1);
+        setCurrentPage((prev) => prev - 1);
       } else {
         await loadEmployees();
       }
@@ -606,7 +636,12 @@ export default function EmployeeList({
     setEmailDialog({ isOpen: false, isBulk: false });
 
     try {
-      await employeeService.sendBulkEmail([employeeId], message, activeFilters, selectAllPages);
+      await employeeService.sendBulkEmail(
+        [employeeId],
+        message,
+        activeFilters,
+        selectAllPages,
+      );
 
       updateNotification(notificationId, {
         type: "success",
@@ -667,7 +702,7 @@ export default function EmployeeList({
         "PDF_GENERATION",
         idsToPrint,
         activeFilters,
-        false
+        false,
       );
 
       // 2. Get Job IDs
@@ -679,7 +714,7 @@ export default function EmployeeList({
       const url = window.URL.createObjectURL(blob);
 
       // 4. Open PDF
-      window.open(url, '_blank');
+      window.open(url, "_blank");
 
       updateNotification(notificationId, {
         type: "success",
@@ -701,7 +736,11 @@ export default function EmployeeList({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this employee? This will also remove their card data.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this employee? This will also remove their card data.",
+      )
+    ) {
       return;
     }
 
@@ -724,7 +763,7 @@ export default function EmployeeList({
       });
 
       if (employees.length === 1 && currentPage > 1) {
-        setCurrentPage(prev => prev - 1);
+        setCurrentPage((prev) => prev - 1);
       } else {
         await loadEmployees();
       }
@@ -743,6 +782,8 @@ export default function EmployeeList({
     const cleared = {
       name: "",
       employeeId: "",
+      email: "",
+      isBookmarked: false,
       photoStatus: "all" as const,
       department: "all",
       employeeType: "all" as const,
@@ -781,16 +822,15 @@ export default function EmployeeList({
         <div className="mb-8 flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Employee List</h1>
-            <p className="text-slate-600">Manage employee cards and photo uploads</p>
+            <p className="text-slate-600">
+              Manage employee cards and photo uploads
+            </p>
           </div>
 
           {/* Header actions */}
           <div className="flex gap-3 items-center">
-
-
             {/* Upload dropdown */}
             <div className="relative" ref={uploadDropdownRef}>
-
               <button
                 onClick={() => setUploadDropdownOpen((o) => !o)}
                 disabled={loading}
@@ -798,13 +838,18 @@ export default function EmployeeList({
               >
                 <Upload className="w-4 h-4" />
                 Actions
-                <ChevronDown className={`w-4 h-4 transition-transform ${uploadDropdownOpen ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${uploadDropdownOpen ? "rotate-180" : ""}`}
+                />
               </button>
 
               {uploadDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 z-20 overflow-hidden">
                   <button
-                    onClick={() => { setCreateEmployeeModal(true); setUploadDropdownOpen(false); }}
+                    onClick={() => {
+                      setCreateEmployeeModal(true);
+                      setUploadDropdownOpen(false);
+                    }}
                     disabled={loading}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-green-50 hover:text-green-700 transition-colors"
                   >
@@ -832,7 +877,10 @@ export default function EmployeeList({
                   </button>
 
                   <button
-                    onClick={() => { setUploadToCreateOpen(true); setUploadDropdownOpen(false); }}
+                    onClick={() => {
+                      setUploadToCreateOpen(true);
+                      setUploadDropdownOpen(false);
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-green-50 hover:text-green-700 transition-colors"
                   >
                     <Plus className="w-4 h-4 text-green-600" />
@@ -840,7 +888,10 @@ export default function EmployeeList({
                   </button>
                   <div className="border-t border-slate-100" />
                   <button
-                    onClick={() => { setUploadToPrintOpen(true); setUploadDropdownOpen(false); }}
+                    onClick={() => {
+                      setUploadToPrintOpen(true);
+                      setUploadDropdownOpen(false);
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                   >
                     <Printer className="w-4 h-4 text-purple-600" />
@@ -849,17 +900,17 @@ export default function EmployeeList({
                 </div>
               )}
             </div>
-
-
           </div>
-
         </div>
 
         {(selectAllPages || selectedIds.size > 0) && userRole === "manager" && (
           <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <span className="text-blue-800 font-medium">
-                {selectAllPages ? totalRecords : selectedIds.size} employee{(selectAllPages ? totalRecords : selectedIds.size) > 1 ? "s" : ""}{" "}
+                {selectAllPages ? totalRecords : selectedIds.size} employee
+                {(selectAllPages ? totalRecords : selectedIds.size) > 1
+                  ? "s"
+                  : ""}{" "}
                 selected
                 {selectAllPages && " (all pages matching filters)"}
               </span>
@@ -982,7 +1033,19 @@ export default function EmployeeList({
         onClose={() => setDownloadModalOpen(false)}
         onSubmit={handleDownloadSubmit}
         hasSelection={selectedIds.size > 0}
-        hasFilters={!!(activeFilters.name || activeFilters.employeeId || activeFilters.department !== "all" || activeFilters.photoStatus !== "all" || activeFilters.employeeType !== "all" || activeFilters.position !== "all" || activeFilters.requestStatus !== "all")}
+        hasFilters={
+          !!(
+            activeFilters.name ||
+            activeFilters.employeeId ||
+            activeFilters.email ||
+            activeFilters.isBookmarked ||
+            activeFilters.department !== "all" ||
+            activeFilters.photoStatus !== "all" ||
+            activeFilters.employeeType !== "all" ||
+            activeFilters.position !== "all" ||
+            activeFilters.requestStatus !== "all"
+          )
+        }
       />
 
       <UploadToCreateModal

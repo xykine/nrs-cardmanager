@@ -196,6 +196,8 @@ def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
                 query,
                 name=payload.filters.name,
                 employee_id=payload.filters.employee_id,
+                email=payload.filters.email,
+                is_bookmarked=payload.filters.is_bookmarked,
                 photo_status=payload.filters.photo_status,
                 department=payload.filters.department,
             )

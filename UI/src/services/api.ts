@@ -123,6 +123,8 @@ export const employeeService = {
 
   async update(id: string, data: {
     name?: string;
+    email?: string;
+    employeeId?: string;
     position?: string;
     idPrefix?: string;
     consultantPrefix?: string;
@@ -135,7 +137,10 @@ export const employeeService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to update employee");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to update employee");
+    }
     return response.json();
   },
 

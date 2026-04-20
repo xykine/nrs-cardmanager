@@ -81,6 +81,26 @@ class Employee(Base):
 
     card = relationship("Card", back_populates="employee", uselist=False, cascade="all, delete-orphan")
     requests = relationship("EmployeeRequest", back_populates="employee", cascade="all, delete-orphan")
+    bookmark = relationship("BookmarkedEmployee", back_populates="employee", uselist=False, cascade="all, delete-orphan")
+
+
+class BookmarkedEmployee(Base):
+    __tablename__ = "bookmarked_employees"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    employee_id = Column("employeeId", String, ForeignKey("employees.employeeId"), unique=True, nullable=False)
+    reason = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="active")
+    created_at = Column("createdAt", DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        "updatedAt",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    employee = relationship("Employee", back_populates="bookmark")
 
 
 class Card(Base):
@@ -159,4 +179,3 @@ class EmployeeRequest(Base):
     )
 
     employee = relationship("Employee", back_populates="requests")
-

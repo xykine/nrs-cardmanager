@@ -7,6 +7,8 @@ export type EmployeeTypeFilter = "all" | "staff" | "non-staff";
 export type EmployeeFilters = {
   name: string;
   employeeId: string;
+  email: string;
+  isBookmarked: boolean;
   department: string;
   photoStatus: PhotoStatusFilter;
   employeeType: EmployeeTypeFilter;
@@ -39,6 +41,8 @@ export default function EmployeeFilterPanel({
     return (
       filters.name.trim().length > 0 ||
       filters.employeeId.trim().length > 0 ||
+      filters.email.trim().length > 0 ||
+      filters.isBookmarked ||
       filters.department !== "all" ||
       filters.photoStatus !== "all" ||
       filters.employeeType !== "all" ||
@@ -62,10 +66,21 @@ export default function EmployeeFilterPanel({
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Filter className="w-5 h-5 text-blue-600" />
-          <h2 className="text-xl font-bold text-slate-800">Filter Management</h2>
+          <h2 className="text-xl font-bold text-slate-800">
+            Filter Management
+          </h2>
         </div>
 
         <div className="flex items-center gap-3">
+          <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={filters.isBookmarked}
+              onChange={(e) => setFilters((p) => ({ ...p, isBookmarked: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-blue-600 hover:text-blue-800">Bookmarked</span>
+          </label>
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
@@ -78,12 +93,17 @@ export default function EmployeeFilterPanel({
           )}
           <button
             onClick={toggleAdvanced}
-            className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${isAdvancedVisible
-              ? 'bg-blue-50 text-blue-700'
-              : 'text-slate-600 hover:bg-slate-100'
-              }`}
+            className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${
+              isAdvancedVisible
+                ? "bg-blue-50 text-blue-700"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
           >
-            {isAdvancedVisible ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {isAdvancedVisible ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
             {isAdvancedVisible ? "Hide Advanced" : "Show Advanced Filter"}
           </button>
         </div>
@@ -91,7 +111,7 @@ export default function EmployeeFilterPanel({
 
       <div className="space-y-6">
         {/* Basic Filters Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
               Search Name
@@ -123,6 +143,19 @@ export default function EmployeeFilterPanel({
 
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+              Email
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: john@company.com"
+              value={filters.email}
+              onChange={(e) => handleInputChange("email", e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
               Department
             </label>
             <select
@@ -132,7 +165,9 @@ export default function EmployeeFilterPanel({
             >
               <option value="all">All Departments</option>
               {departments.map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
               ))}
             </select>
           </div>
@@ -157,18 +192,21 @@ export default function EmployeeFilterPanel({
                 Employee Type
               </label>
               <div className="flex p-1 bg-slate-100 rounded-xl">
-                {(["all", "staff", "non-staff"] as EmployeeTypeFilter[]).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => handleInputChange("employeeType", type)}
-                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg capitalize transition-all ${filters.employeeType === type
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
+                {(["all", "staff", "non-staff"] as EmployeeTypeFilter[]).map(
+                  (type) => (
+                    <button
+                      key={type}
+                      onClick={() => handleInputChange("employeeType", type)}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg capitalize transition-all ${
+                        filters.employeeType === type
+                          ? "bg-white text-blue-600 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
                       }`}
-                  >
-                    {type}
-                  </button>
-                ))}
+                    >
+                      {type}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
 
@@ -180,14 +218,18 @@ export default function EmployeeFilterPanel({
                 </label>
                 <select
                   value={filters.position}
-                  onChange={(e) => handleInputChange("position", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("position", e.target.value)
+                  }
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none cursor-pointer"
                 >
                   <option value="all">All Positions</option>
                   <option value="Missing">Missing</option>
                   <option value="Consultant">Consultant</option>
                   <option value="Group Director">Group Director</option>
-                  <option value="Transport Assistant">Transport Assistant</option>
+                  <option value="Transport Assistant">
+                    Transport Assistant
+                  </option>
                 </select>
               </div>
             )}
@@ -202,7 +244,9 @@ export default function EmployeeFilterPanel({
                   type="text"
                   placeholder="Ex: CONS/"
                   value={filters.consultantPrefix}
-                  onChange={(e) => handleInputChange("consultantPrefix", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("consultantPrefix", e.target.value)
+                  }
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
                 />
               </div>
@@ -214,7 +258,9 @@ export default function EmployeeFilterPanel({
               </label>
               <select
                 value={filters.requestStatus}
-                onChange={(e) => handleInputChange("requestStatus", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("requestStatus", e.target.value)
+                }
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none cursor-pointer"
               >
                 <option value="all">All Statuses</option>
@@ -270,7 +316,12 @@ export default function EmployeeFilterPanel({
               </label>
               <select
                 value={filters.photoStatus}
-                onChange={(e) => handleInputChange("photoStatus", e.target.value as PhotoStatusFilter)}
+                onChange={(e) =>
+                  handleInputChange(
+                    "photoStatus",
+                    e.target.value as PhotoStatusFilter,
+                  )
+                }
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none cursor-pointer"
               >
                 <option value="all">All</option>

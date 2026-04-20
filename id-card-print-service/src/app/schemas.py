@@ -82,6 +82,9 @@ class EmployeeCreate(APIModel):
 
 class EmployeeUpdate(APIModel):
     name: Optional[str] = None
+    employee_id: Optional[str] = Field(default=None, alias="employeeId")
+    email: Optional[str] = None
+    department: Optional[str] = None
     position: Optional[str] = None
     consultant_prefix: Optional[str] = Field(default=None, alias="consultantPrefix")
     id_prefix: Optional[str] = Field(default="IR", alias="idPrefix")
@@ -107,6 +110,8 @@ class EmployeePhotoStatusUpdate(APIModel):
 class EmployeeFilters(APIModel):
     name: str = ""
     employee_id: str = Field(default="", alias="employeeId")
+    email: str = ""
+    is_bookmarked: bool = Field(default=False, alias="isBookmarked")
     photo_status: str = Field(default="all", alias="photoStatus")
     department: str = "all"
     employee_type: str = Field(default="all", alias="employeeType")

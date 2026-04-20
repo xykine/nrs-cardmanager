@@ -40,7 +40,7 @@ from dotenv import load_dotenv
 
 
 from ..db import get_db
-from ..models import Employee, Admin, EmployeeRequest
+from ..models import Employee, Admin, EmployeeRequest, BookmarkedEmployee
 from ..schemas import (
     BulkEmailRequest,
     EmployeeCreate,
@@ -468,8 +468,8 @@ def _normalize_employee_id_for_upload(value: Optional[str]) -> Optional[str]:
 
     if len(digits_only) == 5:
         return digits_only
-    if len(digits_only) < 8:
-        return digits_only.zfill(8)
+    if len(digits_only) < 6:
+        return digits_only.zfill(6)
     return digits_only
 
 
@@ -1240,6 +1240,8 @@ def _apply_employee_filters(
     *,
     name: Optional[str] = None,
     employee_id: Optional[str] = None,
+    email: Optional[str] = None,
+    is_bookmarked: bool = False,
     photo_status: Optional[str] = None,
     department: Optional[str] = None,
     employee_type: Optional[str] = None,
@@ -1258,6 +1260,16 @@ def _apply_employee_filters(
     employee_id = (employee_id or "").strip()
     if employee_id:
         query = query.filter(Employee.employee_id.ilike(f"{employee_id}%"))
+
+    email = (email or "").strip()
+    if email:
+        query = query.filter(Employee.email.ilike(f"%{email}%"))
+
+    if is_bookmarked:
+        query = query.join(
+            BookmarkedEmployee,
+            BookmarkedEmployee.employee_id == Employee.employee_id,
+        )
 
     department = (department or "").strip()
     if department and department.lower() != "all":
@@ -1306,13 +1318,43 @@ def _apply_employee_filters(
 def _filters_are_empty(filters: Any) -> bool:
     name = (getattr(filters, "name", "") or "").strip()
     employee_id = (getattr(filters, "employee_id", "") or "").strip()
+    email = (getattr(filters, "email", "") or "").strip()
+    is_bookmarked = bool(getattr(filters, "is_bookmarked", False))
     photo_status = (getattr(filters, "photo_status", "") or "").strip().lower()
     department = (getattr(filters, "department", "") or "").strip().lower()
     return (
         not name
         and not employee_id
+        and not email
+        and not is_bookmarked
         and photo_status in ("", "all")
         and department in ("", "all")
+    )
+
+
+def _upsert_bookmarked_employee(
+    db: Session,
+    employee: Employee,
+    *,
+    reason: str = "Upload email sent",
+    status: str = "active",
+) -> None:
+    bookmarked = (
+        db.query(BookmarkedEmployee)
+        .filter(BookmarkedEmployee.employee_id == employee.employee_id)
+        .first()
+    )
+    if bookmarked:
+        bookmarked.reason = reason
+        bookmarked.status = status
+        return
+
+    db.add(
+        BookmarkedEmployee(
+            employee_id=employee.employee_id,
+            reason=reason,
+            status=status,
+        )
     )
 
 
@@ -1355,6 +1397,8 @@ def list_employees(
     page_size: int = Query(20, ge=1, le=200),
     name: Optional[str] = Query(None),
     employee_id: Optional[str] = Query(None, alias="employeeId"),
+    email: Optional[str] = Query(None),
+    is_bookmarked: bool = Query(False, alias="isBookmarked"),
     photo_status: Optional[str] = Query(None, alias="photoStatus"),
     department: Optional[str] = Query(None),
     employee_type: Optional[str] = Query(None, alias="employeeType"),
@@ -1371,6 +1415,8 @@ def list_employees(
         query,
         name=name,
         employee_id=employee_id,
+        email=email,
+        is_bookmarked=is_bookmarked,
         photo_status=photo_status,
         department=department,
         employee_type=employee_type,
@@ -1682,6 +1728,8 @@ def send_bulk_email(
                 query,
                 name=filters.name,
                 employee_id=filters.employee_id,
+                email=filters.email,
+                is_bookmarked=filters.is_bookmarked,
                 photo_status=filters.photo_status,
                 department=filters.department,
             )
@@ -1766,6 +1814,8 @@ def send_bulk_email(
                         message=payload.message,
                     )
                     db.add(req_record)
+
+                _upsert_bookmarked_employee(db, employee)
                 
                 success += 1
             except Exception:
@@ -1951,6 +2001,12 @@ def update_employee(
 
     if payload.name is not None:
         employee.name = payload.name
+    if payload.employee_id is not None:
+        employee.employee_id = payload.employee_id.strip()
+    if payload.email is not None:
+        employee.email = _normalize_email(payload.email) or employee.email
+    if payload.department is not None:
+        employee.department = payload.department
     if payload.position is not None:
         employee.position = payload.position
     if payload.consultant_prefix is not None:
@@ -1964,6 +2020,14 @@ def update_employee(
 
     try:
         db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        message = str(getattr(exc, "orig", exc)).lower()
+        if "email" in message:
+            raise HTTPException(status_code=400, detail="Email already exists") from exc
+        if "employeeid" in message:
+            raise HTTPException(status_code=400, detail="Employee ID already exists") from exc
+        raise HTTPException(status_code=400, detail="Employee email or ID already exists") from exc
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to update employee") from exc
@@ -2139,6 +2203,8 @@ def export_employees_csv(
                 query,
                 name=filters.name,
                 employee_id=filters.employee_id,
+                email=filters.email,
+                is_bookmarked=filters.is_bookmarked,
                 photo_status=filters.photo_status,
                 department=filters.department,
             )
@@ -2261,6 +2327,8 @@ def send_single_email(
             message=payload.message,
         )
         db.add(req_record)
+
+        _upsert_bookmarked_employee(db, employee)
 
         employee.invitation_sent_at = datetime.now(timezone.utc)
         db.commit()
