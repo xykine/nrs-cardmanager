@@ -8,6 +8,8 @@ interface EditEmployeeModalProps {
   onClose: () => void;
   onSubmit: (employeeId: string, data: {
     name?: string;
+    email?: string;
+    employeeId?: string;
     position?: string;
     idPrefix?: string;
     consultantPrefix?: string;
@@ -36,6 +38,8 @@ export default function EditEmployeeModal({
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    employeeId: "",
+    email: "",
     idPrefix: "",
     position: "",
     consultantPrefix: "",
@@ -56,6 +60,8 @@ export default function EditEmployeeModal({
       setFormData({
         firstName,
         lastName,
+        employeeId: employee.employeeId ?? "",
+        email: employee.email ?? "",
         idPrefix: employee.idPrefix ?? "IR",
         position: employee.position ?? "",
         consultantPrefix: employee.consultantPrefix ?? "",
@@ -85,6 +91,16 @@ export default function EditEmployeeModal({
     const newErrors: Record<string, string> = {};
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required";
     if (!formData.lastName.trim())  newErrors.lastName  = "Last name is required";
+    if (!formData.employeeId.trim()) {
+      newErrors.employeeId = "IR Number is required";
+    } else if (!/^\d+$/.test(formData.employeeId.trim())) {
+      newErrors.employeeId = "IR Number must contain only numbers and no spaces";
+    }
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = "Please enter a valid email address";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -97,6 +113,8 @@ export default function EditEmployeeModal({
     try {
       await onSubmit(employee.id, {
         name: `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim(),
+        employeeId: formData.employeeId.trim(),
+        email: formData.email.trim(),
         position: formData.position || undefined,
         idPrefix: formData.idPrefix.trim() || undefined,
         consultantPrefix: formData.consultantPrefix.trim() || undefined,
@@ -107,13 +125,19 @@ export default function EditEmployeeModal({
       onClose();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "An error occurred";
-      setErrors({ root: msg });
+      if (msg.toLowerCase().includes("email")) {
+        setErrors({ email: msg });
+      } else if (msg.toLowerCase().includes("id")) {
+        setErrors({ employeeId: msg });
+      } else {
+        setErrors({ root: msg });
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const isNonStaff = (employee?.employeeId?.length ?? 0) > 5;
+  const isNonStaff = formData.employeeId.length > 5;
 
   if (!isOpen || !employee) return null;
 
@@ -187,6 +211,48 @@ export default function EditEmployeeModal({
               />
               {errors.lastName && (
                 <p className="text-red-600 text-xs mt-1">{errors.lastName}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                ID # <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="employeeId"
+                value={formData.employeeId}
+                onChange={handleInputChange}
+                disabled={submitting || isLoading}
+                placeholder="Enter ID Number"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors
+                  ${errors.employeeId ? "border-red-400 focus:ring-red-400" : "border-slate-300 focus:ring-blue-500"}
+                  disabled:bg-slate-100 disabled:cursor-not-allowed`}
+              />
+              {errors.employeeId && (
+                <p className="text-red-600 text-xs mt-1">{errors.employeeId}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                disabled={submitting || isLoading}
+                placeholder="name@example.com"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors
+                  ${errors.email ? "border-red-400 focus:ring-red-400" : "border-slate-300 focus:ring-blue-500"}
+                  disabled:bg-slate-100 disabled:cursor-not-allowed`}
+              />
+              {errors.email && (
+                <p className="text-red-600 text-xs mt-1">{errors.email}</p>
               )}
             </div>
           </div>

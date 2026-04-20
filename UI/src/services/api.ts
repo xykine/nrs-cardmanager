@@ -7,6 +7,8 @@ import {
   PrintBatch,
   JobStatus,
   PrintUploadResult,
+  EmployeeNotification,
+  EmployeeNotificationListResponse,
 } from "../types";
 
 const API_BASE_URL =
@@ -123,6 +125,8 @@ export const employeeService = {
 
   async update(id: string, data: {
     name?: string;
+    email?: string;
+    employeeId?: string;
     position?: string;
     idPrefix?: string;
     consultantPrefix?: string;
@@ -135,7 +139,10 @@ export const employeeService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to update employee");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to update employee");
+    }
     return response.json();
   },
 
@@ -156,6 +163,29 @@ export const employeeService = {
       body: JSON.stringify({ message }),
     });
     if (!response.ok) throw new Error("Failed to send email");
+    return response.json();
+  },
+
+  async bookmarkEmployee(
+    id: string,
+    reason: string = "Manually bookmarked from upload summary",
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}/bookmark`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    if (!response.ok) throw new Error("Failed to bookmark employee");
+    return response.json();
+  },
+
+  async unbookmarkEmployee(
+    id: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}/bookmark`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to remove employee bookmark");
     return response.json();
   },
 
@@ -369,6 +399,18 @@ export const printingService = {
     return response.json();
   },
 
+  async getPrintHistoryStatus(employeeIds: string[]): Promise<{
+    items: { employeeId: string; cardCount: number; lastPrintDate: string }[];
+  }> {
+    const response = await fetch(`${API_BASE_URL}/print-reports/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeIds }),
+    });
+    if (!response.ok) throw new Error("Failed to fetch print history status");
+    return response.json();
+  },
+
   async exportPrintReports(startDate?: string, endDate?: string): Promise<Blob> {
     const params = new URLSearchParams();
     if (startDate) params.append("startDate", startDate);
@@ -467,6 +509,48 @@ export const printingService = {
       throw new Error(errorData.detail || "Failed to process print upload file");
     }
 
+    return response.json();
+  },
+};
+
+export const notificationService = {
+  async list(limit: number = 30, unreadOnly: boolean = false): Promise<EmployeeNotificationListResponse> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      unreadOnly: unreadOnly ? "true" : "false",
+    });
+    const response = await fetch(`${API_BASE_URL}/notifications?${params.toString()}`);
+    if (!response.ok) throw new Error("Failed to fetch notifications");
+    return response.json();
+  },
+
+  async getCount(): Promise<{ unread: number; total: number }> {
+    const response = await fetch(`${API_BASE_URL}/notifications/count`);
+    if (!response.ok) throw new Error("Failed to fetch notification count");
+    return response.json();
+  },
+
+  async markRead(id: string): Promise<EmployeeNotification> {
+    const response = await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
+      method: "PATCH",
+    });
+    if (!response.ok) throw new Error("Failed to mark notification as read");
+    return response.json();
+  },
+
+  async markAllRead(): Promise<{ ok: boolean; updated: number }> {
+    const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+      method: "PATCH",
+    });
+    if (!response.ok) throw new Error("Failed to mark all notifications as read");
+    return response.json();
+  },
+
+  async delete(id: string): Promise<{ ok: boolean }> {
+    const response = await fetch(`${API_BASE_URL}/notifications/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete notification");
     return response.json();
   },
 };

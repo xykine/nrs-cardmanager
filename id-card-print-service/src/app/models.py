@@ -81,6 +81,35 @@ class Employee(Base):
 
     card = relationship("Card", back_populates="employee", uselist=False, cascade="all, delete-orphan")
     requests = relationship("EmployeeRequest", back_populates="employee", cascade="all, delete-orphan")
+    bookmark = relationship("BookmarkedEmployee", back_populates="employee", uselist=False, cascade="all, delete-orphan")
+    notifications = relationship(
+        "EmployeeNotification",
+        back_populates="employee",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def is_bookmarked(self) -> bool:
+        return bool(self.bookmark and self.bookmark.status == "active")
+
+
+class BookmarkedEmployee(Base):
+    __tablename__ = "bookmarked_employees"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    employee_id = Column("employeeId", String, ForeignKey("employees.employeeId"), unique=True, nullable=False)
+    reason = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="active")
+    created_at = Column("createdAt", DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        "updatedAt",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    employee = relationship("Employee", back_populates="bookmark")
 
 
 class Card(Base):
@@ -160,3 +189,35 @@ class EmployeeRequest(Base):
 
     employee = relationship("Employee", back_populates="requests")
 
+
+class EmployeeNotification(Base):
+    __tablename__ = "employee_notifications"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    employee_id = Column(
+        "employeeId",
+        String,
+        ForeignKey("employees.id"),
+        nullable=False,
+        index=True,
+    )
+    action_type = Column("actionType", String, nullable=False)
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    is_read = Column("isRead", Boolean, nullable=False, default=False)
+    payload = Column("metadata", JSON, nullable=True)
+    created_at = Column(
+        "createdAt",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at = Column(
+        "updatedAt",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    employee = relationship("Employee", back_populates="notifications")

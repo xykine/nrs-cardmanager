@@ -82,6 +82,9 @@ class EmployeeCreate(APIModel):
 
 class EmployeeUpdate(APIModel):
     name: Optional[str] = None
+    employee_id: Optional[str] = Field(default=None, alias="employeeId")
+    email: Optional[str] = None
+    department: Optional[str] = None
     position: Optional[str] = None
     consultant_prefix: Optional[str] = Field(default=None, alias="consultantPrefix")
     id_prefix: Optional[str] = Field(default="IR", alias="idPrefix")
@@ -107,6 +110,8 @@ class EmployeePhotoStatusUpdate(APIModel):
 class EmployeeFilters(APIModel):
     name: str = ""
     employee_id: str = Field(default="", alias="employeeId")
+    email: str = ""
+    is_bookmarked: bool = Field(default=False, alias="isBookmarked")
     photo_status: str = Field(default="all", alias="photoStatus")
     department: str = "all"
     employee_type: str = Field(default="all", alias="employeeType")
@@ -151,6 +156,7 @@ class EmployeePublic(APIModel):
     photo_present: bool = Field(alias="photoPresent")
     invitation_token: Optional[str] = Field(default=None, alias="invitationToken")
     invitation_sent_at: Optional[datetime] = Field(default=None, alias="invitationSentAt")
+    is_bookmarked: bool = Field(default=False, alias="isBookmarked")
     created_at: datetime = Field(alias="createdAt")
     updated_at: datetime = Field(alias="updatedAt")
 
@@ -294,3 +300,26 @@ class EmployeeRequestPublic(APIModel):
     status: str
     created_at: datetime = Field(alias="createdAt")
     updated_at: datetime = Field(alias="updatedAt")
+
+
+class EmployeeNotificationOut(APIModel):
+    id: str
+    employee_id: str = Field(alias="employeeId")
+    action_type: str = Field(alias="actionType")
+    title: str
+    message: str
+    is_read: bool = Field(alias="isRead")
+    payload: Optional[dict] = Field(
+        default=None,
+        validation_alias="payload",
+        serialization_alias="metadata",
+    )
+    created_at: datetime = Field(alias="createdAt")
+    updated_at: datetime = Field(alias="updatedAt")
+    employee: Optional[EmployeePublic] = None
+
+
+class EmployeeNotificationListOut(APIModel):
+    items: list[EmployeeNotificationOut]
+    total: int
+    unread: int

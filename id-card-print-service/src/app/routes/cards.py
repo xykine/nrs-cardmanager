@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session, joinedload
 from cryptography.fernet import Fernet
 
 from ..db import get_db
-from ..models import Card, Employee
+from ..models import Card, Employee, BookmarkedEmployee
 from ..schemas import CardOut, CardSave
+from .notifications import add_bookmarked_employee_notification
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -52,7 +53,27 @@ def save_card(employee_id: str, payload: CardSave, db: Session = Depends(get_db)
         )
         db.add(card)
 
+    had_photo = bool(employee.photo_present)
     employee.photo_present = True
+    if payload.photo_data:
+        add_bookmarked_employee_notification(
+            db,
+            employee,
+            action_type="photo_uploaded" if not had_photo else "photo_updated",
+            title="Photo Updated",
+            message=(
+                f"{employee.name or employee.employee_id} "
+                f"{'uploaded a photo' if not had_photo else 'updated photo data'}."
+            ),
+            payload={"hasPhoto": True},
+        )
+        bookmarked = (
+            db.query(BookmarkedEmployee)
+            .filter(BookmarkedEmployee.employee_id == employee.employee_id)
+            .first()
+        )
+        if bookmarked:
+            db.delete(bookmarked)
 
     try:
         db.commit()

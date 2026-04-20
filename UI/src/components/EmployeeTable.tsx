@@ -1,6 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Copy, CreditCard, Eye, Mail, Pencil, Printer, Trash } from "lucide-react";
+import {
+  Bookmark,
+  BookmarkCheck,
+  Check,
+  Copy,
+  CreditCard,
+  Eye,
+  Mail,
+  MoreVertical,
+  Pencil,
+  Printer,
+  Trash,
+} from "lucide-react";
 import { Employee } from "../types";
 
 type UserRole = "manager" | "staff";
@@ -19,6 +31,8 @@ export type EmployeeTableProps = {
   onDelete?: (id: string) => void | Promise<void>;
   /** (manager only) edit employee */
   onEdit?: (employee: Employee) => void;
+  /** (manager only) bookmark employee */
+  onBookmark?: (employee: Employee) => void | Promise<void>;
   selectedIds?: Set<string>;
   onToggleSelection?: (id: string) => void;
   onToggleSelectAll?: (ids: string[]) => void;
@@ -43,6 +57,7 @@ export default function EmployeeTable({
   isAllSelected,
   routes,
   onEdit,
+  onBookmark,
 }: EmployeeTableProps) {
   const navigate = useNavigate();
 
@@ -53,6 +68,8 @@ export default function EmployeeTable({
   const selectedIds = propsSelectedIds ?? internalSelectedIds;
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const allSelected = useMemo(() => {
     if (isAllSelected) return true;
@@ -127,6 +144,22 @@ export default function EmployeeTable({
     if (!onDelete) return;
     await onDelete(id);
   };
+
+  const handleBookmark = async (employee: Employee) => {
+    if (!onBookmark) return;
+    await onBookmark(employee);
+  };
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openMenuId]);
 
   return (
     <div className="overflow-x-auto">
@@ -273,74 +306,124 @@ export default function EmployeeTable({
                 </td>
 
                 <td className="px-6 py-4">
-                  <div className="flex items-center justify-center gap-2">
-                    {userRole === "manager" && (
-                      <>
+                  <div className="relative flex justify-center" ref={openMenuId === employee.id ? menuRef : null}>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-slate-700 hover:bg-slate-50"
+                      aria-label={`Open actions for ${employee.name}`}
+                      aria-expanded={openMenuId === employee.id}
+                      onClick={() =>
+                        setOpenMenuId((prev) =>
+                          prev === employee.id ? null : employee.id,
+                        )
+                      }
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {openMenuId === employee.id && (
+                      <div className="absolute right-0 top-10 z-[120] w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+                        {userRole === "manager" && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setOpenMenuId(null);
+                                await handleSendInvitation(employee.id);
+                              }}
+                              disabled={!onSendInvitation}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                            >
+                              <Mail className="w-4 h-4" />
+                              Send Invitation Link
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setOpenMenuId(null);
+                                await handlePrintCard(employee);
+                              }}
+                              disabled={!employee.photoPresent || !onPrintCard}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                            >
+                              <Printer className="w-4 h-4" />
+                              Print Card
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setOpenMenuId(null);
+                                await handleBookmark(employee);
+                              }}
+                              disabled={!onBookmark}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                            >
+                              {employee.isBookmarked ? (
+                                <BookmarkCheck className="w-4 h-4" />
+                              ) : (
+                                <Bookmark className="w-4 h-4" />
+                              )}
+                              {employee.isBookmarked
+                                ? "Remove Bookmark"
+                                : "Bookmark Employee"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                onEdit?.(employee);
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-violet-50"
+                            >
+                              <Pencil className="w-4 h-4" />
+                              Edit Employee
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setOpenMenuId(null);
+                                await handleDelete(employee.id);
+                              }}
+                              disabled={!onDelete}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                            >
+                              <Trash className="w-4 h-4" />
+                              Delete Employee
+                            </button>
+
+                            <div className="my-1 border-t border-slate-100" />
+                          </>
+                        )}
+
                         <button
-                          onClick={() => handleSendInvitation(employee.id)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Send Invitation Link"
                           type="button"
-                          disabled={!onSendInvitation}
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            navigate(cardRoute(employee.id));
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-amber-50"
                         >
-                          <Mail className="w-5 h-5" />
+                          <CreditCard className="w-4 h-4" />
+                          View/Edit Card
                         </button>
 
                         <button
-                          onClick={() => handlePrintCard(employee)}
-                          disabled={!employee.photoPresent || !onPrintCard}
-                          className={`p-2 rounded-lg transition-colors ${employee.photoPresent && onPrintCard
-                            ? "text-green-600 hover:bg-green-50"
-                            : "text-slate-300 cursor-not-allowed"
-                            }`}
-                          title={
-                            employee.photoPresent
-                              ? "Print Card"
-                              : "Photo required to print"
-                          }
                           type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            navigate(detailRoute(employee.id));
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
                         >
-                          <Printer className="w-5 h-5" />
+                          <Eye className="w-4 h-4" />
+                          View Details
                         </button>
-
-                        <button
-                          onClick={() => handleDelete(employee.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete Employee"
-                          type="button"
-                          disabled={!onDelete}
-                        >
-                          <Trash className="w-5 h-5" />
-                        </button>
-
-                        <button
-                          onClick={() => onEdit?.(employee)}
-                          className="p-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
-                          title="Edit Employee"
-                          type="button"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                      </>
+                      </div>
                     )}
-
-                    <button
-                      onClick={() => navigate(cardRoute(employee.id))}
-                      className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                      title="View/Edit Card"
-                      type="button"
-                    >
-                      <CreditCard className="w-5 h-5" />
-                    </button>
-
-                    <button
-                      onClick={() => navigate(detailRoute(employee.id))}
-                      className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-                      title="View Details"
-                      type="button"
-                    >
-                      <Eye className="w-5 h-5" />
-                    </button>
                   </div>
                 </td>
               </tr>

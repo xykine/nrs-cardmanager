@@ -10,6 +10,7 @@ import DashboardPage from "./components/DashboardPage";
 import MainLayout from "./components/MainLayout";
 import UploadCreateSummaryPage from "./components/UploadCreateSummaryPage";
 import UploadPrintSummaryPage from "./components/UploadPrintSummaryPage";
+import NotificationsPage from "./components/NotificationsPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { useAdminAuth } from "./contexts/AdminAuthContext";
@@ -165,6 +166,18 @@ function App() {
                     <AdminProtectedRoute>
                       <MainLayout userRole={userRole} onLogout={handleLogout}>
                         <PrintingHistoryPage />
+                      </MainLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/notifications"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <AdminProtectedRoute>
+                      <MainLayout userRole={userRole} onLogout={handleLogout}>
+                        <NotificationsPage />
                       </MainLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>

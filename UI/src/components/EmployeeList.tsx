@@ -23,14 +23,13 @@ import DownloadEmployeeModal from "./DownloadEmployeeModal";
 import EditEmployeeModal from "./EditEmployeeModal";
 import UploadToCreateModal from "./UploadToCreateModal";
 import UploadToPrintModal from "./UploadToPrintModal";
+import PrintBatchReviewModal, { PrintReviewRow } from "./PrintBatchReviewModal";
 
 interface EmployeeListProps {
   userRole: "manager" | "staff";
 }
 
-export default function EmployeeList({
-  userRole,
-}: EmployeeListProps) {
+export default function EmployeeList({ userRole }: EmployeeListProps) {
   const {
     employees,
     setEmployees,
@@ -44,8 +43,6 @@ export default function EmployeeList({
     setFilters,
     clearCache,
   } = useEmployees();
-
-
 
   const { addNotification, updateNotification } = useNotification();
   const [departments, setDepartments] = useState<string[]>([]);
@@ -62,9 +59,16 @@ export default function EmployeeList({
     isOpen: boolean;
     employeeIds: string[];
   }>({ isOpen: false, employeeIds: [] });
+  const [printReviewModal, setPrintReviewModal] = useState<{
+    isOpen: boolean;
+    rows: PrintReviewRow[];
+  }>({ isOpen: false, rows: [] });
   const [createEmployeeModal, setCreateEmployeeModal] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
-  const [editModal, setEditModal] = useState<{ isOpen: boolean; employee: Employee | null }>({ isOpen: false, employee: null });
+  const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    employee: Employee | null;
+  }>({ isOpen: false, employee: null });
   const [uploadToCreateOpen, setUploadToCreateOpen] = useState(false);
   const [uploadToPrintOpen, setUploadToPrintOpen] = useState(false);
   const [uploadDropdownOpen, setUploadDropdownOpen] = useState(false);
@@ -84,7 +88,10 @@ export default function EmployeeList({
   // Close upload dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (uploadDropdownRef.current && !uploadDropdownRef.current.contains(event.target as Node)) {
+      if (
+        uploadDropdownRef.current &&
+        !uploadDropdownRef.current.contains(event.target as Node)
+      ) {
         setUploadDropdownOpen(false);
       }
     };
@@ -105,7 +112,10 @@ export default function EmployeeList({
   useEffect(() => {
     const handleScroll = () => {
       if (!loading && employees.length > 0) {
-        sessionStorage.setItem("employee_list_scroll", window.scrollY.toString());
+        sessionStorage.setItem(
+          "employee_list_scroll",
+          window.scrollY.toString(),
+        );
       }
     };
 
@@ -218,10 +228,12 @@ export default function EmployeeList({
     }
   };
 
-  const handleDownloadSubmit = async (option: "all" | "filtered" | "selected") => {
+  const handleDownloadSubmit = async (
+    option: "all" | "filtered" | "selected",
+  ) => {
     let ids: string[] | undefined = undefined;
     let isAll = false;
-    // We pass filters if "filtered" or default behavior for "all" 
+    // We pass filters if "filtered" or default behavior for "all"
     // Wait, backend logic for "all" relies on `isAll=true` and NO filters/ids?
     // Actually `export_employees_csv`:
     // if ids -> use ids
@@ -359,13 +371,15 @@ export default function EmployeeList({
     employeeId: string,
     data: {
       name?: string;
+      email?: string;
+      employeeId?: string;
       position?: string;
       idPrefix?: string;
       consultantPrefix?: string;
       employmentStartDate?: string;
       employmentEndDate?: string;
       department?: string;
-    }
+    },
   ) => {
     const notificationId = addNotification({
       type: "progress",
@@ -409,7 +423,7 @@ export default function EmployeeList({
     let ids: string[];
 
     if (selectAllPages) {
-      ids = []
+      ids = [];
     } else {
       ids = Array.from(selectedIds);
     }
@@ -425,13 +439,19 @@ export default function EmployeeList({
     setEmailDialog({ isOpen: false, isBulk: false });
 
     try {
-      const result = await employeeService.sendBulkEmail(ids, message, activeFilters, selectAllPages);
+      const result = await employeeService.sendBulkEmail(
+        ids,
+        message,
+        activeFilters,
+        selectAllPages,
+      );
 
       updateNotification(notificationId, {
         type: "success",
         title: "Emails Sent",
-        message: `Successfully sent ${result.success} email(s). ${result.failed > 0 ? `${result.failed} failed.` : ""
-          }`,
+        message: `Successfully sent ${result.success} email(s). ${
+          result.failed > 0 ? `${result.failed} failed.` : ""
+        }`,
         autoClose: true,
       });
 
@@ -449,12 +469,9 @@ export default function EmployeeList({
   };
 
   const handleBulkPrintCard = async () => {
-    let ids: string[];
-    let employeeCount: number;
+    let selectedEmployees: Employee[] = [];
 
     if (selectAllPages) {
-      console.log("-----------ALL + FILTER ---------");
-      // Fetch all IDs if selecting all pages
       try {
         setLoading(true);
         const response = await employeeService.getAll(
@@ -462,66 +479,61 @@ export default function EmployeeList({
           totalRecords,
           activeFilters,
         );
-        ids = response.items
-          .filter((e) => e.photoPresent)
-          .map((e) => e.id);
-        employeeCount = response.items.length; // Total attempt
-
-        if (ids.length === 0) {
-          addNotification({
-            type: "error",
-            title: "Print Failed",
-            message: "None of the selected employees have photos uploaded",
-            autoClose: true,
-          });
-          setLoading(false);
-          return;
-        }
-
-        if (ids.length < employeeCount) {
-          const withoutPhoto = employeeCount - ids.length;
-          if (!confirm(`${withoutPhoto} employee(s) don't have photos - they will be skipped. Continue printing for the ${ids.length} valid employee(s)?`)) {
-            setLoading(false);
-            return;
-          }
-        }
-        setLoading(false);
+        selectedEmployees = response.items;
       } catch (err) {
         console.error("Failed to fetch all IDs for print", err);
         addNotification({
           type: "error",
           title: "Print Failed",
-          message: "Failed to prepare print job. Please try again.",
+          message: "Failed to prepare print review. Please try again.",
           autoClose: true,
         });
-        setLoading(false);
         return;
+      } finally {
+        setLoading(false);
       }
     } else {
-      const selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
-      const employeesWithPhoto = selectedEmployees.filter((e) => e.photoPresent);
-      ids = employeesWithPhoto.map((e) => e.id);
-      employeeCount = selectedEmployees.length;
-
-      if (ids.length === 0) {
-        addNotification({
-          type: "error",
-          title: "Print Failed",
-          message: "None of the selected employees have photos uploaded",
-          autoClose: true,
-        });
-        return;
-      }
-
-      if (ids.length < employeeCount) {
-        const withoutPhoto = employeeCount - ids.length;
-        if (!confirm(`${withoutPhoto} employee(s) don't have photos. Continue printing for the rest?`)) {
-          return;
-        }
-      }
+      selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
     }
 
-    setPrintingModal({ isOpen: true, employeeIds: ids });
+    if (selectedEmployees.length === 0) {
+      addNotification({
+        type: "error",
+        title: "Print Failed",
+        message: "No employees selected for printing.",
+        autoClose: true,
+      });
+      return;
+    }
+
+    try {
+      const history = await printingService.getPrintHistoryStatus(
+        selectedEmployees.map((employee) => employee.id),
+      );
+      const printedMap = new Map(
+        history.items.map((item) => [item.employeeId, item]),
+      );
+
+      const rows: PrintReviewRow[] = selectedEmployees.map((employee) => ({
+        employeeDbId: employee.id,
+        employeeId: employee.employeeId,
+        name: employee.name || employee.email || employee.employeeId,
+        hasPhoto: employee.photoPresent,
+        wasPreviouslyPrinted: printedMap.has(employee.id),
+        skipReasonIfExcluded:
+          "Previously printed (present in print history)",
+      }));
+
+      setPrintReviewModal({ isOpen: true, rows });
+    } catch (err) {
+      console.error(err);
+      addNotification({
+        type: "error",
+        title: "Print Review Failed",
+        message: "Failed to load print history for selected employees.",
+        autoClose: true,
+      });
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -532,15 +544,23 @@ export default function EmployeeList({
       // Fetch all IDs if selecting all pages (potentially huge, but for MVP reasonable)
       // Alternatively, api supports just sending filters? No, api currently takes IDs.
       // We'll fetch all IDs for now as in bulk print/email.
-      const response = await employeeService.getAll(1, totalRecords, activeFilters);
-      ids = response.items.map(e => e.id);
+      const response = await employeeService.getAll(
+        1,
+        totalRecords,
+        activeFilters,
+      );
+      ids = response.items.map((e) => e.id);
       count = response.total;
     } else {
       ids = Array.from(selectedIds);
       count = ids.length;
     }
 
-    if (!confirm(`Are you sure you want to delete ${count} employee(s)? This action cannot be undone.`)) {
+    if (
+      !confirm(
+        `Are you sure you want to delete ${count} employee(s)? This action cannot be undone.`,
+      )
+    ) {
       return;
     }
 
@@ -566,7 +586,7 @@ export default function EmployeeList({
       setSelectAllPages(false);
       // Determine if we need to go back a page
       if (employees.length === ids.length && currentPage > 1) {
-        setCurrentPage(prev => prev - 1);
+        setCurrentPage((prev) => prev - 1);
       } else {
         await loadEmployees();
       }
@@ -606,7 +626,12 @@ export default function EmployeeList({
     setEmailDialog({ isOpen: false, isBulk: false });
 
     try {
-      await employeeService.sendBulkEmail([employeeId], message, activeFilters, selectAllPages);
+      await employeeService.sendBulkEmail(
+        [employeeId],
+        message,
+        activeFilters,
+        selectAllPages,
+      );
 
       updateNotification(notificationId, {
         type: "success",
@@ -642,14 +667,17 @@ export default function EmployeeList({
     setPrintingModal({ isOpen: true, employeeIds: [employee.id] });
   };
 
-  const handlePrintingSubmit = async (/* stationId ignored */) => {
-    // We now always have explicit IDs in printingModal.employeeIds
-    const employeeCount = printingModal.employeeIds.length;
-
-    // Copy locally to avoid state closure issues if needed, though state is fine here
-    const idsToPrint = [...printingModal.employeeIds];
-
-    setPrintingModal({ isOpen: false, employeeIds: [] });
+  const generatePrintPdf = async (idsToPrint: string[]) => {
+    const employeeCount = idsToPrint.length;
+    if (employeeCount === 0) {
+      addNotification({
+        type: "error",
+        title: "Print Failed",
+        message: "No valid employees available for printing.",
+        autoClose: true,
+      });
+      return;
+    }
 
     const notificationId = addNotification({
       type: "progress",
@@ -667,7 +695,7 @@ export default function EmployeeList({
         "PDF_GENERATION",
         idsToPrint,
         activeFilters,
-        false
+        false,
       );
 
       // 2. Get Job IDs
@@ -679,7 +707,7 @@ export default function EmployeeList({
       const url = window.URL.createObjectURL(blob);
 
       // 4. Open PDF
-      window.open(url, '_blank');
+      window.open(url, "_blank");
 
       updateNotification(notificationId, {
         type: "success",
@@ -700,8 +728,31 @@ export default function EmployeeList({
     }
   };
 
+  const handlePrintingSubmit = async (/* stationId ignored */) => {
+    const idsToPrint = [...printingModal.employeeIds];
+    setPrintingModal({ isOpen: false, employeeIds: [] });
+    await generatePrintPdf(idsToPrint);
+  };
+
+  const handleConfirmPrintReview = async (includePreviouslyPrinted: boolean) => {
+    const idsToPrint = printReviewModal.rows
+      .filter(
+        (row) =>
+          row.hasPhoto &&
+          (includePreviouslyPrinted || !row.wasPreviouslyPrinted),
+      )
+      .map((row) => row.employeeDbId);
+
+    setPrintReviewModal({ isOpen: false, rows: [] });
+    await generatePrintPdf(idsToPrint.filter((id): id is string => Boolean(id)));
+  };
+
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this employee? This will also remove their card data.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this employee? This will also remove their card data.",
+      )
+    ) {
       return;
     }
 
@@ -724,7 +775,7 @@ export default function EmployeeList({
       });
 
       if (employees.length === 1 && currentPage > 1) {
-        setCurrentPage(prev => prev - 1);
+        setCurrentPage((prev) => prev - 1);
       } else {
         await loadEmployees();
       }
@@ -739,10 +790,57 @@ export default function EmployeeList({
     }
   };
 
+  const handleBookmark = async (employee: Employee) => {
+    const isBookmarked = Boolean(employee.isBookmarked);
+    const notificationId = addNotification({
+      type: "progress",
+      title: isBookmarked ? "Removing Bookmark" : "Bookmarking Employee",
+      message: isBookmarked
+        ? `Removing bookmark for ${employee.name || "employee"}...`
+        : `Bookmarking ${employee.name || "employee"}...`,
+      progress: 0,
+      autoClose: false,
+    });
+
+    try {
+      if (isBookmarked) {
+        await employeeService.unbookmarkEmployee(employee.id);
+      } else {
+        await employeeService.bookmarkEmployee(
+          employee.id,
+          "Bookmarked from employee list",
+        );
+      }
+
+      updateNotification(notificationId, {
+        type: "success",
+        title: isBookmarked ? "Bookmark Removed" : "Employee Bookmarked",
+        message: isBookmarked
+          ? `${employee.name || "Employee"} was removed from bookmarks`
+          : `${employee.name || "Employee"} has been bookmarked`,
+        autoClose: true,
+      });
+
+      await loadEmployees();
+    } catch (err) {
+      updateNotification(notificationId, {
+        type: "error",
+        title: isBookmarked ? "Remove Bookmark Failed" : "Bookmark Failed",
+        message: isBookmarked
+          ? "Failed to remove bookmark"
+          : "Failed to bookmark employee",
+        autoClose: true,
+      });
+      console.error(err);
+    }
+  };
+
   const clearFilters = () => {
     const cleared = {
       name: "",
       employeeId: "",
+      email: "",
+      isBookmarked: false,
       photoStatus: "all" as const,
       department: "all",
       employeeType: "all" as const,
@@ -781,16 +879,15 @@ export default function EmployeeList({
         <div className="mb-8 flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Employee List</h1>
-            <p className="text-slate-600">Manage employee cards and photo uploads</p>
+            <p className="text-slate-600">
+              Manage employee cards and photo uploads
+            </p>
           </div>
 
           {/* Header actions */}
           <div className="flex gap-3 items-center">
-
-
             {/* Upload dropdown */}
             <div className="relative" ref={uploadDropdownRef}>
-
               <button
                 onClick={() => setUploadDropdownOpen((o) => !o)}
                 disabled={loading}
@@ -798,13 +895,18 @@ export default function EmployeeList({
               >
                 <Upload className="w-4 h-4" />
                 Actions
-                <ChevronDown className={`w-4 h-4 transition-transform ${uploadDropdownOpen ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${uploadDropdownOpen ? "rotate-180" : ""}`}
+                />
               </button>
 
               {uploadDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 z-20 overflow-hidden">
                   <button
-                    onClick={() => { setCreateEmployeeModal(true); setUploadDropdownOpen(false); }}
+                    onClick={() => {
+                      setCreateEmployeeModal(true);
+                      setUploadDropdownOpen(false);
+                    }}
                     disabled={loading}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-green-50 hover:text-green-700 transition-colors"
                   >
@@ -832,7 +934,10 @@ export default function EmployeeList({
                   </button>
 
                   <button
-                    onClick={() => { setUploadToCreateOpen(true); setUploadDropdownOpen(false); }}
+                    onClick={() => {
+                      setUploadToCreateOpen(true);
+                      setUploadDropdownOpen(false);
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-green-50 hover:text-green-700 transition-colors"
                   >
                     <Plus className="w-4 h-4 text-green-600" />
@@ -840,7 +945,10 @@ export default function EmployeeList({
                   </button>
                   <div className="border-t border-slate-100" />
                   <button
-                    onClick={() => { setUploadToPrintOpen(true); setUploadDropdownOpen(false); }}
+                    onClick={() => {
+                      setUploadToPrintOpen(true);
+                      setUploadDropdownOpen(false);
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                   >
                     <Printer className="w-4 h-4 text-purple-600" />
@@ -849,17 +957,17 @@ export default function EmployeeList({
                 </div>
               )}
             </div>
-
-
           </div>
-
         </div>
 
         {(selectAllPages || selectedIds.size > 0) && userRole === "manager" && (
           <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <span className="text-blue-800 font-medium">
-                {selectAllPages ? totalRecords : selectedIds.size} employee{(selectAllPages ? totalRecords : selectedIds.size) > 1 ? "s" : ""}{" "}
+                {selectAllPages ? totalRecords : selectedIds.size} employee
+                {(selectAllPages ? totalRecords : selectedIds.size) > 1
+                  ? "s"
+                  : ""}{" "}
                 selected
                 {selectAllPages && " (all pages matching filters)"}
               </span>
@@ -925,6 +1033,7 @@ export default function EmployeeList({
             onRoleChange={handleRoleChange}
             onDelete={handleDelete}
             onEdit={handleOpenEdit}
+            onBookmark={handleBookmark}
             routes={{
               card: (id: string) => `/card/${id}`,
               detail: (id: string) => `/detail/${id}`,
@@ -962,6 +1071,14 @@ export default function EmployeeList({
         employeeCount={printingModal.employeeIds.length}
       />
 
+      <PrintBatchReviewModal
+        isOpen={printReviewModal.isOpen}
+        onClose={() => setPrintReviewModal({ isOpen: false, rows: [] })}
+        onConfirm={handleConfirmPrintReview}
+        rows={printReviewModal.rows}
+        title="Review Bulk Print Selection"
+      />
+
       <CreateEmployeeModal
         isOpen={createEmployeeModal}
         onClose={() => setCreateEmployeeModal(false)}
@@ -982,7 +1099,19 @@ export default function EmployeeList({
         onClose={() => setDownloadModalOpen(false)}
         onSubmit={handleDownloadSubmit}
         hasSelection={selectedIds.size > 0}
-        hasFilters={!!(activeFilters.name || activeFilters.employeeId || activeFilters.department !== "all" || activeFilters.photoStatus !== "all" || activeFilters.employeeType !== "all" || activeFilters.position !== "all" || activeFilters.requestStatus !== "all")}
+        hasFilters={
+          !!(
+            activeFilters.name ||
+            activeFilters.employeeId ||
+            activeFilters.email ||
+            activeFilters.isBookmarked ||
+            activeFilters.department !== "all" ||
+            activeFilters.photoStatus !== "all" ||
+            activeFilters.employeeType !== "all" ||
+            activeFilters.position !== "all" ||
+            activeFilters.requestStatus !== "all"
+          )
+        }
       />
 
       <UploadToCreateModal

@@ -2,7 +2,6 @@ import React, { RefObject, useState, useRef, useEffect } from "react";
 import { RefreshCw, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import ContractorFrontPageImage from "../../assets/ContractorFrontPageImage.jpg";
 import ConsultantFrontPageImage from "../../assets/ConsultantFrontPage.jpg";
-import GDFrontPageImage from "../../assets/GDFrontPage.jpg";
 import TransportAssistantFrontPageImage from "../../assets/TransportAssistantFrontPage.jpg";
 import { Employee } from "../../types";
 
@@ -90,7 +89,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
 
   const [aspect, setAspect] = useState(1);
 
-  console.log(employee.employeeId.length)
+  console.log(employee.employeeId.length);
 
   const getFrontPageImageByPosition = (position?: string) => {
     switch (position?.toLowerCase()) {
@@ -104,7 +103,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
       default:
         return ContractorFrontPageImage;
     }
-  }
+  };
 
   return (
     <div className={className}>
@@ -120,9 +119,16 @@ const FrontPage: React.FC<FrontPageProps> = ({
             <div className="p-14">
               <div className="flex justify-center">
                 {currentUserRole === "manager" ? (
-                  <img src={nrsLogoSrc} alt="NRS" className="h-15 object-contain" />
+                  <img
+                    src={nrsLogoSrc}
+                    alt="NRS"
+                    className="h-15 object-contain"
+                  />
                 ) : (
-                  <div className="h-15 object-contain" style={{ backgroundColor: "#FF0000" }}></div>
+                  <div
+                    className="h-15 object-contain"
+                    style={{ backgroundColor: "#FF0000" }}
+                  ></div>
                 )}
               </div>
             </div>
@@ -131,7 +137,7 @@ const FrontPage: React.FC<FrontPageProps> = ({
             <div className="relative group">
               <div
                 ref={containerRef}
-                className={`w-52 h-52 border-[8px] border-red-600 rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? 'cursor-move' : ''}`}
+                className={`w-52 h-52 border-[8px] border-red-600 rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? "cursor-move" : ""}`}
                 onMouseDown={handleMouseDown}
               >
                 {photoData && !validating ? (
@@ -144,11 +150,11 @@ const FrontPage: React.FC<FrontPageProps> = ({
                     }}
                     className="absolute pointer-events-none select-none left-1/2 top-1/2"
                     style={{
-                      maxWidth: 'none',
-                      width: aspect > 1 ? 'auto' : '100%',
-                      height: aspect > 1 ? '100%' : 'auto',
-                      minWidth: '100%',
-                      minHeight: '100%',
+                      maxWidth: "none",
+                      width: aspect > 1 ? "auto" : "100%",
+                      height: aspect > 1 ? "100%" : "auto",
+                      minWidth: "100%",
+                      minHeight: "100%",
                       transform: `translate(calc(-50% + ${photoX}px), calc(-50% + ${photoY}px)) scale(${photoScale})`,
                     }}
                   />
@@ -227,40 +233,42 @@ const FrontPage: React.FC<FrontPageProps> = ({
       )}
 
       {employee.employeeId.length > 5 && (
-
         <div
           className="relative max-w-[560px] aspect-[1.5/1] 
           overflow-hidden border border-gray-300 bg-white shadow-xl"
           style={
             currentUserRole.toLowerCase() === "manager"
               ? {
-                backgroundImage: `url(${getFrontPageImageByPosition(employee.position)})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-              }
+                  backgroundImage: `url(${getFrontPageImageByPosition(employee.position)})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                }
               : {
-                backgroundColor: "white",
-              }
+                  backgroundColor: "white",
+                }
           }
         >
-
           {/* Content Layer */}
-          <div className={
-            currentUserRole.toLowerCase() === "manager"
-              ? "absolute inset-0"
-              : "flex h-full w-full items-center justify-center gap-10 p-8"
-          }>
-            {/* Photo block */}
-            <div className={
+          <div
+            className={
               currentUserRole.toLowerCase() === "manager"
-                ? "absolute left-[9%] top-[25%]"
-                : "flex-shrink-0"
-            }>
+                ? "absolute inset-0"
+                : "flex h-full w-full items-center justify-center gap-10 p-8"
+            }
+          >
+            {/* Photo block */}
+            <div
+              className={
+                currentUserRole.toLowerCase() === "manager"
+                  ? "absolute left-[9%] top-[25%]"
+                  : "flex-shrink-0"
+              }
+            >
               <div className="relative group">
                 <div
                   ref={containerRef}
-                  className={`w-[170px] h-[170px] border-[8px] border-red-600 rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? 'cursor-move' : ''}`}
+                  className={`w-[170px] h-[170px] border-[8px] border-red-600 rounded-md overflow-hidden bg-gray-100 mb-6 relative ${isEditable && photoData ? "cursor-move" : ""}`}
                   onMouseDown={handleMouseDown}
                 >
                   {photoData && !validating ? (
@@ -331,11 +339,13 @@ const FrontPage: React.FC<FrontPageProps> = ({
             </div>
 
             {/* Text block */}
-            <div className={
-              currentUserRole.toLowerCase() === "manager"
-                ? "absolute left-[42%] top-[37%] text-left"
-                : "flex flex-col text-left justify-center"
-            }>
+            <div
+              className={
+                currentUserRole.toLowerCase() === "manager"
+                  ? "absolute left-[42%] top-[37%] text-left"
+                  : "flex flex-col text-left justify-center"
+              }
+            >
               <h3 className="text-[1.25rem] font-bold uppercase leading-none tracking-wide text-black">
                 {employee.name}
               </h3>
@@ -343,26 +353,21 @@ const FrontPage: React.FC<FrontPageProps> = ({
               <p className="mt-3 text-[1.1rem] font-medium uppercase tracking-wide text-gray-800">
                 {employee.idPrefix} {employee.employeeId}
               </p>
-              {
-                (employee.position?.toLocaleLowerCase() === 'consultant' || employee.position?.toLocaleLowerCase() === 'transport assistant') && (
-                  <p className="mt-2 text-[1.1rem] font-medium uppercase tracking-wide text-gray-900">
-                    {employee.consultantPrefix
-                      ? `${employee.consultantPrefix} ${employee.position}`
-                      : employee.position}
-                  </p>
-                )
-              }
-
+              {(employee.position?.toLocaleLowerCase() === "consultant" ||
+                employee.position?.toLocaleLowerCase() ===
+                  "transport assistant") && (
+                <p className="mt-2 text-[1.1rem] font-medium uppercase tracking-wide text-gray-900">
+                  {employee.consultantPrefix
+                    ? `${employee.consultantPrefix} ${employee.position}`
+                    : employee.position}
+                </p>
+              )}
             </div>
           </div>
         </div>
-
-
       )}
-
     </div>
   );
 };
 
 export default FrontPage;
-

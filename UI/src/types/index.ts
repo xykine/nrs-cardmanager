@@ -15,6 +15,7 @@ export interface Employee {
   photoPresent: boolean;
   invitationToken?: string;
   invitationSentAt?: string;
+  isBookmarked?: boolean;
   createdAt: string;
   updatedAt: string;
   card?: Card;
@@ -138,4 +139,23 @@ export interface PrintUploadResult {
   jobIds: string[];
   pdfGenerated?: boolean;
   pdfMessage?: string;
+}
+
+export interface EmployeeNotification {
+  id: string;
+  employeeId: string;
+  actionType: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  employee?: Employee;
+}
+
+export interface EmployeeNotificationListResponse {
+  items: EmployeeNotification[];
+  total: number;
+  unread: number;
 }
