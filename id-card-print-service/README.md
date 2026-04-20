@@ -28,7 +28,7 @@ sqlite3 print.db < src/app/sample-data.sql
 build image
 ############
 
-docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/id-card-print-service:2.3 --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/id-card-print-service:2.7 --push .
 
 Last working version 0.8 api 
 UI 0.8
@@ -37,6 +37,6 @@ UI 0.8
 build UI image
 #########
 
-docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/nrs-cardmanager-ui:2.3 --build-arg VITE_API_URL=/api --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/nrs-cardmanager-ui:2.7 --build-arg VITE_API_URL=/api --push .
 
 
