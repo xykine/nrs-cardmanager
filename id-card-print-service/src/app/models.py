@@ -83,6 +83,10 @@ class Employee(Base):
     requests = relationship("EmployeeRequest", back_populates="employee", cascade="all, delete-orphan")
     bookmark = relationship("BookmarkedEmployee", back_populates="employee", uselist=False, cascade="all, delete-orphan")
 
+    @property
+    def is_bookmarked(self) -> bool:
+        return bool(self.bookmark and self.bookmark.status == "active")
+
 
 class BookmarkedEmployee(Base):
     __tablename__ = "bookmarked_employees"

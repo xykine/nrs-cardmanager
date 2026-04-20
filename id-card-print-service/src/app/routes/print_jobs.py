@@ -732,6 +732,32 @@ def delete_bulk_batches(
         
     db.commit()
     return {"ok": True, "deleted": len(jobs)}
+@router.post("/print-reports/status")
+def get_print_history_status(
+    payload: Dict[str, List[str]],
+    db: Session = Depends(get_db),
+):
+    employee_ids = payload.get("employeeIds", [])
+    if not employee_ids:
+        return {"items": []}
+
+    reports = (
+        db.query(PrintReport)
+        .filter(PrintReport.employee_id.in_(employee_ids))
+        .all()
+    )
+    return {
+        "items": [
+            {
+                "employeeId": report.employee_id,
+                "cardCount": report.card_count,
+                "lastPrintDate": report.print_date.isoformat(),
+            }
+            for report in reports
+        ]
+    }
+
+
 @router.get("/print-reports", response_model=PrintReportListOut)
 def list_reports(
     page: int = Query(1, ge=1),

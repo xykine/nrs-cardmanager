@@ -164,6 +164,29 @@ export const employeeService = {
     return response.json();
   },
 
+  async bookmarkEmployee(
+    id: string,
+    reason: string = "Manually bookmarked from upload summary",
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}/bookmark`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    if (!response.ok) throw new Error("Failed to bookmark employee");
+    return response.json();
+  },
+
+  async unbookmarkEmployee(
+    id: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/employees/${id}/bookmark`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to remove employee bookmark");
+    return response.json();
+  },
+
   async sendBulkEmail(
     ids: string[],
     message: string,
@@ -371,6 +394,18 @@ export const printingService = {
 
     const response = await fetch(`${API_BASE_URL}/print-reports?${params.toString()}`);
     if (!response.ok) throw new Error("Failed to fetch print reports");
+    return response.json();
+  },
+
+  async getPrintHistoryStatus(employeeIds: string[]): Promise<{
+    items: { employeeId: string; cardCount: number; lastPrintDate: string }[];
+  }> {
+    const response = await fetch(`${API_BASE_URL}/print-reports/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeIds }),
+    });
+    if (!response.ok) throw new Error("Failed to fetch print history status");
     return response.json();
   },
 

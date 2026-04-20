@@ -156,6 +156,7 @@ class EmployeePublic(APIModel):
     photo_present: bool = Field(alias="photoPresent")
     invitation_token: Optional[str] = Field(default=None, alias="invitationToken")
     invitation_sent_at: Optional[datetime] = Field(default=None, alias="invitationSentAt")
+    is_bookmarked: bool = Field(default=False, alias="isBookmarked")
     created_at: datetime = Field(alias="createdAt")
     updated_at: datetime = Field(alias="updatedAt")
 

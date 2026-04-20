@@ -1410,7 +1410,7 @@ def list_employees(
     request_status: Optional[str] = Query(None, alias="requestStatus"),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Employee)
+    query = db.query(Employee).options(joinedload(Employee.bookmark))
     query = _apply_employee_filters(
         query,
         name=name,
@@ -2337,3 +2337,46 @@ def send_single_email(
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(exc)}")
 
     return {"success": True, "message": "Email sent successfully"}
+
+
+@router.post("/{employee_id}/bookmark")
+def bookmark_employee(
+    employee_id: str,
+    payload: Dict[str, Any] | None = None,
+    db: Session = Depends(get_db),
+):
+    employee = get_employee_byid_or_404(db, employee_id)
+    reason = ((payload or {}).get("reason") or "").strip() or "Manually bookmarked"
+
+    try:
+        _upsert_bookmarked_employee(db, employee, reason=reason)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to bookmark employee") from exc
+
+    return {"success": True, "message": "Employee bookmarked successfully"}
+
+
+@router.delete("/{employee_id}/bookmark")
+def unbookmark_employee(
+    employee_id: str,
+    db: Session = Depends(get_db),
+):
+    employee = get_employee_byid_or_404(db, employee_id)
+    bookmarked = (
+        db.query(BookmarkedEmployee)
+        .filter(BookmarkedEmployee.employee_id == employee.employee_id)
+        .first()
+    )
+    if not bookmarked:
+        return {"success": True, "message": "Employee is not bookmarked"}
+
+    try:
+        db.delete(bookmarked)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to remove bookmark") from exc
+
+    return {"success": True, "message": "Employee bookmark removed successfully"}

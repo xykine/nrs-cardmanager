@@ -15,6 +15,7 @@ export interface Employee {
   photoPresent: boolean;
   invitationToken?: string;
   invitationSentAt?: string;
+  isBookmarked?: boolean;
   createdAt: string;
   updatedAt: string;
   card?: Card;

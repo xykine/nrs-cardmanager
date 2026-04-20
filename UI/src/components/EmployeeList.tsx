@@ -23,6 +23,7 @@ import DownloadEmployeeModal from "./DownloadEmployeeModal";
 import EditEmployeeModal from "./EditEmployeeModal";
 import UploadToCreateModal from "./UploadToCreateModal";
 import UploadToPrintModal from "./UploadToPrintModal";
+import PrintBatchReviewModal, { PrintReviewRow } from "./PrintBatchReviewModal";
 
 interface EmployeeListProps {
   userRole: "manager" | "staff";
@@ -58,6 +59,10 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
     isOpen: boolean;
     employeeIds: string[];
   }>({ isOpen: false, employeeIds: [] });
+  const [printReviewModal, setPrintReviewModal] = useState<{
+    isOpen: boolean;
+    rows: PrintReviewRow[];
+  }>({ isOpen: false, rows: [] });
   const [createEmployeeModal, setCreateEmployeeModal] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [editModal, setEditModal] = useState<{
@@ -464,11 +469,9 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
   };
 
   const handleBulkPrintCard = async () => {
-    let ids: string[];
-    let employeeCount: number;
+    let selectedEmployees: Employee[] = [];
 
     if (selectAllPages) {
-      // Fetch all IDs if selecting all pages
       try {
         setLoading(true);
         const response = await employeeService.getAll(
@@ -476,74 +479,61 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
           totalRecords,
           activeFilters,
         );
-        ids = response.items.filter((e) => e.photoPresent).map((e) => e.id);
-        employeeCount = response.items.length; // Total attempt
-
-        if (ids.length === 0) {
-          addNotification({
-            type: "error",
-            title: "Print Failed",
-            message: "None of the selected employees have photos uploaded",
-            autoClose: true,
-          });
-          setLoading(false);
-          return;
-        }
-
-        if (ids.length < employeeCount) {
-          const withoutPhoto = employeeCount - ids.length;
-          if (
-            !confirm(
-              `${withoutPhoto} employee(s) don't have photos - they will be skipped. Continue printing for the ${ids.length} valid employee(s)?`,
-            )
-          ) {
-            setLoading(false);
-            return;
-          }
-        }
-        setLoading(false);
+        selectedEmployees = response.items;
       } catch (err) {
         console.error("Failed to fetch all IDs for print", err);
         addNotification({
           type: "error",
           title: "Print Failed",
-          message: "Failed to prepare print job. Please try again.",
+          message: "Failed to prepare print review. Please try again.",
           autoClose: true,
         });
-        setLoading(false);
         return;
+      } finally {
+        setLoading(false);
       }
     } else {
-      const selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
-      const employeesWithPhoto = selectedEmployees.filter(
-        (e) => e.photoPresent,
-      );
-      ids = employeesWithPhoto.map((e) => e.id);
-      employeeCount = selectedEmployees.length;
-
-      if (ids.length === 0) {
-        addNotification({
-          type: "error",
-          title: "Print Failed",
-          message: "None of the selected employees have photos uploaded",
-          autoClose: true,
-        });
-        return;
-      }
-
-      if (ids.length < employeeCount) {
-        const withoutPhoto = employeeCount - ids.length;
-        if (
-          !confirm(
-            `${withoutPhoto} employee(s) don't have photos. Continue printing for the rest?`,
-          )
-        ) {
-          return;
-        }
-      }
+      selectedEmployees = employees.filter((e) => selectedIds.has(e.id));
     }
 
-    setPrintingModal({ isOpen: true, employeeIds: ids });
+    if (selectedEmployees.length === 0) {
+      addNotification({
+        type: "error",
+        title: "Print Failed",
+        message: "No employees selected for printing.",
+        autoClose: true,
+      });
+      return;
+    }
+
+    try {
+      const history = await printingService.getPrintHistoryStatus(
+        selectedEmployees.map((employee) => employee.id),
+      );
+      const printedMap = new Map(
+        history.items.map((item) => [item.employeeId, item]),
+      );
+
+      const rows: PrintReviewRow[] = selectedEmployees.map((employee) => ({
+        employeeDbId: employee.id,
+        employeeId: employee.employeeId,
+        name: employee.name || employee.email || employee.employeeId,
+        hasPhoto: employee.photoPresent,
+        wasPreviouslyPrinted: printedMap.has(employee.id),
+        skipReasonIfExcluded:
+          "Previously printed (present in print history)",
+      }));
+
+      setPrintReviewModal({ isOpen: true, rows });
+    } catch (err) {
+      console.error(err);
+      addNotification({
+        type: "error",
+        title: "Print Review Failed",
+        message: "Failed to load print history for selected employees.",
+        autoClose: true,
+      });
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -677,14 +667,17 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
     setPrintingModal({ isOpen: true, employeeIds: [employee.id] });
   };
 
-  const handlePrintingSubmit = async (/* stationId ignored */) => {
-    // We now always have explicit IDs in printingModal.employeeIds
-    const employeeCount = printingModal.employeeIds.length;
-
-    // Copy locally to avoid state closure issues if needed, though state is fine here
-    const idsToPrint = [...printingModal.employeeIds];
-
-    setPrintingModal({ isOpen: false, employeeIds: [] });
+  const generatePrintPdf = async (idsToPrint: string[]) => {
+    const employeeCount = idsToPrint.length;
+    if (employeeCount === 0) {
+      addNotification({
+        type: "error",
+        title: "Print Failed",
+        message: "No valid employees available for printing.",
+        autoClose: true,
+      });
+      return;
+    }
 
     const notificationId = addNotification({
       type: "progress",
@@ -735,6 +728,25 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
     }
   };
 
+  const handlePrintingSubmit = async (/* stationId ignored */) => {
+    const idsToPrint = [...printingModal.employeeIds];
+    setPrintingModal({ isOpen: false, employeeIds: [] });
+    await generatePrintPdf(idsToPrint);
+  };
+
+  const handleConfirmPrintReview = async (includePreviouslyPrinted: boolean) => {
+    const idsToPrint = printReviewModal.rows
+      .filter(
+        (row) =>
+          row.hasPhoto &&
+          (includePreviouslyPrinted || !row.wasPreviouslyPrinted),
+      )
+      .map((row) => row.employeeDbId);
+
+    setPrintReviewModal({ isOpen: false, rows: [] });
+    await generatePrintPdf(idsToPrint.filter((id): id is string => Boolean(id)));
+  };
+
   const handleDelete = async (id: string) => {
     if (
       !confirm(
@@ -772,6 +784,51 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
         type: "error",
         title: "Delete Failed",
         message: "Failed to delete employee",
+        autoClose: true,
+      });
+      console.error(err);
+    }
+  };
+
+  const handleBookmark = async (employee: Employee) => {
+    const isBookmarked = Boolean(employee.isBookmarked);
+    const notificationId = addNotification({
+      type: "progress",
+      title: isBookmarked ? "Removing Bookmark" : "Bookmarking Employee",
+      message: isBookmarked
+        ? `Removing bookmark for ${employee.name || "employee"}...`
+        : `Bookmarking ${employee.name || "employee"}...`,
+      progress: 0,
+      autoClose: false,
+    });
+
+    try {
+      if (isBookmarked) {
+        await employeeService.unbookmarkEmployee(employee.id);
+      } else {
+        await employeeService.bookmarkEmployee(
+          employee.id,
+          "Bookmarked from employee list",
+        );
+      }
+
+      updateNotification(notificationId, {
+        type: "success",
+        title: isBookmarked ? "Bookmark Removed" : "Employee Bookmarked",
+        message: isBookmarked
+          ? `${employee.name || "Employee"} was removed from bookmarks`
+          : `${employee.name || "Employee"} has been bookmarked`,
+        autoClose: true,
+      });
+
+      await loadEmployees();
+    } catch (err) {
+      updateNotification(notificationId, {
+        type: "error",
+        title: isBookmarked ? "Remove Bookmark Failed" : "Bookmark Failed",
+        message: isBookmarked
+          ? "Failed to remove bookmark"
+          : "Failed to bookmark employee",
         autoClose: true,
       });
       console.error(err);
@@ -976,6 +1033,7 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
             onRoleChange={handleRoleChange}
             onDelete={handleDelete}
             onEdit={handleOpenEdit}
+            onBookmark={handleBookmark}
             routes={{
               card: (id: string) => `/card/${id}`,
               detail: (id: string) => `/detail/${id}`,
@@ -1011,6 +1069,14 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
         onClose={() => setPrintingModal({ isOpen: false, employeeIds: [] })}
         onSubmit={handlePrintingSubmit}
         employeeCount={printingModal.employeeIds.length}
+      />
+
+      <PrintBatchReviewModal
+        isOpen={printReviewModal.isOpen}
+        onClose={() => setPrintReviewModal({ isOpen: false, rows: [] })}
+        onConfirm={handleConfirmPrintReview}
+        rows={printReviewModal.rows}
+        title="Review Bulk Print Selection"
       />
 
       <CreateEmployeeModal
