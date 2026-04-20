@@ -300,3 +300,26 @@ class EmployeeRequestPublic(APIModel):
     status: str
     created_at: datetime = Field(alias="createdAt")
     updated_at: datetime = Field(alias="updatedAt")
+
+
+class EmployeeNotificationOut(APIModel):
+    id: str
+    employee_id: str = Field(alias="employeeId")
+    action_type: str = Field(alias="actionType")
+    title: str
+    message: str
+    is_read: bool = Field(alias="isRead")
+    payload: Optional[dict] = Field(
+        default=None,
+        validation_alias="payload",
+        serialization_alias="metadata",
+    )
+    created_at: datetime = Field(alias="createdAt")
+    updated_at: datetime = Field(alias="updatedAt")
+    employee: Optional[EmployeePublic] = None
+
+
+class EmployeeNotificationListOut(APIModel):
+    items: list[EmployeeNotificationOut]
+    total: int
+    unread: int

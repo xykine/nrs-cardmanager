@@ -1,11 +1,14 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
     LayoutDashboard,
     Users,
     Printer,
+    Bell,
     LogOut
 } from "lucide-react";
 import nrsLogo from "../assets/nrs_img.jpeg";
+import { notificationService } from "../services/api";
 
 interface NavbarProps {
     onLogout: () => void;
@@ -15,13 +18,36 @@ interface NavbarProps {
 
 export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
     const location = useLocation();
+    const [unreadCount, setUnreadCount] = useState(0);
 
     if (userRole !== "manager") return null;
+
+    useEffect(() => {
+        let mounted = true;
+        const loadCount = async () => {
+            try {
+                const count = await notificationService.getCount();
+                if (mounted) {
+                    setUnreadCount(count.unread);
+                }
+            } catch (error) {
+                console.error("Failed to fetch notification count", error);
+            }
+        };
+
+        loadCount();
+        const interval = window.setInterval(loadCount, 15000);
+        return () => {
+            mounted = false;
+            window.clearInterval(interval);
+        };
+    }, []);
 
     const navItems = [
         { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
         { label: "Employees", path: "/employees", icon: Users },
         { label: "Print History", path: "/printing", icon: Printer },
+        { label: "Notifications", path: "/notifications", icon: Bell },
     ];
 
     const isActive = (path: string) => {
@@ -58,7 +84,14 @@ export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
                                             : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
                                             }`}
                                     >
-                                        <Icon className="w-4 h-4 mr-2" />
+                                        <span className="relative mr-2 inline-flex">
+                                            <Icon className="w-4 h-4" />
+                                            {item.path === "/notifications" && unreadCount > 0 && (
+                                                <span className="absolute -right-2 -top-2 min-w-[16px] rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-4 text-white">
+                                                    {unreadCount > 99 ? "99+" : unreadCount}
+                                                </span>
+                                            )}
+                                        </span>
                                         {item.label}
                                     </Link>
                                 );
@@ -95,7 +128,14 @@ export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
                                 className={`flex flex-col items-center p-2 text-xs font-medium transition-colors ${active ? "text-blue-600" : "text-slate-500"
                                     }`}
                             >
-                                <Icon className="w-5 h-5 mb-1" />
+                                <span className="relative mb-1 inline-flex">
+                                    <Icon className="w-5 h-5" />
+                                    {item.path === "/notifications" && unreadCount > 0 && (
+                                        <span className="absolute -right-2 -top-2 min-w-[16px] rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-4 text-white">
+                                            {unreadCount > 99 ? "99+" : unreadCount}
+                                        </span>
+                                    )}
+                                </span>
                                 {item.label}
                             </Link>
                         );

@@ -322,7 +322,7 @@ export default function EmployeeTable({
                     </button>
 
                     {openMenuId === employee.id && (
-                      <div className="absolute right-0 top-10 z-20 w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+                      <div className="absolute right-0 top-10 z-[120] w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
                         {userRole === "manager" && (
                           <>
                             <button

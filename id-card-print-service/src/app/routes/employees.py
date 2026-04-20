@@ -52,6 +52,7 @@ from ..schemas import (
     EmployeeUploadResult,
     SingleEmailRequest,
 )
+from .notifications import add_bookmarked_employee_notification
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 logger = logging.getLogger(__name__)
@@ -1358,6 +1359,128 @@ def _upsert_bookmarked_employee(
     )
 
 
+def _remove_bookmarked_employee(db: Session, employee: Employee) -> bool:
+    bookmarked = (
+        db.query(BookmarkedEmployee)
+        .filter(BookmarkedEmployee.employee_id == employee.employee_id)
+        .first()
+    )
+    if not bookmarked:
+        return False
+    db.delete(bookmarked)
+    return True
+
+
+def send_daily_bookmark_reminders(db: Session) -> Dict[str, int]:
+    base_ui_url = _get_base_ui_url()
+    subject = (
+        os.getenv("PHOTO_UPLOAD_REMINDER_SUBJECT", "Reminder: Upload your photo")
+        or "Reminder: Upload your photo"
+    ).strip()
+    reminder_note = (
+        os.getenv(
+            "PHOTO_UPLOAD_REMINDER_MESSAGE",
+            "This is a gentle reminder to complete your photo upload.",
+        )
+        or "This is a gentle reminder to complete your photo upload."
+    ).strip()
+
+    employees = (
+        db.query(Employee)
+        .join(
+            BookmarkedEmployee,
+            BookmarkedEmployee.employee_id == Employee.employee_id,
+        )
+        .filter(BookmarkedEmployee.status == "active")
+        .filter(Employee.invitation_sent_at.isnot(None))
+        .all()
+    )
+    if not employees:
+        return {"sent": 0, "failed": 0, "skipped": 0}
+
+    mailgun_configured = any(
+        (os.getenv("MAILGUN_API_KEY"), os.getenv("MAILGUN_DOMAIN"), os.getenv("MAILGUN_FROM"))
+    )
+    smtp = None
+    settings = None
+    if mailgun_configured:
+        settings = _get_mailgun_settings()
+    else:
+        settings = _get_smtp_settings()
+        smtp = _open_smtp_connection(settings)
+
+    sent = 0
+    failed = 0
+    skipped = 0
+    try:
+        for employee in employees:
+            to_email = _normalize_email(employee.email)
+            if not to_email:
+                skipped += 1
+                continue
+
+            upload_link = f"{base_ui_url}/card-upload/invitation"
+            login_code = employee.employee_id
+            text_body = _build_photo_upload_message(
+                employee.name,
+                upload_link,
+                login_code,
+                reminder_note,
+            )
+            html_body = _build_photo_upload_html(
+                employee.name,
+                upload_link,
+                login_code,
+                reminder_note,
+                support_email=(os.getenv("PHOTO_UPLOAD_SUPPORT_EMAIL") or "HR Department").strip(),
+                organization_name=(
+                    os.getenv("PHOTO_UPLOAD_ORGANIZATION_NAME") or "Your Organization Name"
+                ).strip(),
+                hr_team=(os.getenv("PHOTO_UPLOAD_HR_TEAM") or "HR / Administration Team").strip(),
+                support_contact=(os.getenv("PHOTO_UPLOAD_SUPPORT_CONTACT") or "").strip(),
+                sample_image_url=(os.getenv("PHOTO_UPLOAD_SAMPLE_IMAGE_URL") or "").strip() or None,
+            )
+            try:
+                if mailgun_configured:
+                    _send_mailgun_message(
+                        settings,
+                        to_email=to_email,
+                        subject=subject,
+                        text=text_body,
+                        html_body=html_body,
+                    )
+                else:
+                    msg = EmailMessage()
+                    msg["From"] = settings["sender"]
+                    msg["To"] = to_email
+                    msg["Subject"] = subject
+                    msg.set_content(text_body)
+                    msg.add_alternative(html_body, subtype="html")
+                    smtp.send_message(msg)
+
+                add_bookmarked_employee_notification(
+                    db,
+                    employee,
+                    action_type="reminder_sent",
+                    title="Reminder Email Sent",
+                    message=f"Reminder email was sent to {employee.name or employee.employee_id}.",
+                    payload={"channel": "daily_cron_reminder"},
+                )
+                sent += 1
+            except Exception:
+                failed += 1
+                logger.exception("Failed reminder email for %s", to_email)
+    finally:
+        if smtp:
+            try:
+                smtp.quit()
+            except Exception:
+                smtp.close()
+
+    db.commit()
+    return {"sent": sent, "failed": failed, "skipped": skipped}
+
+
 @router.get("/sync-employee", response_model=list[EmployeeOut])
 def sync_employees(db: Session = Depends(get_db)):
     try:
@@ -1816,6 +1939,14 @@ def send_bulk_email(
                     db.add(req_record)
 
                 _upsert_bookmarked_employee(db, employee)
+                add_bookmarked_employee_notification(
+                    db,
+                    employee,
+                    action_type="email_sent",
+                    title="Email Sent",
+                    message=f"Photo upload email was sent to {employee.name or employee.employee_id}.",
+                    payload={"channel": "bulk_email"},
+                )
                 
                 success += 1
             except Exception:
@@ -1922,7 +2053,22 @@ def update_photo_status(
     db: Session = Depends(get_db),
 ):
     employee = get_employee_or_404(db, employee_id)
+    previous_photo_present = bool(employee.photo_present)
     employee.photo_present = payload.photo_present
+    if previous_photo_present != bool(payload.photo_present):
+        add_bookmarked_employee_notification(
+            db,
+            employee,
+            action_type="photo_status_updated",
+            title="Photo Status Updated",
+            message=(
+                f"Photo status changed to {'present' if payload.photo_present else 'missing'} "
+                f"for {employee.name or employee.employee_id}."
+            ),
+            payload={"photoPresent": payload.photo_present},
+        )
+        if bool(payload.photo_present):
+            _remove_bookmarked_employee(db, employee)
 
     try:
         db.commit()
@@ -1998,25 +2144,59 @@ def update_employee(
     db: Session = Depends(get_db),
 ):
     employee = get_employee_byid_or_404(db, employee_id)
+    changed_fields: list[str] = []
 
     if payload.name is not None:
+        if payload.name != employee.name:
+            changed_fields.append("name")
         employee.name = payload.name
     if payload.employee_id is not None:
-        employee.employee_id = payload.employee_id.strip()
+        new_employee_id = payload.employee_id.strip()
+        if new_employee_id != employee.employee_id:
+            changed_fields.append("employeeId")
+        employee.employee_id = new_employee_id
     if payload.email is not None:
-        employee.email = _normalize_email(payload.email) or employee.email
+        normalized_email = _normalize_email(payload.email) or employee.email
+        if normalized_email != employee.email:
+            changed_fields.append("email")
+        employee.email = normalized_email
     if payload.department is not None:
+        if payload.department != employee.department:
+            changed_fields.append("department")
         employee.department = payload.department
     if payload.position is not None:
+        if payload.position != employee.position:
+            changed_fields.append("position")
         employee.position = payload.position
     if payload.consultant_prefix is not None:
+        if payload.consultant_prefix != employee.consultant_prefix:
+            changed_fields.append("consultantPrefix")
         employee.consultant_prefix = payload.consultant_prefix
     if payload.id_prefix is not None:
+        if payload.id_prefix != employee.id_prefix:
+            changed_fields.append("idPrefix")
         employee.id_prefix = payload.id_prefix
     if payload.employment_start_date is not None:
+        if payload.employment_start_date != employee.employment_start_date:
+            changed_fields.append("employmentStartDate")
         employee.employment_start_date = payload.employment_start_date
     if payload.employment_end_date is not None:
+        if payload.employment_end_date != employee.employment_end_date:
+            changed_fields.append("employmentEndDate")
         employee.employment_end_date = payload.employment_end_date
+    if changed_fields:
+        add_bookmarked_employee_notification(
+            db,
+            employee,
+            action_type="employee_data_updated",
+            title="Employee Data Updated",
+            message=(
+                f"{employee.name or employee.employee_id} updated data fields: "
+                f"{', '.join(changed_fields)}."
+            ),
+            payload={"fields": changed_fields},
+        )
+        _remove_bookmarked_employee(db, employee)
 
     try:
         db.commit()
@@ -2329,6 +2509,14 @@ def send_single_email(
         db.add(req_record)
 
         _upsert_bookmarked_employee(db, employee)
+        add_bookmarked_employee_notification(
+            db,
+            employee,
+            action_type="email_sent",
+            title="Email Sent",
+            message=f"Photo upload email was sent to {employee.name or employee.employee_id}.",
+            payload={"channel": "single_email"},
+        )
 
         employee.invitation_sent_at = datetime.now(timezone.utc)
         db.commit()

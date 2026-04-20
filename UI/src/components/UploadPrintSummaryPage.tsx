@@ -1159,7 +1159,7 @@ function SummaryRow({
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-10 z-20 w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+            <div className="absolute right-0 top-10 z-[120] w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
               <button
                 type="button"
                 onClick={async () => {

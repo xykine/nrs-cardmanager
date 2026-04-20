@@ -7,6 +7,8 @@ import {
   PrintBatch,
   JobStatus,
   PrintUploadResult,
+  EmployeeNotification,
+  EmployeeNotificationListResponse,
 } from "../types";
 
 const API_BASE_URL =
@@ -507,6 +509,48 @@ export const printingService = {
       throw new Error(errorData.detail || "Failed to process print upload file");
     }
 
+    return response.json();
+  },
+};
+
+export const notificationService = {
+  async list(limit: number = 30, unreadOnly: boolean = false): Promise<EmployeeNotificationListResponse> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      unreadOnly: unreadOnly ? "true" : "false",
+    });
+    const response = await fetch(`${API_BASE_URL}/notifications?${params.toString()}`);
+    if (!response.ok) throw new Error("Failed to fetch notifications");
+    return response.json();
+  },
+
+  async getCount(): Promise<{ unread: number; total: number }> {
+    const response = await fetch(`${API_BASE_URL}/notifications/count`);
+    if (!response.ok) throw new Error("Failed to fetch notification count");
+    return response.json();
+  },
+
+  async markRead(id: string): Promise<EmployeeNotification> {
+    const response = await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
+      method: "PATCH",
+    });
+    if (!response.ok) throw new Error("Failed to mark notification as read");
+    return response.json();
+  },
+
+  async markAllRead(): Promise<{ ok: boolean; updated: number }> {
+    const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+      method: "PATCH",
+    });
+    if (!response.ok) throw new Error("Failed to mark all notifications as read");
+    return response.json();
+  },
+
+  async delete(id: string): Promise<{ ok: boolean }> {
+    const response = await fetch(`${API_BASE_URL}/notifications/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete notification");
     return response.json();
   },
 };
