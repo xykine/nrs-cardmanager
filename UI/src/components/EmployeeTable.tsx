@@ -395,33 +395,35 @@ export default function EmployeeTable({
                               Delete Employee
                             </button>
 
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                navigate(cardRoute(employee.id));
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-amber-50"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                              View/Edit Card
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                navigate(detailRoute(employee.id));
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                            >
+                              <Eye className="w-4 h-4" />
+                              View Details
+                            </button>
+
                             <div className="my-1 border-t border-slate-100" />
                           </>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            navigate(cardRoute(employee.id));
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-amber-50"
-                        >
-                          <CreditCard className="w-4 h-4" />
-                          View/Edit Card
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            navigate(detailRoute(employee.id));
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
-                        >
-                          <Eye className="w-4 h-4" />
-                          View Details
-                        </button>
+                       
                       </div>
                     )}
                   </div>
