@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { Bookmark, CreditCard, Download, Eye, Mail, MoreVertical, Pencil, Printer, RefreshCw } from "lucide-react";
 import EmailDialog from "./EmailDialog";
 import {
@@ -1101,16 +1102,55 @@ function SummaryRow({
   const isEditing = actionInFlight.action === "edit" && actionInFlight.rowKey === rowKey;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+
+  const updateMenuPosition = () => {
+    if (!menuTriggerRef.current) return;
+    const rect = menuTriggerRef.current.getBoundingClientRect();
+    const menuWidth = 208;
+    const menuHeight = menuRef.current?.offsetHeight ?? 360;
+    const viewportPadding = 8;
+    const gap = 4;
+
+    let top = rect.bottom + gap;
+    if (top + menuHeight > window.innerHeight - viewportPadding) {
+      top = Math.max(viewportPadding, rect.top - menuHeight - gap);
+    }
+
+    const left = Math.min(
+      Math.max(viewportPadding, rect.right - menuWidth),
+      window.innerWidth - menuWidth - viewportPadding,
+    );
+
+    setMenuPosition({ top, left });
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const clickedInsideMenu = menuRef.current?.contains(target);
+      const clickedTrigger = menuTriggerRef.current?.contains(target);
+      if (!clickedInsideMenu && !clickedTrigger) {
         setMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    updateMenuPosition();
+
+    const onViewportChange = () => updateMenuPosition();
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
+    return () => {
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
+    };
   }, [menuOpen]);
 
   return (
@@ -1146,19 +1186,33 @@ function SummaryRow({
       </td>
       <td className="px-4 py-3 text-slate-700">{row.message}</td>
       <td className="px-4 py-3">
-        <div className="relative" ref={menuRef}>
+        <div className="relative">
           <button
+            ref={menuOpen ? menuTriggerRef : null}
             type="button"
-            onClick={() => setMenuOpen((prev) => !prev)}
+            onClick={() =>
+              setMenuOpen((prev) => {
+                const next = !prev;
+                if (next) {
+                  requestAnimationFrame(() => updateMenuPosition());
+                }
+                return next;
+              })
+            }
             className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-slate-700 hover:bg-slate-50"
             aria-label={`Open actions for row ${row.rowNumber}`}
             aria-expanded={menuOpen}
           >
             <MoreVertical className="w-4 h-4" />
           </button>
-
-          {menuOpen && (
-            <div className="absolute right-0 top-10 z-[120] w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+        </div>
+        {menuOpen &&
+          createPortal(
+            <div
+              ref={menuRef}
+              className="fixed z-[9999] w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl"
+              style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
+            >
               <button
                 type="button"
                 onClick={() => {
@@ -1268,9 +1322,9 @@ function SummaryRow({
                 <CreditCard className="w-4 h-4" />
                 View/Edit Card
               </button>
-            </div>
+            </div>,
+            document.body,
           )}
-        </div>
       </td>
     </tr>
   );
