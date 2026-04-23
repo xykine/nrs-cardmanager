@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import {
   Bookmark,
   BookmarkCheck,
@@ -70,11 +71,38 @@ export default function EmployeeTable({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
   const allSelected = useMemo(() => {
     if (isAllSelected) return true;
     return employees.length > 0 && employees.every(e => selectedIds.has(e.id));
   }, [employees, selectedIds, isAllSelected]);
+  const openEmployee = useMemo(
+    () => employees.find((employee) => employee.id === openMenuId) ?? null,
+    [employees, openMenuId],
+  );
+  const updateMenuPosition = () => {
+    if (!menuTriggerRef.current) return;
+    const rect = menuTriggerRef.current.getBoundingClientRect();
+    const menuWidth = 208; // w-52
+    const menuHeight = menuRef.current?.offsetHeight ?? (userRole === "manager" ? 360 : 180);
+    const viewportPadding = 8;
+    const gap = 4;
+
+    let top = rect.bottom + gap;
+    if (top + menuHeight > window.innerHeight - viewportPadding) {
+      top = Math.max(viewportPadding, rect.top - menuHeight - gap);
+    }
+
+    const left = Math.min(
+      Math.max(viewportPadding, rect.right - menuWidth),
+      window.innerWidth - menuWidth - viewportPadding,
+    );
+
+    setMenuPosition({ top, left });
+  };
+
 
   const handleSelectAll = () => {
     const allIds = employees.map((e) => e.id);
@@ -153,13 +181,29 @@ export default function EmployeeTable({
   useEffect(() => {
     if (!openMenuId) return;
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const clickedInsideMenu = menuRef.current?.contains(target);
+      const clickedTrigger = menuTriggerRef.current?.contains(target);
+      if (!clickedInsideMenu && !clickedTrigger) {
         setOpenMenuId(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openMenuId]);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    updateMenuPosition();
+
+    const onViewportChange = () => updateMenuPosition();
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
+    return () => {
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
+    };
+  }, [openMenuId, userRole]);
 
   return (
     <div className="overflow-x-auto">
@@ -306,124 +350,25 @@ export default function EmployeeTable({
                 </td>
 
                 <td className="px-6 py-4">
-                  <div className="relative flex justify-center" ref={openMenuId === employee.id ? menuRef : null}>
+                  <div className="relative flex justify-center">
                     <button
+                      ref={openMenuId === employee.id ? menuTriggerRef : null}
                       type="button"
                       className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-slate-700 hover:bg-slate-50"
                       aria-label={`Open actions for ${employee.name}`}
                       aria-expanded={openMenuId === employee.id}
-                      onClick={() =>
-                        setOpenMenuId((prev) =>
-                          prev === employee.id ? null : employee.id,
-                        )
-                      }
+                      onClick={() => {
+                        setOpenMenuId((prev) => {
+                          const next = prev === employee.id ? null : employee.id;
+                          if (next) {
+                            requestAnimationFrame(() => updateMenuPosition());
+                          }
+                          return next;
+                        });
+                      }}
                     >
                       <MoreVertical className="w-4 h-4" />
                     </button>
-
-                    {openMenuId === employee.id && (
-                      <div className="absolute right-0 top-10 z-[120] w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
-                        {userRole === "manager" && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                setOpenMenuId(null);
-                                await handleSendInvitation(employee.id);
-                              }}
-                              disabled={!onSendInvitation}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                            >
-                              <Mail className="w-4 h-4" />
-                              Send Invitation Link
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                setOpenMenuId(null);
-                                await handlePrintCard(employee);
-                              }}
-                              disabled={!employee.photoPresent || !onPrintCard}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                            >
-                              <Printer className="w-4 h-4" />
-                              Print Card
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                setOpenMenuId(null);
-                                await handleBookmark(employee);
-                              }}
-                              disabled={!onBookmark}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                            >
-                              {employee.isBookmarked ? (
-                                <BookmarkCheck className="w-4 h-4" />
-                              ) : (
-                                <Bookmark className="w-4 h-4" />
-                              )}
-                              {employee.isBookmarked
-                                ? "Remove Bookmark"
-                                : "Bookmark Employee"}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                onEdit?.(employee);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-violet-50"
-                            >
-                              <Pencil className="w-4 h-4" />
-                              Edit Employee
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                setOpenMenuId(null);
-                                await handleDelete(employee.id);
-                              }}
-                              disabled={!onDelete}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                            >
-                              <Trash className="w-4 h-4" />
-                              Delete Employee
-                            </button>
-
-                            <div className="my-1 border-t border-slate-100" />
-                          </>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            navigate(cardRoute(employee.id));
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-amber-50"
-                        >
-                          <CreditCard className="w-4 h-4" />
-                          View/Edit Card
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            navigate(detailRoute(employee.id));
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
-                        >
-                          <Eye className="w-4 h-4" />
-                          View Details
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -431,6 +376,114 @@ export default function EmployeeTable({
           )}
         </tbody>
       </table>
+      {openMenuId &&
+        openEmployee &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[9999] w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl"
+            style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
+          >
+            {userRole === "manager" && (
+              <>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setOpenMenuId(null);
+                    await handleSendInvitation(openEmployee.id);
+                  }}
+                  disabled={!onSendInvitation}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  <Mail className="w-4 h-4" />
+                  Send Invitation Link
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setOpenMenuId(null);
+                    await handlePrintCard(openEmployee);
+                  }}
+                  disabled={!openEmployee.photoPresent || !onPrintCard}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print Card
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setOpenMenuId(null);
+                    await handleBookmark(openEmployee);
+                  }}
+                  disabled={!onBookmark}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {openEmployee.isBookmarked ? (
+                    <BookmarkCheck className="w-4 h-4" />
+                  ) : (
+                    <Bookmark className="w-4 h-4" />
+                  )}
+                  {openEmployee.isBookmarked ? "Remove Bookmark" : "Bookmark Employee"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenMenuId(null);
+                    onEdit?.(openEmployee);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-violet-50"
+                >
+                  <Pencil className="w-4 h-4" />
+                  Edit Employee
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setOpenMenuId(null);
+                    await handleDelete(openEmployee.id);
+                  }}
+                  disabled={!onDelete}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  <Trash className="w-4 h-4" />
+                  Delete Employee
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenMenuId(null);
+                    navigate(cardRoute(openEmployee.id));
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-amber-50"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  View/Edit Card
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenMenuId(null);
+                    navigate(detailRoute(openEmployee.id));
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                >
+                  <Eye className="w-4 h-4" />
+                  View Details
+                </button>
+
+                <div className="my-1 border-t border-slate-100" />
+              </>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
