@@ -455,12 +455,12 @@ def render_front_landscape(
     id_y = text_y + name_block_h + int(CARD_L_H * 0.03)
     e_id = (employee_id or '').strip()
     prefix_text = (id_prefix or "IR").strip() or "IR"
-    final_role = (role or "CONTRACTOR").upper()
+    final_role = (role).upper()
     id_text = f"{prefix_text} {e_id}"
 
     draw.text((text_x, id_y), id_text.upper(), font=id_font, fill="#000000")
 
-    if final_role != "GROUP DIRECTOR":
+    if final_role == "CONSULTANT" or final_role == "TRANSPORT ASSISTANT":
         role_y = id_y + id_font.size + int(CARD_L_H * 0.02)
         if final_role == "CONSULTANT" and consultant_prefix:
             display_role = f"{consultant_prefix} {final_role}"
