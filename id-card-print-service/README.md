@@ -28,26 +28,15 @@ sqlite3 print.db < src/app/sample-data.sql
 build image
 ############
 
-<<<<<<< HEAD
-docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/id-card-print-service:3.1 --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/id-card-print-service:3.2 --push .
 
 Last working version 0.8 api 
 UI 0.8
-=======
-docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/id-card-print-service:0.6 --push .
->>>>>>> 85eb38c2e1607ebd1070c73439d2c016207263b9
 
 #########
 build UI image
 #########
 
-<<<<<<< HEAD
-docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/nrs-cardmanager-ui:3.1 --build-arg VITE_API_URL=/api --push .
-=======
-docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/nrs-cardmanager-ui:0.1.6 --build-arg VITE_API_URL=/api --push .
-
-################
-sqlite3 -header -column print.db "SELECT * FROM employees;"
->>>>>>> 85eb38c2e1607ebd1070c73439d2c016207263b9
+docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/nrs-cardmanager-ui:3.2 --build-arg VITE_API_URL=/api --push .
 
 
