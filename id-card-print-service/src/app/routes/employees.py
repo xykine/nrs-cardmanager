@@ -2216,15 +2216,50 @@ def update_employee(
     return employee
 
 
-def _top_corner_pixels_bgr(bgr: np.ndarray, patch_px: int) -> np.ndarray:
-    """Pixels from top-left + top-right corner patches only."""
-    h, w = bgr.shape[:2]
-    p = max(10, min(patch_px, h // 2, w // 2))
+def _extract_background_pixels_bgr(img: np.ndarray) -> np.ndarray:
+    """
+    Identifies the person's contour/edges using OpenCV, masks out the foreground, 
+    and returns only the remaining pixels (the true background).
+    """
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    
+    # Adaptive edge detection
+    v = np.median(blurred)
+    sigma = 0.33
+    lower = int(max(0, (1.0 - sigma) * v))
+    upper = int(min(255, (1.0 + sigma) * v))
+    edges = cv2.Canny(blurred, lower, upper)
+    
+    # Close gaps and dilate to ensure the person's body forms a connected component
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+    closed = cv2.dilate(closed, kernel, iterations=3)
+    
+    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Initially assume everything is background
+    bg_mask = np.ones(img.shape[:2], dtype=np.uint8) * 255
+    
+    if contours:
+        largest_contour = max(contours, key=cv2.contourArea)
+        # Enclose the person using a bounding box dropped down to the bottom
+        x, y, w, h = cv2.boundingRect(largest_contour)
+        img_h, _ = img.shape[:2]
+        # Mask out everything inside this bounding box extending to the bottom edge
+        cv2.rectangle(bg_mask, (x, y), (x + w, img_h), 0, thickness=cv2.FILLED)
 
-    tl = bgr[:p, :p, :].reshape(-1, 3)
-    tr = bgr[:p, w - p :, :].reshape(-1, 3)
-
-    return np.concatenate([tl, tr], axis=0)
+    # Extract pixels where bg_mask is 255
+    bg_pixels = img[bg_mask == 255]
+    
+    # Fallback to corner sampling if background extraction is suspiciously small (< 5%)
+    if len(bg_pixels) < (img.shape[0] * img.shape[1] * 0.05):
+        p = max(10, min(30, img.shape[0] // 2, img.shape[1] // 2))
+        tl = img[:p, :p, :].reshape(-1, 3)
+        tr = img[:p, img.shape[1] - p :, :].reshape(-1, 3)
+        return np.concatenate([tl, tr], axis=0)
+        
+    return bg_pixels
 
 
 def _lab_distance_to_white(pixels_bgr: np.ndarray) -> np.ndarray:
@@ -2254,17 +2289,16 @@ def validate_id_photo(image_path: str) -> Dict:
 
     h, w = img.shape[:2]
 
-    # --- 1. Background Validation (Stricter) ---
-    # Sample ONLY top corners (simple + robust for portraits)
-    patch_px = max(30, int(min(h, w) * 0.12))  # ~12% of image
-    sample = _top_corner_pixels_bgr(img, patch_px=patch_px)
+    # --- 1. Background Validation (Contour & Edge Detection) ---
+    # Mask out the foreground person to accurately isolate the true background
+    sample = _extract_background_pixels_bgr(img)
 
     dist = _lab_distance_to_white(sample)
 
     # Tuning knobs: 
-    # threshold 35.0 is a bit more tolerant than 30.0 but still rejects gray.
-    threshold = 35.0        
-    ratio_required = 0.90   # 90% of corners must be white-ish
+    # threshold 45.0 accommodates minor shadows while still enforcing white/very light gray.
+    threshold = 45.0        
+    ratio_required = 0.90   # 90% of extracted background must be white-ish
 
     white_ratio = float(np.mean(dist <= threshold))
 
