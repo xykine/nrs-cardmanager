@@ -10,6 +10,73 @@ from typing import Optional
 from datetime import date
 from cryptography.fernet import Fernet
 
+import cv2
+import numpy as np
+
+def _auto_frame_face(img_pil: Image.Image, target_aspect: float) -> Image.Image:
+    """
+    Detects the entire person's contour (head to chest) and crops the PIL image 
+    to optimally frame them for an ID card using target_aspect (width/height).
+    """
+    try:
+        # 1. Convert PIL to CV2 grayscale
+        img_cv = np.array(img_pil.convert('RGB'))
+        img_cv = img_cv[:, :, ::-1].copy() # RGB to BGR
+        gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # 2. Adaptive Canny Edge closing to find contour
+        v = np.median(blurred)
+        sigma = 0.33
+        lower = int(max(0, (1.0 - sigma) * v))
+        upper = int(min(255, (1.0 + sigma) * v))
+        edges = cv2.Canny(blurred, lower, upper)
+        
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+        closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+        closed = cv2.dilate(closed, kernel, iterations=3)
+        
+        contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if not contours:
+            return img_pil # No contours found
+            
+        # Pick the largest contour (assumed to be the entire person)
+        largest_contour = max(contours, key=cv2.contourArea)
+        cx, cy, cw, ch = cv2.boundingRect(largest_contour)
+        
+        # 3. Calculate ideal crop boundaries
+        # Standard ID photo: the person's entire width occupies about 75% of the crop width
+        ideal_w = cw / 0.75
+        ideal_h = ideal_w / target_aspect
+        
+        # Center horizontally on the person's full contour
+        center_x = cx + cw / 2.0
+        # Vertically, the top of the highest hair/head is cy. 
+        # We give it about 8% clearance from the top of the frame.
+        top = cy - (ideal_h * 0.08)
+        left = center_x - (ideal_w / 2.0)
+        bottom = top + ideal_h
+        right = left + ideal_w
+        
+        # 4. Constrain to image boundaries safely
+        img_w, img_h = img_pil.size
+        
+        left_clamped = max(0, int(left))
+        top_clamped = max(0, int(top))
+        right_clamped = min(img_w, int(right))
+        bottom_clamped = min(img_h, int(bottom))
+        
+        # Abort if the clamped bounds are weirdly collapsed
+        if right_clamped - left_clamped < cw * 0.5 or bottom_clamped - top_clamped < ch * 0.2:
+            return img_pil 
+            
+        return img_pil.crop((left_clamped, top_clamped, right_clamped, bottom_clamped))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Contour auto-framing failed", exc_info=True)
+        return img_pil
+
 # CR80 (2.125" x 3.375") @ 300dpi, portrait
 DPI = 300
 
@@ -184,6 +251,10 @@ def render_front(
     # Load and process photo
     photo = _load_image_from_url_or_path(photo_url).convert("RGB")
     photo = ImageOps.exif_transpose(photo)
+
+    # Auto-frame face ONLY if user hasn't overridden it manually via the Editor
+    if photo_x == 0 and photo_y == 0 and abs(photo_scale - 1.0) < 0.01:
+        photo = _auto_frame_face(photo, pw / ph)
 
     # Base scale to cover the frame (object-fit: cover equivalent)
     # Target frame is (pw, ph)
@@ -386,6 +457,10 @@ def render_front_landscape(
     
     photo = _load_image_from_url_or_path(photo_url).convert("RGB")
     photo = ImageOps.exif_transpose(photo)
+
+    # Auto-frame face ONLY if user hasn't overridden it manually via the Editor
+    if photo_x == 0 and photo_y == 0 and abs(photo_scale - 1.0) < 0.01:
+        photo = _auto_frame_face(photo, pw / ph)
 
     w, h = photo.size
     aspect_photo = w / h
