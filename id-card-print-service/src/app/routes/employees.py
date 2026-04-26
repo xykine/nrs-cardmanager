@@ -1254,27 +1254,29 @@ def _apply_employee_filters(
     request_status: Optional[str] = None,
     db: Optional[Session] = None,
 ):
+    import sqlalchemy as sa
+    
     name = (name or "").strip()
     if name:
-        query = query.filter(Employee.name.ilike(f"%{name}%"))
+        query = query.filter(func.trim(Employee.name).ilike(f"%{name}%"))
 
     employee_id = (employee_id or "").strip()
     if employee_id:
-        query = query.filter(Employee.employee_id.ilike(f"{employee_id}%"))
+        query = query.filter(func.trim(Employee.employee_id) == employee_id)
 
     email = (email or "").strip()
     if email:
-        query = query.filter(Employee.email.ilike(f"%{email}%"))
+        query = query.filter(func.trim(Employee.email).ilike(f"%{email}%"))
 
     if is_bookmarked:
         query = query.join(
             BookmarkedEmployee,
-            BookmarkedEmployee.employee_id == Employee.employee_id,
+            func.trim(BookmarkedEmployee.employee_id) == func.trim(Employee.employee_id),
         )
 
     department = (department or "").strip()
     if department and department.lower() != "all":
-        query = query.filter(Employee.department.ilike(department))
+        query = query.filter(func.trim(Employee.department).ilike(department))
 
     photo_status = (photo_status or "").strip().lower()
     if photo_status and photo_status != "all":
@@ -1284,23 +1286,26 @@ def _apply_employee_filters(
             query = query.filter(Employee.photo_present.is_(False))
 
     # New Filters
-    employee_type = (employee_type or "all").lower()
+    employee_type = (employee_type or "all").lower().strip()
     if employee_type == "staff":
-        query = query.filter(func.length(Employee.employee_id) == 5)
+        query = query.filter(func.length(func.trim(Employee.employee_id)) == 5)
     elif employee_type == "non-staff":
-        query = query.filter(func.length(Employee.employee_id) > 5)
+        query = query.filter(func.length(func.trim(Employee.employee_id)) > 5)
 
+    position = (position or "").strip()
     if position and position.lower() != "all":
         if position.lower() == "missing":
             query = query.filter(Employee.position.is_(None))
         else:
-            query = query.filter(Employee.position.ilike(position))
+            query = query.filter(func.trim(Employee.position).ilike(position))
 
+    consultant_prefix = (consultant_prefix or "").strip()
     if consultant_prefix:
-        query = query.filter(Employee.consultant_prefix.ilike(f"{consultant_prefix}%"))
+        query = query.filter(func.trim(Employee.consultant_prefix).ilike(f"{consultant_prefix}%"))
 
+    role = (role or "").strip()
     if role and role.lower() != "all":
-        query = query.filter(Employee.role == role.lower())
+        query = query.filter(func.trim(Employee.role).ilike(role.lower()))
 
     if start_date:
         query = query.filter(Employee.employment_start_date >= start_date)
@@ -1551,7 +1556,6 @@ def list_employees(
         request_status=request_status,
         db=db
     )
-    query = query.filter(not_(Employee.employee_id.like("90%")))
 
     total = query.count()
     offset = (page - 1) * page_size
