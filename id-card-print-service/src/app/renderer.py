@@ -455,7 +455,7 @@ def render_front_landscape(
     id_y = text_y + name_block_h + int(CARD_L_H * 0.03)
     e_id = (employee_id or '').strip()
     prefix_text = (id_prefix or "IR").strip() or "IR"
-    final_role = (role).upper()
+    final_role = (role or "").upper()
     id_text = f"{prefix_text} {e_id}"
 
     draw.text((text_x, id_y), id_text.upper(), font=id_font, fill="#000000")
