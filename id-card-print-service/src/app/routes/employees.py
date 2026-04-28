@@ -345,6 +345,8 @@ def _fallback_email(employee_id: str) -> str:
 def _apply_id_prefix_correction(employee_id: Optional[str], current_prefix: Optional[str]) -> Optional[str]:
     if employee_id and (employee_id.startswith("900") or employee_id.startswith("00")):
         return "CS"
+    elif employee_id and len(employee_id) == 5:
+        return "IR"
     return current_prefix
 
 
