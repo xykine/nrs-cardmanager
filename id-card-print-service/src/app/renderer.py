@@ -19,56 +19,50 @@ def _auto_frame_face(img_pil: Image.Image, target_aspect: float) -> Image.Image:
     to optimally frame them for an ID card using target_aspect (width/height).
     """
     try:
-        # 1. Convert PIL to CV2 grayscale
+        import os
         img_cv = np.array(img_pil.convert('RGB'))
         img_cv = img_cv[:, :, ::-1].copy() # RGB to BGR
         gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         
-        # 2. Adaptive Canny Edge closing to find contour
-        v = np.median(blurred)
-        sigma = 0.33
-        lower = int(max(0, (1.0 - sigma) * v))
-        upper = int(min(255, (1.0 + sigma) * v))
-        edges = cv2.Canny(blurred, lower, upper)
+        # Improve contrast for better face detection
+        gray = cv2.equalizeHist(gray)
         
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
-        closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-        closed = cv2.dilate(closed, kernel, iterations=3)
+        face_cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+        face_cascade = cv2.CascadeClassifier(face_cascade_path)
         
-        contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        img_h, img_w = img_cv.shape[:2]
+        min_face_size = (int(img_w * 0.08), int(img_h * 0.08))
         
-        if not contours:
-            return img_pil # No contours found
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=min_face_size)
+        
+        if len(faces) == 0:
+            return img_pil # Fallback to original image if no faces found
             
-        # Pick the largest contour (assumed to be the entire person)
-        largest_contour = max(contours, key=cv2.contourArea)
-        cx, cy, cw, ch = cv2.boundingRect(largest_contour)
+        # Pick the largest face by area
+        faces = sorted(faces, key=lambda f: f[2]*f[3], reverse=True)
+        x, y, w_face, h_face = faces[0]
         
         # 3. Calculate ideal crop boundaries
-        # Standard ID photo: the person's entire width occupies about 75% of the crop width
-        ideal_w = cw / 0.75
+        # Standard ID photo: the person's face occupies about 45% of the crop width
+        ideal_w = w_face / 0.45
         ideal_h = ideal_w / target_aspect
         
-        # Center horizontally on the person's full contour
-        center_x = cx + cw / 2.0
-        # Vertically, the top of the highest hair/head is cy. 
-        # We give it about 8% clearance from the top of the frame.
-        top = cy - (ideal_h * 0.08)
+        center_x = x + w_face / 2.0
+        
+        # Leave about 45% of face height as clearance above the face for hair
+        top = y - (h_face * 0.45)
         left = center_x - (ideal_w / 2.0)
         bottom = top + ideal_h
         right = left + ideal_w
         
         # 4. Constrain to image boundaries safely
-        img_w, img_h = img_pil.size
-        
         left_clamped = max(0, int(left))
         top_clamped = max(0, int(top))
         right_clamped = min(img_w, int(right))
         bottom_clamped = min(img_h, int(bottom))
         
-        # Abort if the clamped bounds are weirdly collapsed
-        if right_clamped - left_clamped < cw * 0.5 or bottom_clamped - top_clamped < ch * 0.2:
+        # Abort if the clamped bounds somehow fail to cover the face entirely
+        if right_clamped - left_clamped < w_face or bottom_clamped - top_clamped < h_face:
             return img_pil 
             
         return img_pil.crop((left_clamped, top_clamped, right_clamped, bottom_clamped))

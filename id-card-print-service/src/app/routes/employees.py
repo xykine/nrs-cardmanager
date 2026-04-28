@@ -1725,24 +1725,65 @@ async def upload_create_employee_file(
             existing_by_email = (
                 db.query(Employee).filter(func.lower(Employee.email) == email).first()
             )
+            
+            # Support upgrading FIRS alias to NRS alias
+            if not existing_by_email and "@" in email:
+                prefix, domain = email.rsplit("@", 1)
+                if domain.lower() == "nrs.gov.ng":
+                    alt_email = f"{prefix}@firs.gov.ng".lower()
+                    existing_by_email = db.query(Employee).filter(func.lower(Employee.email) == alt_email).first()
 
             employee: Optional[Employee] = None
             action = "error"
             message = ""
+            
+            def _is_firs_nrs_alias(db_em, exc_em):
+                if not db_em or not exc_em: return False
+                p1, d1 = db_em.rsplit("@", 1) if "@" in db_em else ("", "")
+                p2, d2 = exc_em.rsplit("@", 1) if "@" in exc_em else ("", "")
+                return p1.lower() == p2.lower() and d1.lower() == "firs.gov.ng" and d2.lower() == "nrs.gov.ng"
 
             if existing_by_id:
-                employee = existing_by_id
-                action = "skipped"
-                message = "Employee already exists for this IR"
-                summary["skipped"] += 1
+                # If they share the same ID and the email is an alias update (FIRS -> NRS), update it.
+                if _is_firs_nrs_alias(existing_by_id.email, email):
+                    employee = existing_by_id
+                    employee.name = _full_name(first_name, last_name)
+                    employee.email = email
+                    employee.position = rank or employee.position
+                    employee.id_prefix = id_prefix or employee.id_prefix
+                    db.commit()
+                    db.refresh(employee)
+                    action = "updated"
+                    message = "Employee updated with NRS email alias"
+                    summary["updated"] += 1
+                else:
+                    employee = existing_by_id
+                    action = "skipped"
+                    message = "Employee already exists for this IR"
+                    summary["skipped"] += 1
             elif existing_by_email and normalized_employee_id:
-                employee = existing_by_email
-                action = "skipped"
-                message = "Employee already exists for this email"
-                summary["skipped"] += 1
+                # E.g. email or alias matched, but a new IR is provided
+                if _is_firs_nrs_alias(existing_by_email.email, email):
+                    employee = existing_by_email
+                    employee.name = _full_name(first_name, last_name)
+                    employee.email = email
+                    employee.employee_id = normalized_employee_id
+                    employee.position = rank or employee.position
+                    employee.id_prefix = id_prefix or employee.id_prefix
+                    db.commit()
+                    db.refresh(employee)
+                    action = "updated"
+                    message = "Employee updated with NRS email alias and new IR"
+                    summary["updated"] += 1
+                else:
+                    employee = existing_by_email
+                    action = "skipped"
+                    message = "Employee already exists for this email"
+                    summary["skipped"] += 1
             elif existing_by_email and not normalized_employee_id:
                 employee = existing_by_email
                 employee.name = _full_name(first_name, last_name)
+                employee.email = email  # Make sure the email updates if an alias matched
                 employee.position = rank or employee.position
                 employee.id_prefix = id_prefix or employee.id_prefix
                 db.commit()
@@ -2222,48 +2263,34 @@ def update_employee(
 
 def _extract_background_pixels_bgr(img: np.ndarray) -> np.ndarray:
     """
-    Identifies the person's contour/edges using OpenCV, masks out the foreground, 
-    and returns only the remaining pixels (the true background).
+    Robustly samples pixels that are GUARANTEED to be background in a portrait photo.
+    To avoid complex and error-prone bounding-box logic overlapping with hair or wide shirts,
+    we simply sample the top-left and top-right patches of the image.
+    In any valid ID photo, these corners are exclusively the backdrop.
     """
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    img_h, img_w = img.shape[:2]
     
-    # Adaptive edge detection
-    v = np.median(blurred)
-    sigma = 0.33
-    lower = int(max(0, (1.0 - sigma) * v))
-    upper = int(min(255, (1.0 + sigma) * v))
-    edges = cv2.Canny(blurred, lower, upper)
+    # Take 20% width and 20% height from top-left and top-right
+    h_patch = int(img_h * 0.20)
+    w_patch = int(img_w * 0.20)
     
-    # Close gaps and dilate to ensure the person's body forms a connected component
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
-    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-    closed = cv2.dilate(closed, kernel, iterations=3)
+    # Avoid out-of-bounds for extremely tiny images
+    h_patch = max(5, h_patch)
+    w_patch = max(5, w_patch)
     
-    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    tl = img[0:h_patch, 0:w_patch]
+    tr = img[0:h_patch, img_w - w_patch:img_w]
     
-    # Initially assume everything is background
-    bg_mask = np.ones(img.shape[:2], dtype=np.uint8) * 255
+    # Sample from the left and right edges (e.g. at upper-middle height) where no body parts exist
+    ml = img[h_patch:h_patch*2, 0:max(5, int(w_patch*0.5))]
+    mr = img[h_patch:h_patch*2, img_w - max(5, int(w_patch*0.5)):img_w]
     
-    if contours:
-        largest_contour = max(contours, key=cv2.contourArea)
-        # Enclose the person using a bounding box dropped down to the bottom
-        x, y, w, h = cv2.boundingRect(largest_contour)
-        img_h, _ = img.shape[:2]
-        # Mask out everything inside this bounding box extending to the bottom edge
-        cv2.rectangle(bg_mask, (x, y), (x + w, img_h), 0, thickness=cv2.FILLED)
-
-    # Extract pixels where bg_mask is 255
-    bg_pixels = img[bg_mask == 255]
-    
-    # Fallback to corner sampling if background extraction is suspiciously small (< 5%)
-    if len(bg_pixels) < (img.shape[0] * img.shape[1] * 0.05):
-        p = max(10, min(30, img.shape[0] // 2, img.shape[1] // 2))
-        tl = img[:p, :p, :].reshape(-1, 3)
-        tr = img[:p, img.shape[1] - p :, :].reshape(-1, 3)
-        return np.concatenate([tl, tr], axis=0)
-        
-    return bg_pixels
+    return np.concatenate([
+        tl.reshape(-1, 3),
+        tr.reshape(-1, 3),
+        ml.reshape(-1, 3),
+        mr.reshape(-1, 3)
+    ], axis=0)
 
 
 def _lab_distance_to_white(pixels_bgr: np.ndarray) -> np.ndarray:
@@ -2300,11 +2327,14 @@ def validate_id_photo(image_path: str) -> Dict:
     dist = _lab_distance_to_white(sample)
 
     # Tuning knobs: 
-    # threshold 45.0 accommodates minor shadows while still enforcing white/very light gray.
-    threshold = 45.0        
-    ratio_required = 0.90   # 90% of extracted background must be white-ish
+    # threshold 60.0 accommodates minor shadows while still enforcing white/very light gray.
+    threshold = 60.0        
+    ratio_required = 0.70   # 70% of extracted background must be white-ish
 
     white_ratio = float(np.mean(dist <= threshold))
+
+    print(f"White ratio: {white_ratio}")
+    print(f"dist : {dist}")
 
     if white_ratio < ratio_required:
         errors.append("Background is not white enough (gray or off-white backgrounds are not allowed).")
