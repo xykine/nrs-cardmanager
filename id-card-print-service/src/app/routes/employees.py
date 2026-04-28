@@ -342,6 +342,12 @@ def _fallback_email(employee_id: str) -> str:
     return f"{employee_id}@noemail.local"
 
 
+def _apply_id_prefix_correction(employee_id: Optional[str], current_prefix: Optional[str]) -> Optional[str]:
+    if employee_id and (employee_id.startswith("900") or employee_id.startswith("00")):
+        return "CS"
+    return current_prefix
+
+
 EXPECTED_UPLOAD_TEMPLATE_HEADERS = [
     "First Name",
     "Last Name",
@@ -1613,7 +1619,7 @@ def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
         department=payload.department,
         position=payload.position,
         consultant_prefix=payload.consultant_prefix,
-        id_prefix=payload.id_prefix,
+        id_prefix=_apply_id_prefix_correction(payload.employee_id, payload.id_prefix),
         employment_start_date=payload.employment_start_date,
         employment_end_date=payload.employment_end_date,
         photo_present=False,
@@ -1750,7 +1756,7 @@ async def upload_create_employee_file(
                     employee.name = _full_name(first_name, last_name)
                     employee.email = email
                     employee.position = rank or employee.position
-                    employee.id_prefix = id_prefix or employee.id_prefix
+                    employee.id_prefix = _apply_id_prefix_correction(employee.employee_id, id_prefix) or employee.id_prefix
                     db.commit()
                     db.refresh(employee)
                     action = "updated"
@@ -1769,7 +1775,7 @@ async def upload_create_employee_file(
                     employee.email = email
                     employee.employee_id = normalized_employee_id
                     employee.position = rank or employee.position
-                    employee.id_prefix = id_prefix or employee.id_prefix
+                    employee.id_prefix = _apply_id_prefix_correction(normalized_employee_id, id_prefix) or employee.id_prefix
                     db.commit()
                     db.refresh(employee)
                     action = "updated"
@@ -1785,7 +1791,7 @@ async def upload_create_employee_file(
                 employee.name = _full_name(first_name, last_name)
                 employee.email = email  # Make sure the email updates if an alias matched
                 employee.position = rank or employee.position
-                employee.id_prefix = id_prefix or employee.id_prefix
+                employee.id_prefix = _apply_id_prefix_correction(employee.employee_id, id_prefix) or employee.id_prefix
                 db.commit()
                 db.refresh(employee)
                 action = "updated"
@@ -1799,7 +1805,7 @@ async def upload_create_employee_file(
                     employee_id=normalized_employee_id,
                     email=email,
                     position=rank or None,
-                    id_prefix=id_prefix,
+                    id_prefix=_apply_id_prefix_correction(normalized_employee_id, id_prefix),
                     photo_present=False,
                 )
                 db.add(employee)
@@ -2200,6 +2206,8 @@ def update_employee(
         if new_employee_id != employee.employee_id:
             changed_fields.append("employeeId")
         employee.employee_id = new_employee_id
+        # Also re-apply prefix correction if IR changed
+        employee.id_prefix = _apply_id_prefix_correction(new_employee_id, employee.id_prefix)
     if payload.email is not None:
         normalized_email = _normalize_email(payload.email) or employee.email
         if normalized_email != employee.email:
@@ -2218,9 +2226,10 @@ def update_employee(
             changed_fields.append("consultantPrefix")
         employee.consultant_prefix = payload.consultant_prefix
     if payload.id_prefix is not None:
-        if payload.id_prefix != employee.id_prefix:
+        new_prefix = _apply_id_prefix_correction(employee.employee_id, payload.id_prefix)
+        if new_prefix != employee.id_prefix:
             changed_fields.append("idPrefix")
-        employee.id_prefix = payload.id_prefix
+        employee.id_prefix = new_prefix
     if payload.employment_start_date is not None:
         if payload.employment_start_date != employee.employment_start_date:
             changed_fields.append("employmentStartDate")
