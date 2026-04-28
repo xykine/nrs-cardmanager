@@ -11,6 +11,7 @@ from ..db import get_db
 from ..models import Card, Employee, BookmarkedEmployee
 from ..schemas import CardOut, CardSave
 from .notifications import add_bookmarked_employee_notification
+from ..utils.auto_framing import calculate_auto_frame_params
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -38,18 +39,25 @@ def save_card(employee_id: str, payload: CardSave, db: Session = Depends(get_db)
 
     card = db.query(Card).filter(Card.employee_id == employee_id).first()
 
+    # Intercept untouched crops and run AI auto-framing
+    use_x, use_y, use_scale = payload.photo_x, payload.photo_y, payload.photo_scale
+    if payload.photo_data and use_x == 0 and use_y == 0 and abs(use_scale - 1.0) < 0.01:
+        auto_x, auto_y, auto_scale_str = calculate_auto_frame_params(payload.photo_data)
+        use_x, use_y = auto_x, auto_y
+        use_scale = float(auto_scale_str)
+
     if card:
         card.photo_data = payload.photo_data
-        card.photo_x = payload.photo_x
-        card.photo_y = payload.photo_y
-        card.photo_scale = str(payload.photo_scale)
+        card.photo_x = use_x
+        card.photo_y = use_y
+        card.photo_scale = str(use_scale)
     else:
         card = Card(
             employee_id=employee_id,
             photo_data=payload.photo_data,
-            photo_x=payload.photo_x,
-            photo_y=payload.photo_y,
-            photo_scale=str(payload.photo_scale)
+            photo_x=use_x,
+            photo_y=use_y,
+            photo_scale=str(use_scale)
         )
         db.add(card)
 

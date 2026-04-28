@@ -11,6 +11,7 @@ from .models import Base
 from .routes import router, cards, employees, admin, notifications
 from .routes.admin import seed_admin
 from .storage import ensure_dirs
+from .cron_jobs import start_scheduler
 
 app = FastAPI(title="ID Card Print Service (Local)")
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ def on_startup():
         db.close()
 
     _start_daily_reminder_worker()
+    start_scheduler()
 
 
 @app.on_event("shutdown")

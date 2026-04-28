@@ -22,6 +22,7 @@ dependencies = [
   "fpdf2>=2.8.5",
   "qrcode>=8.2",
   "cryptography>=46.0.3",
+  "apscheduler>=3.11.2",
 ]
 
 [tool.uv]
