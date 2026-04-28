@@ -40,3 +40,7 @@ build UI image
 docker buildx build --platform linux/amd64,linux/arm64 -t kacytunde/nrs-cardmanager-ui:3.5 --build-arg VITE_API_URL=/api --push .
 
 
+# update prefix
+uv run python update_prefix.py
+
+
