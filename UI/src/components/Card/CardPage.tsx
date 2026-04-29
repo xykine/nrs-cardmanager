@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Employee } from "../../types";
-import { employeeService, cardService } from "../../services/api";
+import { employeeService, cardService, printingService } from "../../services/api";
 import { Upload, Printer, Mail, Save, ArrowLeft, LogOut, Pencil } from "lucide-react";
 import { useNotification } from "../../contexts/NotificationContext";
 import EmailDialog from "../EmailDialog";
@@ -165,7 +165,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
   };
 
   const handlePrint = async () => {
-    if (!employeeId) return;
+    if (!employeeId || !employee) return;
     if (!photoData) {
       addNotification({
         type: "error",
@@ -178,28 +178,49 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
 
     const notificationId = addNotification({
       type: "progress",
-      title: "Printing Card",
-      message: `Preparing card for ${employee?.name}...`,
-      progress: 50,
+      title: "Generating Print PDF",
+      message: `Preparing PDF for ${employee.name}...`,
+      progress: 30,
       autoClose: false,
     });
 
     try {
-      await employeeService.printCard(employeeId);
+      // 1. Create Jobs (Backend will generate images)
+      // Use employee.id (DB UUID) for the batch
+      const jobs = await printingService.createBatch(
+        "PDF_GENERATION",
+        [employee.id],
+        {}, // No filters
+        false // Not all
+      );
+
+      updateNotification(notificationId, {
+        progress: 60,
+        message: "Generating PDF file..."
+      });
+
+      // 2. Get Job IDs
+      const jobIds = jobs.map((j: any) => j.jobId);
+
+      // 3. Download PDF
+      const localDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+      const blob = await printingService.downloadBatchPdf(jobIds, localDate);
+      const url = window.URL.createObjectURL(blob);
+
+      // 4. Open PDF
+      window.open(url, "_blank");
 
       updateNotification(notificationId, {
         type: "success",
-        title: "Print Job Sent",
-        message: `Card sent to printer successfully`,
+        title: "PDF Generated",
+        message: `PDF opened in new tab`,
         autoClose: true,
       });
-
-      window.print();
     } catch (err) {
       updateNotification(notificationId, {
         type: "error",
         title: "Print Failed",
-        message: "Failed to send card to printer. Please try again.",
+        message: "Failed to generate print PDF. Please try again.",
         autoClose: true,
       });
       console.error(err);
@@ -231,8 +252,8 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
       updateNotification(notificationId, {
         type: "success",
         title: "Email Sent",
-        message: requests.length > 0 
-          ? `Email sent and ${requests.length} request(s) recorded.` 
+        message: requests.length > 0
+          ? `Email sent and ${requests.length} request(s) recorded.`
           : `Email successfully sent to ${employee?.name}`,
         autoClose: true,
       });
@@ -297,7 +318,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
     );
   }
 
-  const showSpecialFeatures = false;
+  const showSpecialFeatures = true;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -359,7 +380,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                     </button>
                   )}
 
-                {showSpecialFeatures && currentUserRole && currentUserRole === "manager" && (
+                {/* {showSpecialFeatures && currentUserRole && currentUserRole === "manager" && (
                   <button
                     onClick={handleResendLink}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-semibold text-l shadow-md"
@@ -367,7 +388,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
                     <Mail className="w-4 h-4" />
                     Resend Link
                   </button>
-                )}
+                )} */}
 
                 {currentUserRole && currentUserRole === "manager" && (
                   <button
