@@ -30,6 +30,7 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
         // Clear all authentication storage
         sessionStorage.removeItem("nrs_employee_id");
         sessionStorage.removeItem("nrs_user_role");
+        sessionStorage.removeItem("nrs_user_email");
         sessionStorage.removeItem("nrs_intended_location");
 
         // Clear admin auth context

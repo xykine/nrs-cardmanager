@@ -2,8 +2,10 @@ import base64
 import io
 import shutil
 import csv
+import os
 from typing import Dict, Any
 from datetime import datetime, timedelta, date
+from email.message import EmailMessage
 from typing import List, Optional
 
 from PIL import Image
@@ -34,14 +36,19 @@ from ..storage import ASSETS_DIR, job_dir
 from .employees import (
     _apply_employee_filters,
     _filters_are_empty,
+    _get_mailgun_settings,
+    _get_smtp_settings,
+    _normalize_email,
     _normalize_employee_id_for_upload,
     _normalize_template_header,
+    _open_smtp_connection,
     _read_xlsx_rows,
 )
 from ..pdf_generator import create_id_card_pdf
 
 import subprocess
 import shutil
+import requests
 
 router = APIRouter(prefix="/api")
 PRINT_JOBS_API_BASE = "/api/print-jobs"
@@ -162,6 +169,101 @@ def _get_available_printers() -> List[str]:
         return sorted(list(set(printers)))
     except Exception:
         return []
+
+
+def _send_pdf_email_via_mailgun(
+    *,
+    to_email: str,
+    subject: str,
+    text: str,
+    pdf_bytes: bytes,
+    filename: str,
+) -> None:
+    settings = _get_mailgun_settings()
+    url = f"{settings['base_url']}/{settings['domain']}/messages"
+    response = requests.post(
+        url,
+        auth=("api", settings["api_key"]),
+        data={
+            "from": settings["sender"],
+            "to": to_email,
+            "subject": subject,
+            "text": text,
+        },
+        files=[("attachment", (filename, pdf_bytes, "application/pdf"))],
+        timeout=30,
+    )
+    if not response.ok:
+        raise RuntimeError(f"Mailgun error {response.status_code}: {response.text}")
+
+
+def _send_pdf_email_via_smtp(
+    *,
+    to_email: str,
+    subject: str,
+    text: str,
+    pdf_bytes: bytes,
+    filename: str,
+) -> None:
+    settings = _get_smtp_settings()
+    msg = EmailMessage()
+    msg["From"] = settings["sender"]
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.set_content(text)
+    msg.add_attachment(
+        pdf_bytes,
+        maintype="application",
+        subtype="pdf",
+        filename=filename,
+    )
+
+    smtp = _open_smtp_connection(settings)
+    try:
+        smtp.send_message(msg)
+    finally:
+        try:
+            smtp.quit()
+        except Exception:
+            smtp.close()
+
+
+def _send_print_pdf_email(
+    *,
+    to_email: str,
+    pdf_bytes: bytes,
+    filename: str,
+    card_count: int,
+) -> None:
+    subject = f"NRS card print PDF ready ({card_count} card{'s' if card_count != 1 else ''})"
+    text = (
+        "Hello,\n\n"
+        "Your generated NRS card print PDF is attached.\n\n"
+        "This email was sent because the browser may not always open larger print PDFs "
+        "after generation.\n\n"
+        "Thank you."
+    )
+
+    mailgun_configured = any(
+        (os.getenv(name, "") or "").strip()
+        for name in ("MAILGUN_API_KEY", "MAILGUN_DOMAIN", "MAILGUN_FROM")
+    )
+    if mailgun_configured:
+        _send_pdf_email_via_mailgun(
+            to_email=to_email,
+            subject=subject,
+            text=text,
+            pdf_bytes=pdf_bytes,
+            filename=filename,
+        )
+    else:
+        _send_pdf_email_via_smtp(
+            to_email=to_email,
+            subject=subject,
+            text=text,
+            pdf_bytes=pdf_bytes,
+            filename=filename,
+        )
 
 
 @router.get("/printers", response_model=List[str])
@@ -501,6 +603,7 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
 
     # Generate PDF bytes in memory
     pdf_bytes = create_id_card_pdf(card_images)
+    pdf_filename = f"batch_{_now().strftime('%Y%m%d%H%M%S')}.pdf"
     
     # Record PrintReport for each job (Upsert logic)
     employee_db_ids = [e.id for e in employees]
@@ -550,10 +653,38 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
                 existing_reports[eid] = report
     db.commit()
 
+    email_status = "not_requested"
+    email_error = ""
+    recipient_email = _normalize_email(payload.get("recipientEmail"))
+    should_email_pdf = bool(payload.get("emailPdf")) and bool(recipient_email)
+
+    if should_email_pdf:
+        try:
+            _send_print_pdf_email(
+                to_email=recipient_email,
+                pdf_bytes=pdf_bytes,
+                filename=pdf_filename,
+                card_count=len(card_images),
+            )
+            email_status = "sent"
+        except Exception as exc:
+            email_status = "failed"
+            email_error = str(exc).replace("\r", " ").replace("\n", " ")[:200]
+            print(f"Failed to email generated print PDF to {recipient_email}: {exc}")
+
+    headers = {
+        "Content-Disposition": f"attachment; filename={pdf_filename}",
+        "X-PDF-Email-Status": email_status,
+    }
+    if recipient_email:
+        headers["X-PDF-Email-To"] = recipient_email
+    if email_error:
+        headers["X-PDF-Email-Error"] = email_error
+
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=batch_{_now().strftime('%Y%m%d%H%M%S')}.pdf"}
+        headers=headers,
     )
  
     # Old logic removed:

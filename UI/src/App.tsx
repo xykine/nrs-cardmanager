@@ -37,6 +37,7 @@ function App() {
     sessionStorage.removeItem("nrs_employee_id");
     sessionStorage.removeItem("nrs_user_role");
     sessionStorage.removeItem("nrs_user_name");
+    sessionStorage.removeItem("nrs_user_email");
     sessionStorage.removeItem("nrs_intended_location");
     logoutAdmin(); // Clear admin context and session storage
     setIsAuthenticated(false);
