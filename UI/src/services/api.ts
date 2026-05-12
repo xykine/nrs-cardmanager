@@ -486,10 +486,17 @@ export const printingService = {
   },
 
   async downloadBatchPdf(jobIds: string[], localDate?: string): Promise<Blob> {
+    const recipientEmail = (sessionStorage.getItem("nrs_user_email") || "").trim();
+    const shouldEmailPdf = jobIds.length >= 4 && recipientEmail.length > 0;
     const response = await fetch(`${API_BASE_URL}/print-jobs/batch-pdf`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobIds, localDate }),
+      body: JSON.stringify({
+        jobIds,
+        localDate,
+        emailPdf: shouldEmailPdf,
+        recipientEmail: shouldEmailPdf ? recipientEmail : undefined,
+      }),
     });
     if (!response.ok) throw new Error("Failed to generate PDF");
     return response.blob();

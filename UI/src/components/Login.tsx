@@ -52,6 +52,7 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
       ) {
         sessionStorage.setItem("nrs_employee_id", employee.id);
         sessionStorage.setItem("nrs_user_role", employee.role);
+        sessionStorage.setItem("nrs_user_email", employee.email || "");
         const name = employee.name || `${employee.firstName} ${employee.lastName}`;
         sessionStorage.setItem("nrs_user_name", name);
         setUserRole(employee.role as "manager" | "staff");
@@ -85,6 +86,7 @@ export default function Login({ setIsAuthenticated, setUserRole }: LoginProps) {
       // Auto-login the new employee
       sessionStorage.setItem("nrs_employee_id", newEmployee.id);
       sessionStorage.setItem("nrs_user_role", "staff");
+      sessionStorage.setItem("nrs_user_email", newEmployee.email || "");
       const name = newEmployee.name || `${newEmployee.firstName} ${newEmployee.lastName}`;
       sessionStorage.setItem("nrs_user_name", name);
       setUserRole("staff");
