@@ -505,6 +505,13 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
     if not all(a.exists() for a in [logo, bottom, back]):
         raise HTTPException(500, "Server assets missing (logo/accent/back template)")
 
+    # Pre-load shared assets once (renderer always resizes templates to card size)
+    logo_img = Image.open(logo).convert("RGBA")
+    bottom_img = Image.open(bottom).convert("RGBA")
+    back_img_portrait = Image.open(back).convert("RGB")
+    contractor_front_img = Image.open(contractor_front).convert("RGB")
+    contractor_back_img = Image.open(contractor_back).convert("RGB")
+
     emp_ids_needed = [job.employee_id for job in jobs]
     employees = db.query(Employee).filter(Employee.employee_id.in_(emp_ids_needed)).all()
     employees_map = {e.employee_id: e for e in employees}
@@ -547,23 +554,26 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
             use_landscape = bool(employee and len((employee.employee_id or "").strip()) > 5)
             
             if use_landscape:
-                # Dynamic Asset Mapping
                 front_asset, back_asset = _get_background_assets_by_position(employee.position)
-                front_path = ASSETS_DIR / front_asset
-                back_path = ASSETS_DIR / back_asset
-                
-                if not front_path.exists() or not back_path.exists():
-                    print(f"Missing position assets for {employee.position}: {front_asset}/{back_asset}")
-                    # Fallback to defaults or skip
-                    front_path = ASSETS_DIR / "ContractorFrontPageImage.jpg"
-                    back_path = ASSETS_DIR / "ContractorBackPageImage.jpg"
+
+                if front_asset == "ContractorFrontPageImage.jpg":
+                    f_img = contractor_front_img
+                else:
+                    f_path = ASSETS_DIR / front_asset
+                    f_img = Image.open(f_path).convert("RGB") if f_path.exists() else contractor_front_img
+
+                if back_asset == "ContractorBackPageImage.jpg":
+                    b_img = contractor_back_img
+                else:
+                    b_path = ASSETS_DIR / back_asset
+                    b_img = Image.open(b_path).convert("RGB") if b_path.exists() else contractor_back_img
 
                 front_img = render_front_landscape(
                     job.full_name,
                     job.employee_id,
                     employee.position, # use position as the role display
                     photo_url_to_use,
-                    front_path,
+                    f_img,
                     id_prefix=employee.id_prefix,
                     consultant_prefix=employee.consultant_prefix,
                     photo_x=job.photo_x,
@@ -571,27 +581,24 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
                     photo_scale=float(job.photo_scale or 1.0)
                 )
                 back_img = render_back_landscape(
-                    job.employee_id, 
-                    back_path,
+                    job.employee_id,
+                    b_img,
                     employment_start_date=employee.employment_start_date,
                     employment_end_date=employee.employment_end_date
                 )
                 card_images.append((front_img, back_img, "L"))
             else:
-                # Render Front (Portrait)
                 front_img = render_front(
-                    job.full_name, 
-                    job.employee_id, 
+                    job.full_name,
+                    job.employee_id,
                     photo_url_to_use,
-                    logo,
-                    bottom,
+                    logo_img,
+                    bottom_img,
                     photo_x=job.photo_x,
                     photo_y=job.photo_y,
                     photo_scale=float(job.photo_scale or 1.0)
                 )
-                
-                # Render Back (Portrait)
-                back_img = render_back(job.employee_id, back)
+                back_img = render_back(job.employee_id, back_img_portrait)
                 card_images.append((front_img, back_img, "P"))
             
         except Exception as e:

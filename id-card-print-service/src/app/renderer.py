@@ -6,7 +6,7 @@ import httpx
 import qrcode
 import hashlib
 import base64
-from typing import Optional
+from typing import Optional, Union
 from datetime import date
 from cryptography.fernet import Fernet
 
@@ -121,6 +121,26 @@ def _rounded_image(
     out.paste(img, (0, 0), mask)
     return out
 
+def _load_card_template(
+    template: Union[Path, Image.Image],
+    width: int,
+    height: int,
+) -> Image.Image:
+    """Load a card background and normalize to card pixel dimensions."""
+    if isinstance(template, Image.Image):
+        return template.convert("RGB").resize((width, height), Image.LANCZOS)
+    if not template.exists():
+        return Image.new("RGB", (width, height), BG_COLOR)
+    img = Image.open(template).convert("RGB")
+    return img.resize((width, height), Image.LANCZOS)
+
+
+def _load_rgba_asset(asset: Union[Path, Image.Image]) -> Image.Image:
+    if isinstance(asset, Image.Image):
+        return asset.convert("RGBA")
+    return Image.open(asset).convert("RGBA")
+
+
 def _load_image_from_url_or_path(photo_url: str) -> Image.Image:
     if photo_url.startswith("data:"):
         # Handle Base64 Data URI
@@ -143,8 +163,8 @@ def render_front(
     full_name: str,
     employee_id: str,
     photo_url: str,
-    logo_path: Path,
-    bottom_accent_path: Path,
+    logo_path: Union[Path, Image.Image],
+    bottom_accent_path: Union[Path, Image.Image],
     photo_x: int = 0,
     photo_y: int = 0,
     photo_scale: float = 1.0,
@@ -156,7 +176,7 @@ def render_front(
     id_font = _load_font(int(CARD_W * 0.052), bold=True)
 
     # Logo (top centered)
-    logo = Image.open(logo_path).convert("RGBA")
+    logo = _load_rgba_asset(logo_path)
     logo_w = int(CARD_W * 0.6)
     logo_h = int(logo.height * (logo_w / logo.width))
     logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
@@ -279,8 +299,8 @@ def render_front(
     
     _draw_center_text(draw, f"IR {(employee_id or '').strip()}", id_y, id_font, DARK_GRAY)
 
-       # Bottom icon (centered)
-    icon = Image.open(bottom_accent_path).convert("RGBA")
+    # Bottom icon (centered)
+    icon = _load_rgba_asset(bottom_accent_path)
     icon_w = int(CARD_W * 0.52)
     icon_h = int(icon.height * (icon_w / icon.width))
     icon = icon.resize((icon_w, icon_h), Image.LANCZOS)
@@ -292,14 +312,12 @@ def render_front(
 
 def render_back(
     employee_id: str,
-    back_template_path: Path,
+    back_template_path: Union[Path, Image.Image],
 ) -> Image.Image:
-    if not back_template_path.exists():
-        # Fallback to empty white card if template missing
+    if isinstance(back_template_path, Path) and not back_template_path.exists():
         return Image.new("RGB", (CARD_W, CARD_H), BG_COLOR)
 
-    card = Image.open(back_template_path).convert("RGB")
-    card = card.resize((CARD_W, CARD_H), Image.LANCZOS)
+    card = _load_card_template(back_template_path, CARD_W, CARD_H)
     draw = ImageDraw.Draw(card)
 
     # Secret key for QR code
@@ -341,19 +359,14 @@ def render_front_landscape(
     employee_id: str,
     role: str,
     photo_url: str,
-    front_template_path: Path,
+    front_template_path: Union[Path, Image.Image],
     id_prefix: Optional[str] = None,
     consultant_prefix: Optional[str] = None,
     photo_x: int = 0,
     photo_y: int = 0,
     photo_scale: float = 1.0,
 ) -> Image.Image:
-    if not front_template_path.exists():
-        card = Image.new("RGB", (CARD_L_W, CARD_L_H), BG_COLOR)
-    else:
-        card = Image.open(front_template_path).convert("RGB")
-        card = card.resize((CARD_L_W, CARD_L_H), Image.LANCZOS)
-    
+    card = _load_card_template(front_template_path, CARD_L_W, CARD_L_H)
     draw = ImageDraw.Draw(card)
 
     name_font = _load_font(int(CARD_L_H * 0.07), bold=True)
@@ -472,16 +485,12 @@ def render_front_landscape(
 
 def render_back_landscape(
     employee_id: str,
-    back_template_path: Path,
+    back_template_path: Union[Path, Image.Image],
     employment_start_date: Optional[date] = None,
     employment_end_date: Optional[date] = None,
 ) -> Image.Image:
-    if not back_template_path.exists():
-        card = Image.new("RGB", (CARD_L_W, CARD_L_H), BG_COLOR)
-    else:
-        card = Image.open(back_template_path).convert("RGB")
-        card = card.resize((CARD_L_W, CARD_L_H), Image.LANCZOS)
-        
+    card = _load_card_template(back_template_path, CARD_L_W, CARD_L_H)
+
     secret_key = os.getenv("QR_SECRET_KEY", "default-secret-key-for-qr")
     key = hashlib.sha256(secret_key.encode()).digest()
     fernet_key = base64.urlsafe_b64encode(key)
