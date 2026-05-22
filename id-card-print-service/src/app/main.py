@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import engine, SessionLocal
+from .migrations import apply_pending_migrations
 from .models import Base
 from .routes import router, cards, employees, admin, notifications
 from .routes.admin import seed_admin
@@ -39,6 +40,7 @@ app.add_middleware(
 def on_startup():
     ensure_dirs()
     Base.metadata.create_all(bind=engine)
+    apply_pending_migrations()
     
     # Seed admin user
     db = SessionLocal()
