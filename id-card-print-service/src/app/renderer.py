@@ -6,7 +6,7 @@ import httpx
 import qrcode
 import hashlib
 import base64
-from typing import Optional
+from typing import Optional, Union, Any
 from datetime import date
 from cryptography.fernet import Fernet
 
@@ -34,6 +34,9 @@ DEJAVU_BOLD     = ASSETS_DIR / "DejaVuSans-Bold.ttf"
 DEJAVU_REG      = ASSETS_DIR / "DejaVuSans.ttf"
 
 
+import functools
+
+@functools.lru_cache(maxsize=32)
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     candidates = [
         MONTSERRAT_BOLD if bold else MONTSERRAT_REG,
@@ -143,8 +146,8 @@ def render_front(
     full_name: str,
     employee_id: str,
     photo_url: str,
-    logo_path: Path,
-    bottom_accent_path: Path,
+    logo_path: Union[Path, Image.Image],
+    bottom_accent_path: Union[Path, Image.Image],
     photo_x: int = 0,
     photo_y: int = 0,
     photo_scale: float = 1.0,
@@ -156,7 +159,11 @@ def render_front(
     id_font = _load_font(int(CARD_W * 0.052), bold=True)
 
     # Logo (top centered)
-    logo = Image.open(logo_path).convert("RGBA")
+    if isinstance(logo_path, Image.Image):
+        logo = logo_path
+    else:
+        logo = Image.open(logo_path).convert("RGBA")
+    
     logo_w = int(CARD_W * 0.6)
     logo_h = int(logo.height * (logo_w / logo.width))
     logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
@@ -279,8 +286,12 @@ def render_front(
     
     _draw_center_text(draw, f"IR {(employee_id or '').strip()}", id_y, id_font, DARK_GRAY)
 
-       # Bottom icon (centered)
-    icon = Image.open(bottom_accent_path).convert("RGBA")
+    # Bottom icon (centered)
+    if isinstance(bottom_accent_path, Image.Image):
+        icon = bottom_accent_path
+    else:
+        icon = Image.open(bottom_accent_path).convert("RGBA")
+    
     icon_w = int(CARD_W * 0.52)
     icon_h = int(icon.height * (icon_w / icon.width))
     icon = icon.resize((icon_w, icon_h), Image.LANCZOS)
@@ -292,14 +303,17 @@ def render_front(
 
 def render_back(
     employee_id: str,
-    back_template_path: Path,
+    back_template_path: Union[Path, Image.Image],
 ) -> Image.Image:
-    if not back_template_path.exists():
-        # Fallback to empty white card if template missing
-        return Image.new("RGB", (CARD_W, CARD_H), BG_COLOR)
-
-    card = Image.open(back_template_path).convert("RGB")
-    card = card.resize((CARD_W, CARD_H), Image.LANCZOS)
+    if isinstance(back_template_path, Image.Image):
+        card = back_template_path.copy()
+    else:
+        if not back_template_path.exists():
+            # Fallback to empty white card if template missing
+            return Image.new("RGB", (CARD_W, CARD_H), BG_COLOR)
+        card = Image.open(back_template_path).convert("RGB")
+        card = card.resize((CARD_W, CARD_H), Image.LANCZOS)
+    
     draw = ImageDraw.Draw(card)
 
     # Secret key for QR code
@@ -341,18 +355,21 @@ def render_front_landscape(
     employee_id: str,
     role: str,
     photo_url: str,
-    front_template_path: Path,
+    front_template_path: Union[Path, Image.Image],
     id_prefix: Optional[str] = None,
     consultant_prefix: Optional[str] = None,
     photo_x: int = 0,
     photo_y: int = 0,
     photo_scale: float = 1.0,
 ) -> Image.Image:
-    if not front_template_path.exists():
-        card = Image.new("RGB", (CARD_L_W, CARD_L_H), BG_COLOR)
+    if isinstance(front_template_path, Image.Image):
+        card = front_template_path.copy()
     else:
-        card = Image.open(front_template_path).convert("RGB")
-        card = card.resize((CARD_L_W, CARD_L_H), Image.LANCZOS)
+        if not front_template_path.exists():
+            card = Image.new("RGB", (CARD_L_W, CARD_L_H), BG_COLOR)
+        else:
+            card = Image.open(front_template_path).convert("RGB")
+            card = card.resize((CARD_L_W, CARD_L_H), Image.LANCZOS)
     
     draw = ImageDraw.Draw(card)
 
@@ -472,15 +489,18 @@ def render_front_landscape(
 
 def render_back_landscape(
     employee_id: str,
-    back_template_path: Path,
+    back_template_path: Union[Path, Image.Image],
     employment_start_date: Optional[date] = None,
     employment_end_date: Optional[date] = None,
 ) -> Image.Image:
-    if not back_template_path.exists():
-        card = Image.new("RGB", (CARD_L_W, CARD_L_H), BG_COLOR)
+    if isinstance(back_template_path, Image.Image):
+        card = back_template_path.copy()
     else:
-        card = Image.open(back_template_path).convert("RGB")
-        card = card.resize((CARD_L_W, CARD_L_H), Image.LANCZOS)
+        if not back_template_path.exists():
+            card = Image.new("RGB", (CARD_L_W, CARD_L_H), BG_COLOR)
+        else:
+            card = Image.open(back_template_path).convert("RGB")
+            card = card.resize((CARD_L_W, CARD_L_H), Image.LANCZOS)
         
     secret_key = os.getenv("QR_SECRET_KEY", "default-secret-key-for-qr")
     key = hashlib.sha256(secret_key.encode()).digest()

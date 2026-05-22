@@ -36,6 +36,16 @@ export interface Card {
 
 export type JobStatus = 'PENDING' | 'PRINTING' | 'PRINTED' | 'RETRY' | 'FAILED';
 
+export type BatchJobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface BatchPrintJob {
+  id: string;
+  status: BatchJobStatus;
+  pdfUrl?: string;
+  errorMessage?: string;
+  createdAt: string;
+}
+
 export interface PrintingStation {
   id: string;
   name: string;
@@ -78,6 +88,7 @@ export interface PrintReport {
   employeeId: string;
   cardCount: number;
   printDate: string;
+  pdfUrl?: string;
   employee?: Employee;
 }
 
@@ -86,6 +97,12 @@ export interface PrintReportResponse {
   total: number;
   page: number;
   page_size: number;
+}
+
+export interface PrintingJobSummary {
+  printId: string;
+  date: string;
+  pdfUrl: string;
 }
 
 export interface EmployeeUploadRowResult {

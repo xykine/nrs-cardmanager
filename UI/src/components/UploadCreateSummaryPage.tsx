@@ -8,7 +8,7 @@ import {
   EmployeeUploadResult,
   EmployeeUploadRowResult,
 } from "../types";
-import { employeeService, printingService } from "../services/api";
+import { employeeService, printingService, resolvePdfUrl } from "../services/api";
 import { useNotification } from "../contexts/NotificationContext";
 import { UPLOAD_CREATE_SUMMARY_STORAGE_KEY } from "./UploadToCreateModal";
 import EditEmployeeModal from "./EditEmployeeModal";
@@ -445,23 +445,37 @@ export default function UploadCreateSummaryPage() {
             : null,
         )
         .filter((jobId): jobId is string => Boolean(jobId));
+      
       const localDate = new Date().toLocaleDateString("en-CA");
-      const blob = await printingService.downloadBatchPdf(jobIds, localDate);
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      let batch = await printingService.downloadBatchPdf(jobIds, localDate);
 
-      updateNotification(notificationId, {
-        type: "success",
-        title: "PDF Generated",
-        message: "Card PDF opened in a new tab.",
-        autoClose: true,
-      });
-    } catch (error) {
+      let attempts = 0;
+      while (batch.status === "PENDING" || batch.status === "PROCESSING") {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        batch = await printingService.getBatchStatus(batch.id);
+        attempts++;
+        updateNotification(notificationId, { progress: Math.min(50 + (attempts * 2), 95) });
+      }
+
+      if (batch.status === "FAILED") throw new Error(batch.errorMessage || "Generation failed");
+
+      if (batch.pdfUrl) {
+          const pdfUrl = resolvePdfUrl(batch.pdfUrl);
+          window.open(pdfUrl, "_blank");
+          updateNotification(notificationId, {
+            type: "success",
+            title: "PDF Generated",
+            message: "Card PDF opened in a new tab.",
+            progress: 100,
+            autoClose: true,
+          });
+      }
+    } catch (error: any) {
       console.error(error);
       updateNotification(notificationId, {
         type: "error",
         title: "Print Failed",
-        message: "Failed to generate print PDF.",
+        message: error.message || "Failed to generate print PDF.",
         autoClose: true,
       });
     } finally {
@@ -719,23 +733,36 @@ export default function UploadCreateSummaryPage() {
         .filter((jobId): jobId is string => Boolean(jobId));
 
       const localDate = new Date().toLocaleDateString("en-CA");
-      const blob = await printingService.downloadBatchPdf(jobIds, localDate);
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      let batch = await printingService.downloadBatchPdf(jobIds, localDate);
 
-      updateNotification(notificationId, {
-        type: "success",
-        title: "PDF Generated",
-        message: "Bulk print PDF opened in a new tab.",
-        autoClose: true,
-      });
+      let attempts = 0;
+      while (batch.status === "PENDING" || batch.status === "PROCESSING") {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        batch = await printingService.getBatchStatus(batch.id);
+        attempts++;
+        updateNotification(notificationId, { progress: Math.min(50 + (attempts * 0.5), 95) });
+      }
+
+      if (batch.status === "FAILED") throw new Error(batch.errorMessage || "Generation failed");
+
+      if (batch.pdfUrl) {
+          const pdfUrl = resolvePdfUrl(batch.pdfUrl);
+          window.open(pdfUrl, "_blank");
+          updateNotification(notificationId, {
+            type: "success",
+            title: "PDF Generated",
+            message: "Bulk print PDF opened in a new tab.",
+            progress: 100,
+            autoClose: true,
+          });
+      }
       setSelectedRowKeys(new Set());
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       updateNotification(notificationId, {
         type: "error",
         title: "Print Failed",
-        message: "Failed to generate bulk print PDF.",
+        message: error.message || "Failed to generate bulk print PDF.",
         autoClose: true,
       });
     } finally {

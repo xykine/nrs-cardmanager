@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Employee } from "../../types";
-import { employeeService, cardService, printingService } from "../../services/api";
+import { employeeService, cardService, printingService, resolvePdfUrl } from "../../services/api";
 import { Upload, Printer, Mail, Save, ArrowLeft, LogOut, Pencil } from "lucide-react";
 import { useNotification } from "../../contexts/NotificationContext";
 import EmailDialog from "../EmailDialog";
@@ -186,41 +186,53 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
 
     try {
       // 1. Create Jobs (Backend will generate images)
-      // Use employee.id (DB UUID) for the batch
       const jobs = await printingService.createBatch(
         "PDF_GENERATION",
         [employee.id],
-        {}, // No filters
-        false // Not all
+        {},
+        false
       );
 
+      // 2. Start PDF Batch
+      const jobIds = jobs.map((j: any) => j.jobId);
+      const localDate = new Date().toLocaleDateString("en-CA");
+      let batch = await printingService.downloadBatchPdf(jobIds, localDate);
+
+      // 3. Poll for Completion
       updateNotification(notificationId, {
         progress: 60,
         message: "Generating PDF file..."
       });
 
-      // 2. Get Job IDs
-      const jobIds = jobs.map((j: any) => j.jobId);
+      let attempts = 0;
+      while (batch.status === "PENDING" || batch.status === "PROCESSING") {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        batch = await printingService.getBatchStatus(batch.id);
+        attempts++;
+        updateNotification(notificationId, { progress: Math.min(60 + (attempts * 2), 95) });
+      }
 
-      // 3. Download PDF
-      const localDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
-      const blob = await printingService.downloadBatchPdf(jobIds, localDate);
-      const url = window.URL.createObjectURL(blob);
+      if (batch.status === "FAILED") throw new Error(batch.errorMessage || "Generation failed");
 
-      // 4. Open PDF
-      window.open(url, "_blank");
+      // 4. Download/Open PDF
+      if (batch.pdfUrl) {
+          const pdfUrl = resolvePdfUrl(batch.pdfUrl);
+          
+          window.open(pdfUrl, "_blank");
 
-      updateNotification(notificationId, {
-        type: "success",
-        title: "PDF Generated",
-        message: `PDF opened in new tab`,
-        autoClose: true,
-      });
-    } catch (err) {
+          updateNotification(notificationId, {
+            type: "success",
+            title: "PDF Generated",
+            message: `PDF opened in new tab`,
+            progress: 100,
+            autoClose: true,
+          });
+      }
+    } catch (err: any) {
       updateNotification(notificationId, {
         type: "error",
         title: "Print Failed",
-        message: "Failed to generate print PDF. Please try again.",
+        message: err.message || "Failed to generate print PDF. Please try again.",
         autoClose: true,
       });
       console.error(err);

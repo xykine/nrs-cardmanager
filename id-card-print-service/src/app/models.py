@@ -16,6 +16,22 @@ class JobStatus(str, enum.Enum):
     FAILED = "FAILED"
     RETRY = "RETRY"
 
+class BatchJobStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+class BatchPrintJob(Base):
+    __tablename__ = "batch_print_jobs"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    status = Column(Enum(BatchJobStatus), nullable=False, default=BatchJobStatus.PENDING)
+    pdf_url = Column(String, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
 class PrintJob(Base):
     __tablename__ = "print_jobs"
 
@@ -151,6 +167,7 @@ class PrintReport(Base):
     employee_id = Column("employeeId", String, ForeignKey("employees.id"), nullable=False)
     card_count = Column("cardCount", Integer, nullable=False, default=1)
     print_date = Column("printDate", DateTime(timezone=True), server_default=func.now(), nullable=False)
+    pdf_url = Column("pdfUrl", String, nullable=True)
 
     employee = relationship("Employee")
 

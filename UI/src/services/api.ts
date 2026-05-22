@@ -9,10 +9,24 @@ import {
   PrintUploadResult,
   EmployeeNotification,
   EmployeeNotificationListResponse,
+  PrintingJobSummary,
+  BatchPrintJob,
 } from "../types";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+
+export const resolvePdfUrl = (pdfUrl?: string): string => {
+  if (!pdfUrl) return "";
+  if (pdfUrl.startsWith("http")) return pdfUrl;
+  
+  // Strip trailing /api and / to avoid double slashes or double api prefixes
+  const baseUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000/api")
+    .replace(/\/api\/?$/, "")
+    .replace(/\/$/, "");
+  
+  return `${baseUrl}${pdfUrl.startsWith("/") ? "" : "/"}${pdfUrl}`;
+};
 
 interface PaginatedResponse<T> {
   items: T[];
@@ -399,6 +413,12 @@ export const printingService = {
     return response.json();
   },
 
+  async getPrintingJobsSummary(): Promise<PrintingJobSummary[]> {
+    const response = await fetch(`${API_BASE_URL}/printing/jobs-summary`);
+    if (!response.ok) throw new Error("Failed to fetch printing jobs summary");
+    return response.json();
+  },
+
   async getPrintHistoryStatus(employeeIds: string[]): Promise<{
     items: { employeeId: string; cardCount: number; lastPrintDate: string }[];
   }> {
@@ -485,7 +505,7 @@ export const printingService = {
     return response.json();
   },
 
-  async downloadBatchPdf(jobIds: string[], localDate?: string): Promise<Blob> {
+  async downloadBatchPdf(jobIds: string[], localDate?: string): Promise<BatchPrintJob> {
     const recipientEmail = (sessionStorage.getItem("nrs_user_email") || "").trim();
     const shouldEmailPdf = jobIds.length >= 4 && recipientEmail.length > 0;
     const response = await fetch(`${API_BASE_URL}/print-jobs/batch-pdf`, {
@@ -498,8 +518,14 @@ export const printingService = {
         recipientEmail: shouldEmailPdf ? recipientEmail : undefined,
       }),
     });
-    if (!response.ok) throw new Error("Failed to generate PDF");
-    return response.blob();
+    if (!response.ok) throw new Error("Failed to start PDF generation");
+    return response.json();
+  },
+
+  async getBatchStatus(batchId: string): Promise<BatchPrintJob> {
+    const response = await fetch(`${API_BASE_URL}/print-jobs/batch-pdf/${batchId}`);
+    if (!response.ok) throw new Error("Failed to fetch batch status");
+    return response.json();
   },
 
   async uploadPrintFile(file: File): Promise<PrintUploadResult> {

@@ -180,7 +180,7 @@ export default function PrintingHistoryPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
+                    <td colSpan={6} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                         <span className="text-slate-500 font-medium">Loading reports...</span>
@@ -189,7 +189,7 @@ export default function PrintingHistoryPage() {
                   </tr>
                 ) : reports.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
+                    <td colSpan={6} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <Printer className="w-12 h-12 text-slate-300" />
                         <span className="text-slate-500 font-medium">No printing reports found for selected range</span>
