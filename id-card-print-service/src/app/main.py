@@ -20,7 +20,15 @@ _reminder_thread: threading.Thread | None = None
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://0.0.0.0:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "https://localhost:3000",
+        "https://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -102,8 +110,16 @@ def _stop_daily_reminder_worker():
 def health_check():
     return {"status": "ok"}
 
+from fastapi.staticfiles import StaticFiles
+
 app.include_router(router)
 app.include_router(employees.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
+
+# Mount pdfs dir for direct download
+from .storage import ASSETS_DIR
+pdfs_dir = ASSETS_DIR.parent / "data" / "pdfs"
+pdfs_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/api/print-jobs/pdfs", StaticFiles(directory=str(pdfs_dir)), name="pdfs")

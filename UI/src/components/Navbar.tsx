@@ -47,6 +47,7 @@ export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
         { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
         { label: "Employees", path: "/employees", icon: Users },
         { label: "Print History", path: "/printing", icon: Printer },
+        { label: "Printing Jobs", path: "/printing-jobs", icon: Printer },
         { label: "Notifications", path: "/notifications", icon: Bell },
     ];
 

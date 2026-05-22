@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Employee } from "../types";
-import { employeeService, printingService } from "../services/api";
+import { employeeService, printingService, resolvePdfUrl } from "../services/api";
 import {
   Mail,
   Printer,
@@ -682,15 +682,13 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
     const notificationId = addNotification({
       type: "progress",
       title: "Generating Print PDF",
-      message: `Preparing PDF for ${employeeCount} card(s)...`,
-      progress: 50,
+      message: `Starting PDF generation for ${employeeCount} card(s)...`,
+      progress: 10,
       autoClose: false,
     });
 
     try {
       // 1. Create Jobs (Backend will generate images)
-      // Pass "PDF_GENERATION" as stationId since backend expects a string.
-      // We pass explicit IDs, so isAll is false.
       const jobs = await printingService.createBatch(
         "PDF_GENERATION",
         idsToPrint,
@@ -698,30 +696,58 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
         false,
       );
 
-      // 2. Get Job IDs
+      // 2. Start PDF Batch
       const jobIds = jobs.map((j: any) => j.jobId);
+      const localDate = new Date().toLocaleDateString("en-CA");
+      let batch = await printingService.downloadBatchPdf(jobIds, localDate);
 
-      // 3. Download PDF
-      const localDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
-      const blob = await printingService.downloadBatchPdf(jobIds, localDate);
-      const url = window.URL.createObjectURL(blob);
-
-      // 4. Open PDF
-      window.open(url, "_blank");
-
+      // 3. Poll for Completion
       updateNotification(notificationId, {
-        type: "success",
-        title: "PDF Generated",
-        message: `PDF opened in new tab`,
-        autoClose: true,
+        message: "Processing cards and generating PDF... This may take a moment for large batches.",
+        progress: 40,
       });
 
+      let attempts = 0;
+      const maxAttempts = 150; // 5 minutes max (2s * 150)
+      
+      while (batch.status === "PENDING" || batch.status === "PROCESSING") {
+        if (attempts >= maxAttempts) {
+           throw new Error("PDF generation timed out. Please check back later in the Print History.");
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        batch = await printingService.getBatchStatus(batch.id);
+        attempts++;
+        
+        // Dynamic progress update based on time
+        const currentProgress = Math.min(40 + (attempts * 0.5), 95);
+        updateNotification(notificationId, { progress: currentProgress });
+      }
+
+      if (batch.status === "FAILED") {
+        throw new Error(batch.errorMessage || "PDF generation failed on the server.");
+      }
+
+      // 4. Download/Open PDF
+      if (batch.pdfUrl) {
+          const pdfUrl = resolvePdfUrl(batch.pdfUrl);
+          window.open(pdfUrl, "_blank");
+
+          updateNotification(notificationId, {
+            type: "success",
+            title: "PDF Generated",
+            message: `PDF opened in new tab`,
+            progress: 100,
+            autoClose: true,
+          });
+      }
+
       setSelectedIds(new Set());
-    } catch (err) {
+    } catch (err: any) {
       updateNotification(notificationId, {
         type: "error",
         title: "Print Failed",
-        message: "Failed to generate print PDF. Please try again.",
+        message: err.message || "Failed to generate print PDF. Please try again.",
         autoClose: true,
       });
       console.error(err);

@@ -3,20 +3,21 @@ import io
 import shutil
 import csv
 import os
+import uuid
 from typing import Dict, Any
 from datetime import datetime, timedelta, date
 from email.message import EmailMessage
 from typing import List, Optional
 
 from PIL import Image
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, BackgroundTasks
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session, joinedload
 
 from ..db import get_db
 from ..db import get_db
-from ..models import Employee, PrintJob, JobStatus, Card, PrintReport, PrintingAnalytic
+from ..models import Employee, PrintJob, JobStatus, Card, PrintReport, PrintingAnalytic, BatchPrintJob, BatchJobStatus
 from ..renderer import render_front, render_back, render_front_landscape, render_back_landscape
 from ..schemas import (
     ClaimIn,
@@ -27,10 +28,12 @@ from ..schemas import (
     ReportIn,
     PrintReportOut,
     PrintReportListOut,
+    PrintingJobSummaryOut,
     DashboardStatsOut,
     DailyPrintStatsOut,
     SummaryReportIn,
     PrintUploadResult,
+    BatchPrintJobOut,
 )
 from ..storage import ASSETS_DIR, job_dir
 from .employees import (
@@ -485,8 +488,226 @@ async def upload_print_file(
     return {"summary": summary, "rows": results, "jobIds": job_ids}
 
 
-@router.post("/print-jobs/batch-pdf")
-def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
+def _generate_batch_pdf_task(
+    batch_id: str,
+    job_ids: List[str],
+    payload: Dict[str, Any],
+):
+    """Background task to generate batch PDF."""
+    from ..db import SessionLocal
+    db = SessionLocal()
+    try:
+        batch_job = db.query(BatchPrintJob).filter(BatchPrintJob.id == batch_id).first()
+        if not batch_job:
+            print(f"Batch job {batch_id} not found in background task")
+            return
+
+        batch_job.status = BatchJobStatus.PROCESSING
+        db.commit()
+
+        jobs = db.query(PrintJob).filter(PrintJob.job_id.in_(job_ids)).all()
+        if not jobs:
+            batch_job.status = BatchJobStatus.FAILED
+            batch_job.error_message = "No jobs found"
+            db.commit()
+            return
+
+        # Validate assets exist once
+        logo = ASSETS_DIR / "nrs_logo.png"
+        bottom = ASSETS_DIR / "bottom_icon.png"
+        back = ASSETS_DIR / "BackPageImage.png"
+        contractor_front = ASSETS_DIR / "ContractorFrontPageImage.jpg"
+        contractor_back = ASSETS_DIR / "ContractorBackPageImage.jpg"
+        
+        if not all(a.exists() for a in [logo, bottom, back]):
+             batch_job.status = BatchJobStatus.FAILED
+             batch_job.error_message = "Server assets missing"
+             db.commit()
+             return
+
+        # Pre-load assets as PIL images to avoid redundant I/O
+        logo_img = Image.open(logo).convert("RGBA")
+        bottom_img = Image.open(bottom).convert("RGBA")
+        back_img_portrait = Image.open(back).convert("RGB")
+        contractor_front_img = Image.open(contractor_front).convert("RGB")
+        contractor_back_img = Image.open(contractor_back).convert("RGB")
+
+        emp_ids_needed = [job.employee_id for job in jobs]
+        employees = db.query(Employee).filter(Employee.employee_id.in_(emp_ids_needed)).all()
+        employees_map = {e.employee_id: e for e in employees}
+        employee_db_ids = [e.id for e in employees]
+
+        # Bulk fetch card data to avoid N+1 queries
+        cards = db.query(Card).filter(Card.employee_id.in_(employee_db_ids)).all()
+        cards_map = {c.employee_id: c for c in cards}
+
+        card_images = []
+        
+        for job in jobs:
+            try:
+                if not job.photo_url:
+                    continue
+                
+                photo_url_to_use = job.photo_url
+                employee = employees_map.get(job.employee_id)
+                if not employee:
+                    continue
+
+                if job.photo_url == "MEMORY":
+                    card = cards_map.get(employee.id)
+                    if card and card.photo_data:
+                        original_data = card.photo_data.strip()
+                        if original_data.startswith("data:"):
+                            photo_url_to_use = original_data
+                        else:
+                            photo_url_to_use = f"data:image/png;base64,{original_data}"
+                    else:
+                        continue
+
+                # Layout detection
+                use_landscape = bool(employee and len((employee.employee_id or "").strip()) > 5)
+                
+                if use_landscape:
+                    front_asset, back_asset = _get_background_assets_by_position(employee.position)
+                    
+                    if front_asset == "ContractorFrontPageImage.jpg":
+                        f_img = contractor_front_img
+                    else:
+                        f_path = ASSETS_DIR / front_asset
+                        f_img = Image.open(f_path).convert("RGB") if f_path.exists() else contractor_front_img
+
+                    if back_asset == "ContractorBackPageImage.jpg":
+                        b_img = contractor_back_img
+                    else:
+                        b_path = ASSETS_DIR / back_asset
+                        b_img = Image.open(b_path).convert("RGB") if b_path.exists() else contractor_back_img
+
+                    front_img = render_front_landscape(
+                        job.full_name,
+                        job.employee_id,
+                        employee.position,
+                        photo_url_to_use,
+                        f_img,
+                        id_prefix=employee.id_prefix,
+                        consultant_prefix=employee.consultant_prefix,
+                        photo_x=job.photo_x,
+                        photo_y=job.photo_y,
+                        photo_scale=float(job.photo_scale or 1.0)
+                    )
+                    back_img = render_back_landscape(
+                        job.employee_id, 
+                        b_img,
+                        employment_start_date=employee.employment_start_date,
+                        employment_end_date=employee.employment_end_date
+                    )
+                    card_images.append((front_img, back_img, "L"))
+                else:
+                    front_img = render_front(
+                        job.full_name, 
+                        job.employee_id, 
+                        photo_url_to_use,
+                        logo_img,
+                        bottom_img,
+                        photo_x=job.photo_x,
+                        photo_y=job.photo_y,
+                        photo_scale=float(job.photo_scale or 1.0)
+                    )
+                    back_img = render_back(job.employee_id, back_img_portrait)
+                    card_images.append((front_img, back_img, "P"))
+                
+            except Exception as e:
+                print(f"Failed to render job {job.job_id} in background: {e}")
+                continue
+        
+        if not card_images:
+             batch_job.status = BatchJobStatus.FAILED
+             batch_job.error_message = "No valid images could be generated"
+             db.commit()
+             return
+
+        # Generate PDF bytes in memory
+        pdf_bytes = create_id_card_pdf(card_images)
+        pdf_filename = f"{batch_id}.pdf"
+        
+        # Save the PDF to disk
+        pdfs_dir = ASSETS_DIR.parent / "data" / "pdfs"
+        pdfs_dir.mkdir(parents=True, exist_ok=True)
+        pdf_path = pdfs_dir / pdf_filename
+        with open(pdf_path, "wb") as f:
+            f.write(pdf_bytes)
+        
+        pdf_url = f"{PRINT_JOBS_API_BASE}/pdfs/{pdf_filename}"
+        
+        # Record PrintReport for each job (Upsert logic)
+        existing_reports = {
+            r.employee_id: r 
+            for r in db.query(PrintReport).filter(PrintReport.employee_id.in_(employee_db_ids)).all()
+        }
+
+        now = _now()
+        local_date_str = payload.get("localDate")
+        if local_date_str:
+            try:
+                today = date.fromisoformat(local_date_str)
+            except ValueError:
+                today = now.date()
+        else:
+            today = now.date()
+        
+        analytic = db.query(PrintingAnalytic).filter(PrintingAnalytic.print_date == today).first()
+        if not analytic:
+            analytic = PrintingAnalytic(print_date=today, total_prints=0)
+            db.add(analytic)
+        
+        for job in jobs:
+            employee = employees_map.get(job.employee_id)
+            eid = employee.id if employee else None
+            if eid:
+                analytic.total_prints += 1
+                if eid in existing_reports:
+                    report = existing_reports[eid]
+                    report.card_count += 1
+                    report.print_date = now
+                    report.pdf_url = pdf_url
+                else:
+                    report = PrintReport(employee_id=eid, card_count=1, print_date=now, pdf_url=pdf_url)
+                    db.add(report)
+                    existing_reports[eid] = report
+        
+        # Email logic
+        recipient_email = _normalize_email(payload.get("recipientEmail"))
+        should_email_pdf = bool(payload.get("emailPdf")) and bool(recipient_email)
+        if should_email_pdf:
+            try:
+                _send_print_pdf_email(
+                    to_email=recipient_email,
+                    pdf_bytes=pdf_bytes,
+                    filename=pdf_filename,
+                    card_count=len(card_images),
+                )
+            except Exception as exc:
+                print(f"Failed to email generated print PDF in background: {exc}")
+
+        batch_job.status = BatchJobStatus.COMPLETED
+        batch_job.pdf_url = pdf_url
+        db.commit()
+
+    except Exception as e:
+        print(f"Critical failure in background PDF generation: {e}")
+        if 'batch_job' in locals():
+            batch_job.status = BatchJobStatus.FAILED
+            batch_job.error_message = str(e)
+            db.commit()
+    finally:
+        db.close()
+
+
+@router.post("/print-jobs/batch-pdf", response_model=BatchPrintJobOut)
+def get_batch_pdf(
+    payload: Dict[str, Any], 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     job_ids = payload.get("jobIds", [])
     if not job_ids:
         raise HTTPException(400, "No jobIds provided")
@@ -622,77 +843,35 @@ def get_batch_pdf(payload: Dict[str, Any], db: Session = Depends(get_db)):
     }
 
     now = _now()
-    # Try to get local date from client, fallback to UTC date
-    local_date_str = payload.get("localDate")
-    if local_date_str:
-        try:
-            today = date.fromisoformat(local_date_str)
-        except ValueError:
-            today = now.date()
-    else:
-        today = now.date()
-    
-    # Update PrintingAnalytic for today
-    analytic = db.query(PrintingAnalytic).filter(PrintingAnalytic.print_date == today).first()
-    if not analytic:
-        analytic = PrintingAnalytic(print_date=today, total_prints=0)
-        db.add(analytic)
-    
-    for job in jobs:
-        employee = employees_map.get(job.employee_id)
-        eid = employee.id if employee else None
-        if eid:
-            # Increment daily analytic
-            analytic.total_prints += 1
-            
-            if eid in existing_reports:
-                report = existing_reports[eid]
-                report.card_count += 1
-                report.print_date = now
-            else:
-                report = PrintReport(
-                    employee_id=eid,
-                    card_count=1,
-                    print_date=now
-                )
-                db.add(report)
-                # Cache the new report object in case the same employee is in the batch multiple times
-                existing_reports[eid] = report
-    db.commit()
+    batch_id = f"batch_{now.strftime('%Y%m%d-%H%M%S')}_{str(uuid.uuid4())[:4]}"
 
-    email_status = "not_requested"
-    email_error = ""
-    recipient_email = _normalize_email(payload.get("recipientEmail"))
-    should_email_pdf = bool(payload.get("emailPdf")) and bool(recipient_email)
-
-    if should_email_pdf:
-        try:
-            _send_print_pdf_email(
-                to_email=recipient_email,
-                pdf_bytes=pdf_bytes,
-                filename=pdf_filename,
-                card_count=len(card_images),
-            )
-            email_status = "sent"
-        except Exception as exc:
-            email_status = "failed"
-            email_error = str(exc).replace("\r", " ").replace("\n", " ")[:200]
-            print(f"Failed to email generated print PDF to {recipient_email}: {exc}")
-
-    headers = {
-        "Content-Disposition": f"attachment; filename={pdf_filename}",
-        "X-PDF-Email-Status": email_status,
-    }
-    if recipient_email:
-        headers["X-PDF-Email-To"] = recipient_email
-    if email_error:
-        headers["X-PDF-Email-Error"] = email_error
-
-    return StreamingResponse(
-        io.BytesIO(pdf_bytes),
-        media_type="application/pdf",
-        headers=headers,
+    batch_job = BatchPrintJob(
+        id=batch_id,
+        status=BatchJobStatus.PENDING,
+        created_at=now,
+        updated_at=now
     )
+    db.add(batch_job)
+    db.commit()
+    db.refresh(batch_job)
+
+    # Enqueue Background Task
+    background_tasks.add_task(
+        _generate_batch_pdf_task,
+        batch_job.id,
+        job_ids,
+        payload
+    )
+
+    return batch_job
+
+
+@router.get("/print-jobs/batch-pdf/{batch_id}", response_model=BatchPrintJobOut)
+def get_batch_job_status(batch_id: str, db: Session = Depends(get_db)):
+    batch_job = db.query(BatchPrintJob).filter(BatchPrintJob.id == batch_id).first()
+    if not batch_job:
+        raise HTTPException(404, "Batch job not found")
+    return batch_job
  
     # Old logic removed:
     # pdf_filename = f"batch_{_now().strftime('%Y%m%d%H%M%S')}.pdf"
@@ -822,6 +1001,15 @@ def get_back_png(jobId: str, db: Session = Depends(get_db)):
     return FileResponse(job.back_png_path, media_type="image/png")
 
 
+@router.get("/print-jobs/pdfs/{filename}")
+def get_pdf(filename: str):
+    pdfs_dir = ASSETS_DIR.parent / "data" / "pdfs"
+    pdf_path = pdfs_dir / filename
+    if not pdf_path.exists():
+        raise HTTPException(404, "PDF not found")
+    return FileResponse(pdf_path, media_type="application/pdf", filename=filename)
+
+
 @router.delete("/printing/batches/{id}")
 def delete_batch(id: str, db: Session = Depends(get_db)):
     # Treat 'batch' as a single PrintJob for now, 
@@ -894,6 +1082,26 @@ def get_print_history_status(
             for report in reports
         ]
     }
+
+
+@router.get("/printing/jobs-summary", response_model=List[PrintingJobSummaryOut])
+def get_printing_jobs_summary(db: Session = Depends(get_db)):
+    reports = db.query(
+        PrintReport.pdf_url,
+        func.min(PrintReport.print_date).label('print_date')
+    ).filter(PrintReport.pdf_url.isnot(None)).group_by(PrintReport.pdf_url).order_by(func.min(PrintReport.print_date).desc()).all()
+    
+    results = []
+    for r in reports:
+        pdf_url = r.pdf_url
+        # Extract batch ID from URL, e.g. /api/print-jobs/pdfs/batch_20260513053848.pdf -> batch_20260513053848
+        print_id = pdf_url.split('/')[-1].replace('.pdf', '')
+        results.append({
+            "printId": print_id,
+            "date": r.print_date.isoformat(),
+            "pdfUrl": pdf_url
+        })
+    return results
 
 
 @router.get("/print-reports", response_model=PrintReportListOut)

@@ -5,6 +5,7 @@ import CardPage from "./components/Card/CardPage";
 import EmployeeDetail from "./components/EmployeeDetail";
 import Login from "./components/Login";
 import PrintingHistoryPage from "./components/PrintingHistoryPage";
+import PrintingJobPage from "./components/PrintingJobPage";
 import PrintBatchDetail from "./components/PrintBatchDetail";
 import DashboardPage from "./components/DashboardPage";
 import MainLayout from "./components/MainLayout";
@@ -167,6 +168,18 @@ function App() {
                     <AdminProtectedRoute>
                       <MainLayout userRole={userRole} onLogout={handleLogout}>
                         <PrintingHistoryPage />
+                      </MainLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/printing-jobs"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <AdminProtectedRoute>
+                      <MainLayout userRole={userRole} onLogout={handleLogout}>
+                        <PrintingJobPage />
                       </MainLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>

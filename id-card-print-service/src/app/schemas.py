@@ -3,7 +3,9 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from .models import JobStatus
+from .models import JobStatus, BatchJobStatus
+
+
 
 
 class CreateJobsIn(BaseModel):
@@ -18,13 +20,6 @@ class CreateJobsIn(BaseModel):
     is_all: bool = Field(default=False, alias="isAll")
 
 
-class JobOut(BaseModel):
-    jobId: str
-    printerId: str
-    status: str
-    attempts: int
-    frontPngUrl: str
-    backPngUrl: str
 
 
 class ClaimIn(BaseModel):
@@ -34,18 +29,8 @@ class ClaimIn(BaseModel):
     limit: int = 10
 
 
-class ClaimedJob(BaseModel):
-    jobId: str
-    employeeId: str
-    fullName: str
-    frontPngUrl: str
-    backPngUrl: str
-    attempts: int
-    maxAttempts: int
 
 
-class ClaimOut(BaseModel):
-    jobs: List[ClaimedJob]
 
 
 class ReportIn(BaseModel):
@@ -58,6 +43,37 @@ class ReportIn(BaseModel):
 
 class APIModel(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class BatchPrintJobOut(APIModel):
+    id: str
+    status: BatchJobStatus
+    pdf_url: Optional[str] = Field(default=None, alias="pdfUrl")
+    error_message: Optional[str] = Field(default=None, alias="errorMessage")
+    created_at: datetime = Field(alias="createdAt")
+
+
+class JobOut(APIModel):
+    jobId: str
+    printerId: str
+    status: str
+    attempts: int
+    frontPngUrl: str
+    backPngUrl: str
+
+
+class ClaimedJob(APIModel):
+    jobId: str
+    employeeId: str
+    fullName: str
+    frontPngUrl: str
+    backPngUrl: str
+    attempts: int
+    maxAttempts: int
+
+
+class ClaimOut(APIModel):
+    jobs: List[ClaimedJob]
 
 
 class EmployeeCreate(APIModel):
@@ -212,6 +228,7 @@ class PrintReportOut(APIModel):
     employee_id: str = Field(alias="employeeId")
     card_count: int = Field(alias="cardCount")
     print_date: datetime = Field(alias="printDate")
+    pdf_url: Optional[str] = Field(default=None, alias="pdfUrl")
     employee: Optional[EmployeePublic] = None
 
 
@@ -220,6 +237,12 @@ class PrintReportListOut(APIModel):
     total: int
     page: int
     page_size: int
+
+
+class PrintingJobSummaryOut(APIModel):
+    print_id: str = Field(alias="printId")
+    date: str
+    pdf_url: str = Field(alias="pdfUrl")
 
 
 class DashboardStatsOut(APIModel):

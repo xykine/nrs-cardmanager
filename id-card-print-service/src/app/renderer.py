@@ -34,6 +34,9 @@ DEJAVU_BOLD     = ASSETS_DIR / "DejaVuSans-Bold.ttf"
 DEJAVU_REG      = ASSETS_DIR / "DejaVuSans.ttf"
 
 
+import functools
+
+@functools.lru_cache(maxsize=32)
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     candidates = [
         MONTSERRAT_BOLD if bold else MONTSERRAT_REG,
