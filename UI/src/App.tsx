@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import EmployeeList from "./components/EmployeeList";
 import CardPage from "./components/Card/CardPage";
@@ -19,17 +19,15 @@ import { NotificationProvider } from "./contexts/NotificationContext";
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState<"manager" | "staff">("staff");
-
-  useEffect(() => {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
     const savedEmployeeId = sessionStorage.getItem("nrs_employee_id");
     const savedRole = sessionStorage.getItem("nrs_user_role");
-    if (savedEmployeeId && savedRole) {
-      setIsAuthenticated(true);
-      setUserRole(savedRole as "manager" | "staff");
-    }
-  }, []);
+    return Boolean(savedEmployeeId && savedRole);
+  });
+  const [userRole, setUserRole] = useState<"manager" | "staff">(() => {
+    const savedRole = sessionStorage.getItem("nrs_user_role");
+    return savedRole === "manager" ? "manager" : "staff";
+  });
 
   const { logoutAdmin } = useAdminAuth();
 

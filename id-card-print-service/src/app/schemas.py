@@ -242,6 +242,7 @@ class PrintUploadRowResult(APIModel):
     row_number: int = Field(alias="rowNumber")
     employee_id: Optional[str] = Field(default=None, alias="employeeId")
     name: Optional[str] = None
+    email: Optional[str] = None
     position: Optional[str] = None
     status: str
     message: str
