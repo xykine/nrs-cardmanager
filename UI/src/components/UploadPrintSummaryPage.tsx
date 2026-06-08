@@ -11,6 +11,7 @@ import {
   Pencil,
   Printer,
   RefreshCw,
+  Search,
 } from "lucide-react";
 import {
   Employee,
@@ -64,6 +65,7 @@ export default function UploadPrintSummaryPage() {
   const { addNotification, updateNotification } = useNotification();
   const [report, setReport] = useState<PrintUploadResult | null>(null);
   const [activeFilter, setActiveFilter] = useState<SummaryFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [departments, setDepartments] = useState<string[]>([]);
   const [printing, setPrinting] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -124,9 +126,19 @@ export default function UploadPrintSummaryPage() {
 
   const filteredRows = useMemo(() => {
     if (!report) return [];
-    if (activeFilter === "all") return report.rows;
-    return report.rows.filter((row) => row.status === activeFilter);
-  }, [activeFilter, report]);
+    const statusRows =
+      activeFilter === "all"
+        ? report.rows
+        : report.rows.filter((row) => row.status === activeFilter);
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    if (!normalizedSearch) return statusRows;
+
+    return statusRows.filter((row) =>
+      [row.employeeId, row.name, row.email].some((value) =>
+        (value || "").toLowerCase().includes(normalizedSearch),
+      ),
+    );
+  }, [activeFilter, report, searchQuery]);
 
   const getRowKey = (row: PrintUploadRowResult) =>
     `${row.rowNumber}-${row.employeeId || row.message}`;
@@ -177,6 +189,37 @@ export default function UploadPrintSummaryPage() {
       else next.add(key);
       return next;
     });
+  };
+
+  const openEmployeeRouteInNewTab = async (
+    row: PrintUploadRowResult,
+    route: "detail" | "card",
+  ) => {
+    const newTab = window.open("about:blank", "_blank");
+    if (newTab) newTab.opener = null;
+    const employee = await resolveEmployeeByCode(row.employeeId);
+    if (!employee?.id) {
+      newTab?.close();
+      return;
+    }
+
+    const targetUrl = `${window.location.origin}/${route}/${employee.id}`;
+    if (newTab) {
+      [
+        "nrs_employee_id",
+        "nrs_user_role",
+        "nrs_user_name",
+        "nrs_user_email",
+        "nrs_admin_authenticated",
+      ].forEach((key) => {
+        const value = sessionStorage.getItem(key);
+        if (value !== null) newTab.sessionStorage.setItem(key, value);
+      });
+      newTab.location.href = targetUrl;
+      return;
+    }
+
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
   };
 
   const resolveEmployeeByCode = async (
@@ -961,6 +1004,16 @@ export default function UploadPrintSummaryPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-full sm:w-80">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search IR, name, or email"
+                className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-100"
+              />
+            </div>
             {selectedRowKeys.size > 1 && (
               <>
                 <button
@@ -1055,6 +1108,7 @@ export default function UploadPrintSummaryPage() {
                 </th>
                 <th className="px-4 py-3 text-left font-semibold">IR</th>
                 <th className="px-4 py-3 text-left font-semibold">Name</th>
+                <th className="px-4 py-3 text-left font-semibold">Email</th>
                 <th className="px-4 py-3 text-left font-semibold">Position</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                 <th className="px-4 py-3 text-left font-semibold">Message</th>
@@ -1064,7 +1118,7 @@ export default function UploadPrintSummaryPage() {
             <tbody>
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                     No rows match this filter.
                   </td>
                 </tr>
@@ -1080,14 +1134,10 @@ export default function UploadPrintSummaryPage() {
                     onBookmark={handleBookmarkRow}
                     onSendEmail={handleOpenSingleEmail}
                     onView={async (r) => {
-                      const employee = await resolveEmployeeByCode(r.employeeId);
-                      if (!employee?.id) return;
-                      navigate(`/detail/${employee.id}`);
+                      await openEmployeeRouteInNewTab(r, "detail");
                     }}
                     onViewCard={async (r) => {
-                      const employee = await resolveEmployeeByCode(r.employeeId);
-                      if (!employee?.id) return;
-                      navigate(`/card/${employee.id}`);
+                      await openEmployeeRouteInNewTab(r, "card");
                     }}
                     onCreateEmployee={() => setCreateEmployeeModal(true)}
                     actionInFlight={actionInFlight}
@@ -1243,6 +1293,7 @@ function SummaryRow({
       </td>
       <td className="px-4 py-3 text-slate-700">{row.employeeId || "-"}</td>
       <td className="px-4 py-3 text-slate-700">{row.name || "-"}</td>
+      <td className="px-4 py-3 text-slate-700">{row.email || "-"}</td>
       <td className="px-4 py-3 text-slate-700">{row.position || "-"}</td>
       <td className="px-4 py-3">
         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(row.status)}`}>

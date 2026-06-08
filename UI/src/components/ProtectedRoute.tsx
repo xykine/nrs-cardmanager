@@ -1,5 +1,5 @@
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { ReactNode, useEffect } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { ReactNode } from "react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -11,25 +11,6 @@ export function ProtectedRoute({
   isAuthenticated,
 }: ProtectedRouteProps) {
   const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      const savedEmployeeId = sessionStorage.getItem("nrs_employee_id");
-      const savedRole = sessionStorage.getItem("nrs_user_role");
-
-      if (savedRole === "manager") {
-        navigate(`/`);
-      } else if (savedEmployeeId && savedEmployeeId !== "null") {
-        navigate(`/card/${savedEmployeeId}`);
-      } else {
-        // Fallback if no employee ID is found for a staff member
-        navigate("/login");
-      }
-
-      sessionStorage.removeItem("nrs_intended_location");
-    }
-  }, [isAuthenticated]);
 
   if (!isAuthenticated) {
     // Store the intended location before redirecting to login

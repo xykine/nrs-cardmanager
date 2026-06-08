@@ -135,6 +135,7 @@ export interface PrintUploadRowResult {
   rowNumber: number;
   employeeId?: string;
   name?: string;
+  email?: string;
   position?: string;
   status: "ready" | "missing-photo" | "missing-information" | "not-found" | "duplicate" | "error";
   message: string;

@@ -408,6 +408,7 @@ async def upload_print_file(
             "rowNumber": row_number,
             "employeeId": None,
             "name": None,
+            "email": None,
             "position": None,
             "status": "error",
             "message": "",
@@ -443,6 +444,7 @@ async def upload_print_file(
                 continue
 
             result["name"] = employee.name
+            result["email"] = employee.email
             result["position"] = employee.position
 
             if not employee.card or not employee.card.photo_data:
