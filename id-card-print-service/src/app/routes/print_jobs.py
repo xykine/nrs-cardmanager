@@ -282,7 +282,7 @@ def list_printers():
 @router.post("/print-jobs", response_model=List[JobOut])
 def create_print_jobs(payload: CreateJobsIn, db: Session = Depends(get_db)):
     # Validate assets exist
-    logo = ASSETS_DIR / "nrs_logo.png"
+    logo = ASSETS_DIR / "NRS_LogoAligned_Edited3.jpeg"
     middle = ASSETS_DIR / "MiddleImage.png"
     bottom = ASSETS_DIR / "ButtomImage.png"
     back = ASSETS_DIR / "BackPageImage.png"
@@ -515,7 +515,7 @@ def _generate_batch_pdf_task(
             return
 
         # Validate assets exist once
-        logo = ASSETS_DIR / "nrs_logo.png"
+        logo = ASSETS_DIR / "NRS_LogoAligned_Edited3.jpeg"
         bottom = ASSETS_DIR / "bottom_icon.png"
         back = ASSETS_DIR / "BackPageImage.png"
         contractor_front = ASSETS_DIR / "ContractorFrontPageImage.jpg"
@@ -719,7 +719,7 @@ def get_batch_pdf(
         raise HTTPException(404, "No jobs found")
 
     # Validate assets exist once
-    logo = ASSETS_DIR / "nrs_logo.png"
+    logo = ASSETS_DIR / "NRS_LogoAligned_Edited3.jpeg"
     bottom = ASSETS_DIR / "bottom_icon.png"
     back = ASSETS_DIR / "BackPageImage.png"
     contractor_front = ASSETS_DIR / "ContractorFrontPageImage.jpg"

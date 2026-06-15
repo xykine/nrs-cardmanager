@@ -4,8 +4,17 @@ import { Employee } from '../types';
 import { employeeService } from '../services/api';
 import { ArrowLeft, User, Mail, Hash, Calendar, Image } from 'lucide-react';
 
-export default function EmployeeDetail() {
-  const { employeeId } = useParams<{ employeeId: string }>();
+interface EmployeeDetailProps {
+  employeeId?: string;
+  onBack?: () => void;
+}
+
+export default function EmployeeDetail({
+  employeeId: employeeIdProp,
+  onBack,
+}: EmployeeDetailProps = {}) {
+  const { employeeId: routeEmployeeId } = useParams<{ employeeId: string }>();
+  const employeeId = employeeIdProp || routeEmployeeId;
   const navigate = useNavigate();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,7 +58,7 @@ export default function EmployeeDetail() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <button
-          onClick={() => navigate(-1)}
+          onClick={onBack || (() => navigate(-1))}
           className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-6 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />

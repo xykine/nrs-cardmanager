@@ -12,6 +12,7 @@ import {
   Printer,
   RefreshCw,
   Search,
+  X,
 } from "lucide-react";
 import {
   Employee,
@@ -26,6 +27,8 @@ import EditEmployeeModal from "./EditEmployeeModal";
 import CreateEmployeeModal from "./CreateEmployeeModal";
 import PrintBatchReviewModal, { PrintReviewRow } from "./PrintBatchReviewModal";
 import { EmployeeFilters } from "./FilterEmployee";
+import EmployeeDetail from "./EmployeeDetail";
+import CardPage from "./Card/CardPage";
 
 type SummaryFilter =
   | "all"
@@ -95,6 +98,11 @@ export default function UploadPrintSummaryPage() {
     isOpen: boolean;
     rows: PrintReviewRow[];
   }>({ isOpen: false, rows: [] });
+  const [previewDrawer, setPreviewDrawer] = useState<{
+    isOpen: boolean;
+    type: "detail" | "card";
+    employeeId?: string;
+  }>({ isOpen: false, type: "detail" });
   const employeeCacheRef = useRef<Map<string, Employee | null>>(new Map());
 
   useEffect(() => {
@@ -191,35 +199,18 @@ export default function UploadPrintSummaryPage() {
     });
   };
 
-  const openEmployeeRouteInNewTab = async (
+  const openEmployeePreviewDrawer = async (
     row: PrintUploadRowResult,
-    route: "detail" | "card",
+    type: "detail" | "card",
   ) => {
-    const newTab = window.open("about:blank", "_blank");
-    if (newTab) newTab.opener = null;
+    setPreviewDrawer({ isOpen: true, type });
     const employee = await resolveEmployeeByCode(row.employeeId);
     if (!employee?.id) {
-      newTab?.close();
+      setPreviewDrawer({ isOpen: false, type });
       return;
     }
 
-    const targetUrl = `${window.location.origin}/${route}/${employee.id}`;
-    if (newTab) {
-      [
-        "nrs_employee_id",
-        "nrs_user_role",
-        "nrs_user_name",
-        "nrs_user_email",
-        "nrs_admin_authenticated",
-      ].forEach((key) => {
-        const value = sessionStorage.getItem(key);
-        if (value !== null) newTab.sessionStorage.setItem(key, value);
-      });
-      newTab.location.href = targetUrl;
-      return;
-    }
-
-    window.open(targetUrl, "_blank", "noopener,noreferrer");
+    setPreviewDrawer({ isOpen: true, type, employeeId: employee.id });
   };
 
   const resolveEmployeeByCode = async (
@@ -1134,10 +1125,10 @@ export default function UploadPrintSummaryPage() {
                     onBookmark={handleBookmarkRow}
                     onSendEmail={handleOpenSingleEmail}
                     onView={async (r) => {
-                      await openEmployeeRouteInNewTab(r, "detail");
+                      await openEmployeePreviewDrawer(r, "detail");
                     }}
                     onViewCard={async (r) => {
-                      await openEmployeeRouteInNewTab(r, "card");
+                      await openEmployeePreviewDrawer(r, "card");
                     }}
                     onCreateEmployee={() => setCreateEmployeeModal(true)}
                     actionInFlight={actionInFlight}
@@ -1194,7 +1185,82 @@ export default function UploadPrintSummaryPage() {
         rows={printReviewModal.rows}
         title="Review Upload Print Bulk Action"
       />
+
+      <EmployeePreviewDrawer
+        isOpen={previewDrawer.isOpen}
+        type={previewDrawer.type}
+        employeeId={previewDrawer.employeeId}
+        onClose={() => setPreviewDrawer({ isOpen: false, type: previewDrawer.type })}
+      />
     </div>
+  );
+}
+
+function EmployeePreviewDrawer({
+  isOpen,
+  type,
+  employeeId,
+  onClose,
+}: {
+  isOpen: boolean;
+  type: "detail" | "card";
+  employeeId?: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const title = type === "detail" ? "Employee Details" : "View/Edit Card";
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9998] bg-slate-900/40">
+      <button
+        type="button"
+        aria-label="Close employee preview"
+        className="absolute inset-0 h-full w-full cursor-default"
+        onClick={onClose}
+      />
+      <aside className="absolute right-0 top-0 flex h-full w-full flex-col bg-slate-50 shadow-2xl md:w-3/4">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
+          <h2 className="text-base font-semibold text-slate-800">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            aria-label="Close drawer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {!employeeId ? (
+            <div className="flex h-full items-center justify-center text-slate-600">
+              Loading employee...
+            </div>
+          ) : type === "detail" ? (
+            <EmployeeDetail employeeId={employeeId} onBack={onClose} />
+          ) : (
+            <CardPage employeeId={employeeId} onBack={onClose} />
+          )}
+        </div>
+      </aside>
+    </div>,
+    document.body,
   );
 }
 

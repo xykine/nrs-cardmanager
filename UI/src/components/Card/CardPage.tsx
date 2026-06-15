@@ -14,8 +14,19 @@ import MessageAlert from "../MessageAlert";
 import BackPage from "./BackPage";
 import FrontPage from "./FrontPage";
 
-export default function CardPage({ onLogout }: { onLogout: () => void }) {
-  const { employeeId } = useParams<{ employeeId: string }>();
+interface CardPageProps {
+  onLogout?: () => void;
+  employeeId?: string;
+  onBack?: () => void;
+}
+
+export default function CardPage({
+  onLogout = () => undefined,
+  employeeId: employeeIdProp,
+  onBack,
+}: CardPageProps) {
+  const { employeeId: routeEmployeeId } = useParams<{ employeeId: string }>();
+  const employeeId = employeeIdProp || routeEmployeeId;
   const navigate = useNavigate();
   const { addNotification, updateNotification } = useNotification();
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -341,7 +352,7 @@ export default function CardPage({ onLogout }: { onLogout: () => void }) {
               <div>
                 {currentUserRole && currentUserRole === "manager" ? (
                   <button
-                    onClick={() => navigate(-1)}
+                    onClick={onBack || (() => navigate(-1))}
                     className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-6 transition-colors print:hidden"
                   >
                     <ArrowLeft className="w-5 h-5" />
