@@ -8,6 +8,7 @@ import {
   Copy,
   CreditCard,
   Eye,
+  Loader,
   Mail,
   MoreVertical,
   Pencil,
@@ -38,6 +39,8 @@ export type EmployeeTableProps = {
   onToggleSelection?: (id: string) => void;
   onToggleSelectAll?: (ids: string[]) => void;
   isAllSelected?: boolean;
+  /** ID of employee whose role is currently being updated */
+  updatingRoleId?: string | null;
   /** Optional: route base paths */
   routes?: {
     card?: (id: string) => string;
@@ -56,6 +59,7 @@ export default function EmployeeTable({
   onToggleSelectAll,
   selectedIds: propsSelectedIds,
   isAllSelected,
+  updatingRoleId = null,
   routes,
   onEdit,
   onBookmark,
@@ -321,20 +325,29 @@ export default function EmployeeTable({
 
                 {userRole === "manager" && (
                   <td className="px-6 py-4 text-center">
-                    <select
-                      value={employee.role}
-                      onChange={(e) =>
-                        handleRoleChange(
-                          employee.id,
-                          e.target.value as EmployeeRole
-                        )
-                      }
-                      className="px-3 py-1 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      aria-label={`Set role for ${employee.name}`}
-                    >
-                      <option value="staff">Staff</option>
-                      <option value="manager">Manager</option>
-                    </select>
+                    <div className="inline-flex items-center justify-center gap-2">
+                      <select
+                        value={employee.role}
+                        disabled={updatingRoleId === employee.id}
+                        onChange={(e) =>
+                          handleRoleChange(
+                            employee.id,
+                            e.target.value as EmployeeRole
+                          )
+                        }
+                        className="px-3 py-1 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        aria-label={`Set role for ${employee.name}`}
+                      >
+                        <option value="staff">Staff</option>
+                        <option value="manager">Manager</option>
+                      </select>
+                      {updatingRoleId === employee.id && (
+                        <Loader
+                          className="w-4 h-4 animate-spin text-blue-600"
+                          aria-label="Updating role"
+                        />
+                      )}
+                    </div>
                   </td>
                 )}
 

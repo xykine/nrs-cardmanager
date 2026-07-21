@@ -47,6 +47,8 @@ from ..schemas import (
     EmployeeListOut,
     EmployeeOut,
     EmployeeUpdate,
+    EmployeePhotoStatusUpdate,
+    EmployeeRoleUpdate,
     EmployeeRequestCreate,
     EmployeeRequestPublic,
     EmployeeUploadResult,

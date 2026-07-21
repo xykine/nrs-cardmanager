@@ -24,6 +24,7 @@ import EditEmployeeModal from "./EditEmployeeModal";
 import UploadToCreateModal from "./UploadToCreateModal";
 import UploadToPrintModal from "./UploadToPrintModal";
 import PrintBatchReviewModal, { PrintReviewRow } from "./PrintBatchReviewModal";
+import ConfirmRoleModal from "./ConfirmRoleModal";
 
 interface EmployeeListProps {
   userRole: "manager" | "staff";
@@ -69,6 +70,13 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
     isOpen: boolean;
     employee: Employee | null;
   }>({ isOpen: false, employee: null });
+  const [roleConfirmModal, setRoleConfirmModal] = useState<{
+    isOpen: boolean;
+    employeeId: string;
+    employeeName: string;
+    newRole: "manager" | "staff";
+  }>({ isOpen: false, employeeId: "", employeeName: "", newRole: "staff" });
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
   const [uploadToCreateOpen, setUploadToCreateOpen] = useState(false);
   const [uploadToPrintOpen, setUploadToPrintOpen] = useState(false);
   const [uploadDropdownOpen, setUploadDropdownOpen] = useState(false);
@@ -215,16 +223,62 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
     setSelectedIds(newSelected);
   };
 
-  const handleRoleChange = async (
+  const handleRoleChange = (
     employeeId: string,
     newRole: "manager" | "staff",
   ) => {
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee || employee.role === newRole) return;
+
+    setRoleConfirmModal({
+      isOpen: true,
+      employeeId,
+      employeeName: employee.name || "this employee",
+      newRole,
+    });
+  };
+
+  const handleConfirmRoleChange = async () => {
+    const { employeeId, employeeName, newRole } = roleConfirmModal;
+    const roleLabel = newRole === "manager" ? "Manager" : "Staff";
+
+    setUpdatingRoleId(employeeId);
+
+    const notificationId = addNotification({
+      type: "progress",
+      title: "Updating Role",
+      message: `Updating role for ${employeeName}...`,
+      autoClose: false,
+    });
+
     try {
       await employeeService.updateRole(employeeId, newRole);
+      setRoleConfirmModal({
+        isOpen: false,
+        employeeId: "",
+        employeeName: "",
+        newRole: "staff",
+      });
       await loadEmployees();
+      updateNotification(notificationId, {
+        type: "success",
+        title: "Role Updated",
+        message: `Successfully updated ${employeeName}'s role to ${roleLabel}`,
+        autoClose: true,
+      });
     } catch (err) {
-      alert("Failed to update role");
+      updateNotification(notificationId, {
+        type: "error",
+        title: "Role Update Failed",
+        message:
+          err instanceof Error && err.message
+            ? err.message
+            : `Failed to update role for ${employeeName}`,
+        autoClose: true,
+      });
       console.error(err);
+    } finally {
+      setUpdatingRoleId(null);
     }
   };
 
@@ -1052,6 +1106,7 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
             userRole={userRole}
             selectedIds={selectedIds}
             isAllSelected={selectAllPages}
+            updatingRoleId={updatingRoleId}
             onToggleSelection={handleSelectRow}
             onToggleSelectAll={handleSelectAll}
             onSendInvitation={handleSendInvitation}
@@ -1118,6 +1173,23 @@ export default function EmployeeList({ userRole }: EmployeeListProps) {
         onClose={() => setEditModal({ isOpen: false, employee: null })}
         onSubmit={handleEditEmployee}
         departments={departments}
+      />
+
+      <ConfirmRoleModal
+        isOpen={roleConfirmModal.isOpen}
+        employeeName={roleConfirmModal.employeeName}
+        newRole={roleConfirmModal.newRole}
+        isSubmitting={updatingRoleId === roleConfirmModal.employeeId}
+        onClose={() => {
+          if (updatingRoleId) return;
+          setRoleConfirmModal({
+            isOpen: false,
+            employeeId: "",
+            employeeName: "",
+            newRole: "staff",
+          });
+        }}
+        onConfirm={handleConfirmRoleChange}
       />
 
       <DownloadEmployeeModal

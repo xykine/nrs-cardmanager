@@ -133,7 +133,15 @@ export const employeeService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role }),
     });
-    if (!response.ok) throw new Error("Failed to update role");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const detail = errorData.detail;
+      const message =
+        typeof detail === "string"
+          ? detail
+          : "Failed to update role";
+      throw new Error(message);
+    }
     return response.json();
   },
 
