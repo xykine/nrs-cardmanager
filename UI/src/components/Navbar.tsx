@@ -14,10 +14,9 @@ import { notificationService } from "../services/api";
 interface NavbarProps {
     onLogout: () => void;
     userRole: "manager" | "staff";
-    userName?: string;
 }
 
-export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
+export default function Navbar({ onLogout, userRole }: NavbarProps) {
     const location = useLocation();
     const [unreadCount, setUnreadCount] = useState(0);
 
@@ -47,16 +46,16 @@ export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
     const navItems = [
         { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
         { label: "Employees", path: "/employees", icon: Users },
-        { label: "Print History", path: "/printing", icon: Printer },
-        { label: "Printing Jobs", path: "/printing-jobs", icon: Printer },
+        { label: "History", path: "/printing", icon: Printer },
+        { label: "Jobs", path: "/printing-jobs", icon: Printer },
         { label: "Notifications", path: "/notifications", icon: Bell },
-        { label: "Settings", path: "/settings", icon: Settings },
     ];
 
     const isActive = (path: string) => {
         if (path === "/employees" && location.pathname === "/") return true;
         return location.pathname === path || location.pathname.startsWith(`${path}/`);
     };
+    const settingsActive = isActive("/settings");
 
     return (
         <nav className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
@@ -102,11 +101,7 @@ export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <div className="flex flex-col items-end mr-2 hidden md:flex">
-                            <span className="text-sm font-bold text-slate-900 capitalize">{userName || userRole}</span>
-                            <span className="text-xs text-slate-500">Administrator</span>
-                        </div>
+                    <div className="flex items-center gap-1">
                         <button
                             onClick={onLogout}
                             className="inline-flex items-center justify-center p-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all group"
@@ -114,6 +109,17 @@ export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
                         >
                             <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
                         </button>
+                        <Link
+                            to="/settings"
+                            title="Settings"
+                            aria-label="Settings"
+                            className={`inline-flex items-center justify-center p-2 rounded-lg transition-all ${settingsActive
+                                ? "text-blue-600 bg-blue-50"
+                                : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                                }`}
+                        >
+                            <Settings className="w-5 h-5" />
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -143,6 +149,15 @@ export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
                             </Link>
                         );
                     })}
+                    <Link
+                        to="/settings"
+                        title="Settings"
+                        aria-label="Settings"
+                        className={`flex flex-col items-center p-2 text-xs font-medium transition-colors ${settingsActive ? "text-blue-600" : "text-slate-500"
+                            }`}
+                    >
+                        <Settings className="w-5 h-5 mb-1" />
+                    </Link>
                 </div>
             </div>
         </nav>
