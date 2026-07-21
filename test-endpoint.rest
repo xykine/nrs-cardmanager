@@ -1,0 +1,13 @@
+GET http://localhost:8080/api/paymentinfo
+Content-Type: application/json
+
+
+### Create Payment Info
+### Decode QR Token
+POST http://localhost:8000/api/cards/qr/decode
+X-API-Key: nrs_bdcef457eccbee4e25b32ba0d0a5353c
+Content-Type: application/json
+
+{
+  "token": "gAAAAABqXr85iLn9TbYnNoGbWHuurAO02GCbRGCxjbmqMhtSAPmu2yMFbOtNBpiDXcd4_5Rxt_GwuvvU2FnrtTuFW3ZZy6wgXQ=="
+}

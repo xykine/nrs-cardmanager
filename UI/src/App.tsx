@@ -12,6 +12,7 @@ import MainLayout from "./components/MainLayout";
 import UploadCreateSummaryPage from "./components/UploadCreateSummaryPage";
 import UploadPrintSummaryPage from "./components/UploadPrintSummaryPage";
 import NotificationsPage from "./components/NotificationsPage";
+import ApiKeysSettingsPage from "./components/ApiKeysSettingsPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { useAdminAuth } from "./contexts/AdminAuthContext";
@@ -214,6 +215,18 @@ function App() {
                     <AdminProtectedRoute>
                       <MainLayout userRole={userRole} onLogout={handleLogout}>
                         <DashboardPage />
+                      </MainLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <AdminProtectedRoute>
+                      <MainLayout userRole={userRole} onLogout={handleLogout}>
+                        <ApiKeysSettingsPage />
                       </MainLayout>
                     </AdminProtectedRoute>
                   </ProtectedRoute>

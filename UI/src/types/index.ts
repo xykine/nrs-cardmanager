@@ -177,3 +177,16 @@ export interface EmployeeNotificationListResponse {
   total: number;
   unread: number;
 }
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  isActive: boolean;
+  createdAt: string;
+  lastUsedAt?: string | null;
+}
+
+export interface ApiKeyCreated extends ApiKey {
+  key: string;
+}

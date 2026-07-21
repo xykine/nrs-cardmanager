@@ -4,11 +4,11 @@ import io
 import os
 import httpx
 import qrcode
-import hashlib
 import base64
 from typing import Optional, Union
 from datetime import date
-from cryptography.fernet import Fernet
+
+from .qr_token import encrypt_employee_id
 
 # CR80 (2.125" x 3.375") @ 300dpi, portrait
 DPI = 300
@@ -324,11 +324,7 @@ def render_back(
     draw = ImageDraw.Draw(card)
 
     # Secret key for QR code
-    secret_key = os.getenv("QR_SECRET_KEY", "default-secret-key-for-qr")
-    key = hashlib.sha256(secret_key.encode()).digest()
-    fernet_key = base64.urlsafe_b64encode(key)
-    f = Fernet(fernet_key)
-    token = f.encrypt(employee_id.encode()).decode()
+    token = encrypt_employee_id(employee_id)
 
     # Generate QR code
     qr = qrcode.QRCode(
@@ -494,11 +490,7 @@ def render_back_landscape(
 ) -> Image.Image:
     card = _load_card_template(back_template_path, CARD_L_W, CARD_L_H)
 
-    secret_key = os.getenv("QR_SECRET_KEY", "default-secret-key-for-qr")
-    key = hashlib.sha256(secret_key.encode()).digest()
-    fernet_key = base64.urlsafe_b64encode(key)
-    f = Fernet(fernet_key)
-    token = f.encrypt(employee_id.encode()).decode()
+    token = encrypt_employee_id(employee_id)
 
     qr = qrcode.QRCode(
         version=1,
@@ -510,7 +502,7 @@ def render_back_landscape(
     qr.make(fit=True)
 
     qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
-    
+
     qw = int(CARD_L_W * (85.5 / 560.0))
     qh = qw
     qr_img = qr_img.resize((qw, qh), Image.LANCZOS)

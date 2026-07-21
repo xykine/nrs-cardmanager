@@ -347,3 +347,28 @@ class EmployeeNotificationListOut(APIModel):
     items: list[EmployeeNotificationOut]
     total: int
     unread: int
+
+
+class ApiKeyCreate(APIModel):
+    name: str
+
+
+class ApiKeyOut(APIModel):
+    id: str
+    name: str
+    key_prefix: str = Field(alias="keyPrefix")
+    is_active: bool = Field(alias="isActive")
+    created_at: datetime = Field(alias="createdAt")
+    last_used_at: Optional[datetime] = Field(default=None, alias="lastUsedAt")
+
+
+class ApiKeyCreated(ApiKeyOut):
+    key: str
+
+
+class QrDecodeRequest(APIModel):
+    token: str
+
+
+class QrDecodeResponse(APIModel):
+    employee_id: str = Field(alias="employeeId")

@@ -11,6 +11,8 @@ import {
   EmployeeNotificationListResponse,
   PrintingJobSummary,
   BatchPrintJob,
+  ApiKey,
+  ApiKeyCreated,
 } from "../types";
 
 const API_BASE_URL =
@@ -592,6 +594,60 @@ export const notificationService = {
       method: "DELETE",
     });
     if (!response.ok) throw new Error("Failed to delete notification");
+    return response.json();
+  },
+};
+
+export const apiKeyService = {
+  async list(): Promise<ApiKey[]> {
+    const response = await fetch(`${API_BASE_URL}/admin/api-keys`);
+    if (!response.ok) throw new Error("Failed to fetch API keys");
+    return response.json();
+  },
+
+  async create(name: string): Promise<ApiKeyCreated> {
+    const response = await fetch(`${API_BASE_URL}/admin/api-keys`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to create API key");
+    }
+    return response.json();
+  },
+
+  async revoke(id: string): Promise<ApiKey> {
+    const response = await fetch(`${API_BASE_URL}/admin/api-keys/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to revoke API key");
+    }
+    return response.json();
+  },
+
+  async reactivate(id: string): Promise<ApiKey> {
+    const response = await fetch(`${API_BASE_URL}/admin/api-keys/${id}/reactivate`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to reactivate API key");
+    }
+    return response.json();
+  },
+
+  async regenerate(id: string): Promise<ApiKeyCreated> {
+    const response = await fetch(`${API_BASE_URL}/admin/api-keys/${id}/regenerate`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to regenerate API key");
+    }
     return response.json();
   },
 };

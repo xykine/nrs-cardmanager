@@ -5,7 +5,8 @@ import {
     Users,
     Printer,
     Bell,
-    LogOut
+    LogOut,
+    Settings
 } from "lucide-react";
 import nrsLogo from "../assets/nrs_img.jpeg";
 import { notificationService } from "../services/api";
@@ -49,6 +50,7 @@ export default function Navbar({ onLogout, userRole, userName }: NavbarProps) {
         { label: "Print History", path: "/printing", icon: Printer },
         { label: "Printing Jobs", path: "/printing-jobs", icon: Printer },
         { label: "Notifications", path: "/notifications", icon: Bell },
+        { label: "Settings", path: "/settings", icon: Settings },
     ];
 
     const isActive = (path: string) => {
