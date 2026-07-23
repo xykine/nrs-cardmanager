@@ -9,6 +9,10 @@ import {
   PrintUploadResult,
   EmployeeNotification,
   EmployeeNotificationListResponse,
+  // PrintingJobSummary,
+  // BatchPrintJob,
+  ApiKey,
+  ApiKeyCreated,
 } from "../types";
 
 const API_BASE_URL =
@@ -29,7 +33,6 @@ export interface BulkActionPayload {
 }
 
 export const employeeService = {
-
   async getDepartments(): Promise<string[]> {
     const response = await fetch(`${API_BASE_URL}/employees/departments`);
     if (!response.ok) throw new Error("Failed to fetch departments");
@@ -48,10 +51,18 @@ export const employeeService = {
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== "all" && value !== "") {
+        if (
+          value !== null &&
+          value !== undefined &&
+          value !== "all" &&
+          value !== ""
+        ) {
           // Format dates as ISO strings if they are date objects or strings that can be converted
           if ((key === "startDate" || key === "endDate") && value) {
-            const dateStr = value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+            const dateStr =
+              value instanceof Date
+                ? value.toISOString()
+                : new Date(value).toISOString();
             params.append(key, dateStr);
           } else {
             params.append(key, value.toString());
@@ -123,17 +134,20 @@ export const employeeService = {
     return response.json();
   },
 
-  async update(id: string, data: {
-    name?: string;
-    email?: string;
-    employeeId?: string;
-    position?: string;
-    idPrefix?: string;
-    consultantPrefix?: string;
-    employmentStartDate?: string;
-    employmentEndDate?: string;
-    department?: string;
-  }): Promise<Employee> {
+  async update(
+    id: string,
+    data: {
+      name?: string;
+      email?: string;
+      employeeId?: string;
+      position?: string;
+      idPrefix?: string;
+      consultantPrefix?: string;
+      employmentStartDate?: string;
+      employmentEndDate?: string;
+      department?: string;
+    },
+  ): Promise<Employee> {
     const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -145,7 +159,6 @@ export const employeeService = {
     }
     return response.json();
   },
-
 
   async syncData(): Promise<Employee[]> {
     const response = await fetch(`${API_BASE_URL}/employees/sync-employee`);
@@ -282,12 +295,17 @@ export const employeeService = {
     return response.json();
   },
 
-  async downloadUploadCreateReport(report: EmployeeUploadResult): Promise<Blob> {
-    const response = await fetch(`${API_BASE_URL}/employees/upload-create/report`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(report),
-    });
+  async downloadUploadCreateReport(
+    report: EmployeeUploadResult,
+  ): Promise<Blob> {
+    const response = await fetch(
+      `${API_BASE_URL}/employees/upload-create/report`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(report),
+      },
+    );
 
     if (!response.ok) {
       throw new Error("Failed to download upload report");
@@ -354,14 +372,14 @@ export const printingService = {
     const response = await fetch(`${API_BASE_URL}/printers`);
     if (!response.ok) throw new Error("Failed to fetch printing stations");
     const names: string[] = await response.json();
-    return names.map(name => ({
+    return names.map((name) => ({
       id: name,
       name: name,
       status: "online",
       location: "Office",
       last_seen: new Date().toISOString(),
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     }));
   },
 
@@ -386,7 +404,12 @@ export const printingService = {
     return response.json();
   },
 
-  async getPrintReports(page: number = 1, pageSize: number = 20, startDate?: string, endDate?: string): Promise<{ items: any[], total: number, page: number, page_size: number }> {
+  async getPrintReports(
+    page: number = 1,
+    pageSize: number = 20,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{ items: any[]; total: number; page: number; page_size: number }> {
     const params = new URLSearchParams({
       page: page.toString(),
       page_size: pageSize.toString(),
@@ -394,7 +417,9 @@ export const printingService = {
     if (startDate) params.append("startDate", startDate);
     if (endDate) params.append("endDate", endDate);
 
-    const response = await fetch(`${API_BASE_URL}/print-reports?${params.toString()}`);
+    const response = await fetch(
+      `${API_BASE_URL}/print-reports?${params.toString()}`,
+    );
     if (!response.ok) throw new Error("Failed to fetch print reports");
     return response.json();
   },
@@ -411,35 +436,52 @@ export const printingService = {
     return response.json();
   },
 
-  async exportPrintReports(startDate?: string, endDate?: string): Promise<Blob> {
+  async exportPrintReports(
+    startDate?: string,
+    endDate?: string,
+  ): Promise<Blob> {
     const params = new URLSearchParams();
     if (startDate) params.append("startDate", startDate);
     if (endDate) params.append("endDate", endDate);
 
-    const response = await fetch(`${API_BASE_URL}/print-reports/export?${params.toString()}`);
+    const response = await fetch(
+      `${API_BASE_URL}/print-reports/export?${params.toString()}`,
+    );
     if (!response.ok) throw new Error("Failed to export print reports");
     return response.blob();
   },
 
-  async getDashboardStats(): Promise<{ totalPrints: number, totalEmployees: number, employeesWithPhotos: number }> {
+  async getDashboardStats(): Promise<{
+    totalPrints: number;
+    totalEmployees: number;
+    employeesWithPhotos: number;
+  }> {
     const response = await fetch(`${API_BASE_URL}/dashboard/stats`);
     if (!response.ok) throw new Error("Failed to fetch dashboard stats");
     return response.json();
   },
 
-  async getDailyAnalytics(days: number = 30, localDate?: string): Promise<{ date: string, count: number }[]> {
+  async getDailyAnalytics(
+    days: number = 30,
+    localDate?: string,
+  ): Promise<{ date: string; count: number }[]> {
     const params = new URLSearchParams({ days: days.toString() });
     if (localDate) params.append("localDate", localDate);
-    const response = await fetch(`${API_BASE_URL}/dashboard/analytics?${params.toString()}`);
+    const response = await fetch(
+      `${API_BASE_URL}/dashboard/analytics?${params.toString()}`,
+    );
     if (!response.ok) throw new Error("Failed to fetch daily analytics");
     return response.json();
   },
 
-  async generateSummaryReport(startDate: string, endDate: string): Promise<Blob> {
+  async generateSummaryReport(
+    startDate: string,
+    endDate: string,
+  ): Promise<Blob> {
     const response = await fetch(`${API_BASE_URL}/dashboard/summary-report`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ startDate, endDate })
+      body: JSON.stringify({ startDate, endDate }),
     });
     if (!response.ok) throw new Error("Failed to generate summary report");
     return response.blob();
@@ -475,18 +517,25 @@ export const printingService = {
     return response.json();
   },
 
-  async deleteBatchesBulk(ids: string[]): Promise<{ ok: boolean; deleted: number }> {
-    const response = await fetch(`${API_BASE_URL}/printing/batches/bulk-delete`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ batchIds: ids }),
-    });
+  async deleteBatchesBulk(
+    ids: string[],
+  ): Promise<{ ok: boolean; deleted: number }> {
+    const response = await fetch(
+      `${API_BASE_URL}/printing/batches/bulk-delete`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batchIds: ids }),
+      },
+    );
     if (!response.ok) throw new Error("Failed to delete batches");
     return response.json();
   },
 
   async downloadBatchPdf(jobIds: string[], localDate?: string): Promise<Blob> {
-    const recipientEmail = (sessionStorage.getItem("nrs_user_email") || "").trim();
+    const recipientEmail = (
+      sessionStorage.getItem("nrs_user_email") || ""
+    ).trim();
     const shouldEmailPdf = jobIds.length >= 4 && recipientEmail.length > 0;
     const response = await fetch(`${API_BASE_URL}/print-jobs/batch-pdf`, {
       method: "POST",
@@ -513,7 +562,9 @@ export const printingService = {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || "Failed to process print upload file");
+      throw new Error(
+        errorData.detail || "Failed to process print upload file",
+      );
     }
 
     return response.json();
@@ -521,12 +572,17 @@ export const printingService = {
 };
 
 export const notificationService = {
-  async list(limit: number = 30, unreadOnly: boolean = false): Promise<EmployeeNotificationListResponse> {
+  async list(
+    limit: number = 30,
+    unreadOnly: boolean = false,
+  ): Promise<EmployeeNotificationListResponse> {
     const params = new URLSearchParams({
       limit: limit.toString(),
       unreadOnly: unreadOnly ? "true" : "false",
     });
-    const response = await fetch(`${API_BASE_URL}/notifications?${params.toString()}`);
+    const response = await fetch(
+      `${API_BASE_URL}/notifications?${params.toString()}`,
+    );
     if (!response.ok) throw new Error("Failed to fetch notifications");
     return response.json();
   },
@@ -549,7 +605,8 @@ export const notificationService = {
     const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
       method: "PATCH",
     });
-    if (!response.ok) throw new Error("Failed to mark all notifications as read");
+    if (!response.ok)
+      throw new Error("Failed to mark all notifications as read");
     return response.json();
   },
 
@@ -558,6 +615,66 @@ export const notificationService = {
       method: "DELETE",
     });
     if (!response.ok) throw new Error("Failed to delete notification");
+    return response.json();
+  },
+};
+
+export const apiKeyService = {
+  async list(): Promise<ApiKey[]> {
+    const response = await fetch(`${API_BASE_URL}/admin/api-keys`);
+    if (!response.ok) throw new Error("Failed to fetch API keys");
+    return response.json();
+  },
+
+  async create(name: string): Promise<ApiKeyCreated> {
+    const response = await fetch(`${API_BASE_URL}/admin/api-keys`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to create API key");
+    }
+    return response.json();
+  },
+
+  async revoke(id: string): Promise<ApiKey> {
+    const response = await fetch(`${API_BASE_URL}/admin/api-keys/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to revoke API key");
+    }
+    return response.json();
+  },
+
+  async reactivate(id: string): Promise<ApiKey> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/api-keys/${id}/reactivate`,
+      {
+        method: "POST",
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to reactivate API key");
+    }
+    return response.json();
+  },
+
+  async regenerate(id: string): Promise<ApiKeyCreated> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/api-keys/${id}/regenerate`,
+      {
+        method: "POST",
+      },
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || "Failed to regenerate API key");
+    }
     return response.json();
   },
 };

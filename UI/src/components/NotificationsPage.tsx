@@ -71,7 +71,8 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Notifications</h1>
@@ -93,7 +94,7 @@ export default function NotificationsPage() {
             to="/printing"
             className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200"
           >
-            Back to Print History
+            Back to History
           </Link>
         </div>
       </div>
@@ -234,6 +235,7 @@ export default function NotificationsPage() {
             </tbody>
           </table>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -5,10 +5,11 @@ from datetime import datetime, timedelta
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .db import engine, SessionLocal
 from .models import Base
-from .routes import router, cards, employees, admin, notifications
+from .routes import router, cards, employees, admin, notifications, api_keys
 from .routes.admin import seed_admin
 from .storage import ensure_dirs
 from .cron_jobs import start_scheduler
@@ -107,3 +108,10 @@ app.include_router(employees.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
+app.include_router(api_keys.router, prefix="/api")
+
+# Mount pdfs dir for direct download
+from .storage import ASSETS_DIR
+pdfs_dir = ASSETS_DIR.parent / "data" / "pdfs"
+pdfs_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/api/print-jobs/pdfs", StaticFiles(directory=str(pdfs_dir)), name="pdfs")

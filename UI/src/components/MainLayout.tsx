@@ -8,11 +8,9 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children, userRole, onLogout }: MainLayoutProps) {
-    const userName = sessionStorage.getItem("nrs_user_name") || undefined;
-
     return (
         <div className="min-h-screen bg-slate-50">
-            <Navbar userRole={userRole} onLogout={onLogout} userName={userName} />
+            <Navbar userRole={userRole} onLogout={onLogout} />
             <main>
                 {children}
             </main>

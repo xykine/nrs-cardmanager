@@ -1,15 +1,13 @@
-import os
 import io
-import hmac
-import hashlib
 import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session, joinedload
-from cryptography.fernet import Fernet
 
 from ..db import get_db
-from ..models import Card, Employee, BookmarkedEmployee
-from ..schemas import CardOut, CardSave
+from ..models import Card, Employee, BookmarkedEmployee, ApiKey
+from ..qr_token import encrypt_employee_id, decrypt_employee_id
+from ..schemas import CardOut, CardSave, QrDecodeRequest, QrDecodeResponse
+from .api_keys import require_api_key
 from .notifications import add_bookmarked_employee_notification
 from ..utils.auto_framing import calculate_auto_frame_params
 
@@ -116,19 +114,8 @@ def get_employee_qr(employee_id: str, db: Session = Depends(get_db)):
         if not employee:
             raise HTTPException(status_code=404, detail="Employee not found")
 
-    secret_key = os.getenv("QR_SECRET_KEY", "default-secret-key-for-qr")
-    
-    # We use the secret key to derive a Fernet key for encryption
-    # In a real app, this should be a properly managed 32-byte base64 key.
-    # Here we'll derive it simply for demonstration.
-    key = hashlib.sha256(secret_key.encode()).digest()
-    import base64
-    fernet_key = base64.urlsafe_b64encode(key)
-    f = Fernet(fernet_key)
-    
-    # Encrypt the employee_id
-    token = f.encrypt(employee.employee_id.encode()).decode()
-    
+    token = encrypt_employee_id(employee.employee_id)
+
     # Generate QR code
     qr = qrcode.QRCode(
         version=1,
@@ -146,3 +133,20 @@ def get_employee_qr(employee_id: str, db: Session = Depends(get_db)):
     img_byte_arr = img_byte_arr.getvalue()
 
     return Response(content=img_byte_arr, media_type="image/png")
+
+
+@router.post("/qr/decode", response_model=QrDecodeResponse)
+def decode_qr_token(
+    payload: QrDecodeRequest,
+    _api_key: ApiKey = Depends(require_api_key),
+):
+    token = (payload.token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Token is required")
+
+    try:
+        employee_id = decrypt_employee_id(token)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid QR token") from None
+
+    return QrDecodeResponse(employee_id=employee_id)

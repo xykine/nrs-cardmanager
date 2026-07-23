@@ -221,3 +221,15 @@ class EmployeeNotification(Base):
     )
 
     employee = relationship("Employee", back_populates="notifications")
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    key_prefix = Column("keyPrefix", String, nullable=False)
+    key_hash = Column("keyHash", String, unique=True, nullable=False, index=True)
+    is_active = Column("isActive", Boolean, nullable=False, default=True)
+    created_at = Column("createdAt", DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_used_at = Column("lastUsedAt", DateTime(timezone=True), nullable=True)
