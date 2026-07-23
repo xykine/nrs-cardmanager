@@ -54,6 +54,9 @@ export default function CardPage({
     setValidating(true);
     try {
       const response = await fetch(photoData);
+      if (!response.ok) {
+        throw new Error("Could not read the selected photo for validation.");
+      }
       const blob = await response.blob();
       const extension = blob.type.split("/")[1] || "png";
       const formData = new FormData();
@@ -61,13 +64,21 @@ export default function CardPage({
 
       const photoValidity = await cardService.validatePhoto(formData);
       if (!photoValidity.valid) {
-        setPhotoErrors(photoValidity?.issues || []);
+        setPhotoErrors(
+          photoValidity?.issues?.length
+            ? photoValidity.issues
+            : [photoValidity.message || "Photo did not pass validation."],
+        );
         setPhotoData(null);
       } else {
         setPhotoErrors([]);
       }
-    } catch {
-      setPhotoErrors(["Failed to validate photo"]);
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Failed to validate photo";
+      setPhotoErrors([message]);
     } finally {
       setValidating(false);
     }

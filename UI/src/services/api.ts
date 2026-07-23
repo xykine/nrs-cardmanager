@@ -349,11 +349,52 @@ export const cardService = {
   async validatePhoto(
     formData: FormData,
   ): Promise<{ valid: boolean; issues?: string[]; message?: string }> {
-    const response = await fetch(`${API_BASE_URL}/employees/validate-photo`, {
-      method: "POST",
-      body: formData,
-    });
-    if (!response.ok) throw new Error("Failed to validate photo");
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}/employees/validate-photo`, {
+        method: "POST",
+        body: formData,
+      });
+    } catch {
+      throw new Error(
+        "Could not reach the photo validation service. Check that the API is running and reachable.",
+      );
+    }
+
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const errorData = await response.json();
+        if (typeof errorData?.detail === "string") {
+          detail = errorData.detail;
+        } else if (Array.isArray(errorData?.detail)) {
+          detail = errorData.detail
+            .map((item: { msg?: string } | string) =>
+              typeof item === "string" ? item : item?.msg,
+            )
+            .filter(Boolean)
+            .join("; ");
+        } else if (typeof errorData?.message === "string") {
+          detail = errorData.message;
+        }
+      } catch {
+        // Response body was not JSON
+      }
+
+      const statusHint =
+        response.status === 404
+          ? "Validation endpoint not found"
+          : response.status >= 500
+            ? "Server error while validating photo"
+            : "Photo validation request failed";
+
+      throw new Error(
+        detail
+          ? `${statusHint} (${response.status}): ${detail}`
+          : `${statusHint} (HTTP ${response.status}).`,
+      );
+    }
+
     const data = await response.json();
     if (typeof data?.valid === "boolean") {
       return data;
