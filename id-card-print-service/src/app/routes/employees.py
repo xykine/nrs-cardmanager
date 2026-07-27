@@ -53,6 +53,7 @@ from ..schemas import (
     SingleEmailRequest,
 )
 from .notifications import add_bookmarked_employee_notification
+from ..utils.opencv_helpers import load_haar_cascade
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 logger = logging.getLogger(__name__)
@@ -2354,12 +2355,14 @@ def validate_id_photo(image_path: str) -> Dict:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gray = cv2.equalizeHist(gray) # Improve contrast for better detection
     
-    # Load cascades from cv2 data
-    face_cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
-    eye_with_glasses_cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_eye_tree_eyeglasses.xml")
-    
-    face_cascade = cv2.CascadeClassifier(face_cascade_path)
-    eye_glasses_cascade = cv2.CascadeClassifier(eye_with_glasses_cascade_path)
+    face_cascade = load_haar_cascade("haarcascade_frontalface_default.xml")
+    eye_glasses_cascade = load_haar_cascade("haarcascade_eye_tree_eyeglasses.xml")
+    if face_cascade is None or eye_glasses_cascade is None:
+        return {
+            "status": "success" if not errors else "error",
+            "errors": errors,
+            "warnings": ["Glasses detection skipped because OpenCV Haar cascade support is unavailable."],
+        }
 
     # Detect faces
     faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(100, 100))

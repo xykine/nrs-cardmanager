@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 
+from .opencv_helpers import load_haar_cascade
+
 def calculate_auto_frame_params(photo_data: str, container_w: float = 208, container_h: float = 208):
     """
     Reverse engineers the frontend React Avatar Editor coordinates for a natively perfectly framed 
@@ -28,9 +30,9 @@ def calculate_auto_frame_params(photo_data: str, container_w: float = 208, conta
         # Improve contrast for better face detection
         gray = cv2.equalizeHist(gray)
         
-        import os
-        face_cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
-        face_cascade = cv2.CascadeClassifier(face_cascade_path)
+        face_cascade = load_haar_cascade("haarcascade_frontalface_default.xml")
+        if face_cascade is None:
+            return 0, 0, "1.0"
         
         img_h, img_w = img_cv.shape[:2]
         min_face_size = (int(img_w * 0.08), int(img_h * 0.08))
