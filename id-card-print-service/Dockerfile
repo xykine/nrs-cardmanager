@@ -30,6 +30,8 @@ PY
 RUN pip install --no-cache-dir -r requirements.txt \
     && rm requirements.txt
 
+RUN python -c "import cv2; assert hasattr(cv2, 'CascadeClassifier'), f'Invalid cv2 module: file={getattr(cv2, \"__file__\", None)} version={getattr(cv2, \"__version__\", None)}'"
+
 COPY src ./src
 COPY assets ./assets
 
