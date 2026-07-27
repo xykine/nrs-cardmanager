@@ -305,6 +305,11 @@ export default function ApiKeysSettingsPage() {
         <p>
           Body: <code className="font-mono">{`{ "token": "<qr-token>" }`}</code>
         </p>
+        <p>
+          Returns the full employee record (same shape as{" "}
+          <code className="font-mono">GET /api/employees/code/&lt;employeeId&gt;</code>
+          ).
+        </p>
       </div>
       </div>
     </div>

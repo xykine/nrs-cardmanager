@@ -368,7 +368,3 @@ class ApiKeyCreated(ApiKeyOut):
 
 class QrDecodeRequest(APIModel):
     token: str
-
-
-class QrDecodeResponse(APIModel):
-    employee_id: str = Field(alias="employeeId")

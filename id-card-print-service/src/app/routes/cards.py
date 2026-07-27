@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session, joinedload
 from ..db import get_db
 from ..models import Card, Employee, BookmarkedEmployee, ApiKey
 from ..qr_token import encrypt_employee_id, decrypt_employee_id
-from ..schemas import CardOut, CardSave, QrDecodeRequest, QrDecodeResponse
+from ..schemas import CardOut, CardSave, EmployeeOut, QrDecodeRequest
 from .api_keys import require_api_key
+from .employees import get_employee_or_404
 from .notifications import add_bookmarked_employee_notification
 from ..utils.auto_framing import calculate_auto_frame_params
 
@@ -135,9 +136,10 @@ def get_employee_qr(employee_id: str, db: Session = Depends(get_db)):
     return Response(content=img_byte_arr, media_type="image/png")
 
 
-@router.post("/qr/decode", response_model=QrDecodeResponse)
+@router.post("/qr/decode", response_model=EmployeeOut)
 def decode_qr_token(
     payload: QrDecodeRequest,
+    db: Session = Depends(get_db),
     _api_key: ApiKey = Depends(require_api_key),
 ):
     token = (payload.token or "").strip()
@@ -149,4 +151,4 @@ def decode_qr_token(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid QR token") from None
 
-    return QrDecodeResponse(employee_id=employee_id)
+    return get_employee_or_404(db, employee_id)
