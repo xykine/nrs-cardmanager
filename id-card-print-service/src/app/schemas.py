@@ -368,3 +368,12 @@ class ApiKeyCreated(ApiKeyOut):
 
 class QrDecodeRequest(APIModel):
     token: str
+    card: bool = False
+
+
+class QrDecodeResponse(APIModel):
+    name: str
+    email: str
+    employee_id: str = Field(alias="employeeId")
+    department: Optional[str] = None
+    card: Optional[CardPublic] = None

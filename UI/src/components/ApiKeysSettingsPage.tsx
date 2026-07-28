@@ -303,12 +303,18 @@ export default function ApiKeysSettingsPage() {
           Header: <code className="font-mono">X-API-Key: &lt;your-key&gt;</code>
         </p>
         <p>
-          Body: <code className="font-mono">{`{ "token": "<qr-token>" }`}</code>
+          Body:{" "}
+          <code className="font-mono">
+            {`{ "token": "<qr-token>", "card": false }`}
+          </code>
         </p>
         <p>
-          Returns the full employee record (same shape as{" "}
-          <code className="font-mono">GET /api/employees/code/&lt;employeeId&gt;</code>
-          ).
+          Returns <code className="font-mono">name</code>,{" "}
+          <code className="font-mono">email</code>,{" "}
+          <code className="font-mono">employeeId</code>, and{" "}
+          <code className="font-mono">department</code>. Set{" "}
+          <code className="font-mono">card: true</code> to also include the card
+          object.
         </p>
       </div>
       </div>
